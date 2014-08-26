@@ -1,0 +1,9 @@
+Debug/*
+Merge Sort/Debug/*
+*.opensdf
+*.sdf
+*.sln
+*.suo
+*.vcxproj
+*.filters
+*.pdb
