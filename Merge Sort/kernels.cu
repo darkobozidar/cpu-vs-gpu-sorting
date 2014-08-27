@@ -69,7 +69,8 @@ __device__ uint_t calculateElementIndex(uint_t tableLen, uint_t tabBlockSize, ui
 	uint_t subBlocksPerBlock = tabBlockSize / tabSubBlockSize;
 	// Index of a block from which thread will read the sample
 	uint_t indexBlock = threadIdxX / subBlocksPerBlock;
-	// Offset to block index (we devide and multiply with same value, to lose the offset to sub-block)
+	// Offset to block (we devide and multiply with same value, to lose the offset to 
+	// sub-block inside last block)
 	uint_t index = indexBlock * subBlocksPerBlock;
 	// Offset for sub-block index inside block for ODD block
 	index += ((indexBlock % 2 == 0) * threadIdxX) % subBlocksPerBlock;
@@ -85,35 +86,56 @@ __device__ void printfOnce(char* text) {
 	}
 }
 
-__global__ void generateSublocksKernel(data_t* table, uint_t tableLen, uint_t tabBlockSize, uint_t tabSubBlockSize) {
-	extern __shared__ data_t tile[];
-	uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x * tabSubBlockSize;
+__device__ void compare(void* val1, void* val2) {
+	// TODO
+}
+
+__device__ void compare(data_t* elem1, data_t* elem2) {
+	// TODO
+}
+
+__global__ void generateSublocksKernel(data_t* table, uint_t tableLen, uint_t tableBlockSize, uint_t tableSubBlockSize) {
+	extern __shared__ data_t sampleTile[];
+	extern __shared__ uint_t rankTile[];
+	uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x * tableSubBlockSize;
 	uint_t sharedMemIdx1, sharedMemIdx2;
 	data_t value1, value2;
+	uint_t subBlocksPerBlock = tableBlockSize / tableSubBlockSize;
 
 	// Values are read in coalesced way...
 	if (index < tableLen) {
 		value1 = table[index];
 	}
 	if (index + blockDim.x < tableLen) {
-		value2 = table[index + blockDim.x * tabSubBlockSize];
+		value2 = table[index + blockDim.x * tableSubBlockSize];
 	}
 
 	// ...and than reversed when added to shared memory
-	sharedMemIdx1 = calculateElementIndex(tableLen, tabBlockSize, tabSubBlockSize, true);
-	sharedMemIdx2 = calculateElementIndex(tableLen, tabBlockSize, tabSubBlockSize, false);
-	tile[sharedMemIdx1] = value1;
-	tile[sharedMemIdx2] = value2;
+	sharedMemIdx1 = calculateElementIndex(tableLen, tableBlockSize, tableSubBlockSize, true);
+	sharedMemIdx2 = calculateElementIndex(tableLen, tableBlockSize, tableSubBlockSize, false);
+	sampleTile[sharedMemIdx1] = value1;
+	sampleTile[sharedMemIdx2] = value2;
+	rankTile[threadIdx.x] = sharedMemIdx1 % subBlocksPerBlock + 1;
+	rankTile[threadIdx.x + blockDim.x] = sharedMemIdx2 % subBlocksPerBlock + 1;
 
-	for (uint_t stride = tabBlockSize / tabSubBlockSize; stride > 0; stride /= 2) {
+	printf("%d => (%d, %d)\n", threadIdx.x, sampleTile[threadIdx.x], rankTile[threadIdx.x]);
+	__syncthreads();
+	printfOnce("\n\n");
+	printf("%d => (%d, %d)\n", threadIdx.x, sampleTile[threadIdx.x + blockDim.x], rankTile[threadIdx.x + blockDim.x]);
+
+	for (uint_t stride = subBlocksPerBlock; stride > 0; stride /= 2) {
 		__syncthreads();
 		uint_t index = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
 
 		// TODO use max/min or conditional operator (or something else)
-		if (tile[index] > tile[index + stride]) {
-			data_t temp = tile[index];
-			tile[index] = tile[index + stride];
-			tile[index + stride] = temp;
+		if (sampleTile[index] > sampleTile[index + stride]) {
+			data_t tempSample = sampleTile[index];
+			sampleTile[index] = sampleTile[index + stride];
+			sampleTile[index + stride] = tempSample;
+
+			uint_t tempRank = rankTile[index];
+			rankTile[index] = rankTile[index + stride];
+			rankTile[index + stride] = tempRank;
 		}
 	}
 }
