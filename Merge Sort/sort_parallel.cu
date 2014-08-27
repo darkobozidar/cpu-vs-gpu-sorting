@@ -46,7 +46,7 @@ void runGenerateSublocksKernel(data_t* tableDevice, uint_t tableLen, uint_t tabB
 	LARGE_INTEGER timerStart;
 
 	// * 2 for table of ranks, which has the same size as table of samples
-	uint_t sharedMemSize = tableLen / tabSubBlockSize * 2 * sizeof(*tableDevice);
+	uint_t sharedMemSize = tableLen / tabSubBlockSize * sizeof(sample_el_t);
 	uint_t blockSize = tableLen / (2 * tabSubBlockSize);
 	dim3 dimGrid((tableLen - 1) / (2 * blockSize * tabSubBlockSize) + 1, 1, 1);
 	dim3 dimBlock(blockSize, 1, 1);

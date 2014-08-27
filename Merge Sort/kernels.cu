@@ -95,10 +95,7 @@ __device__ void compare(data_t* elem1, data_t* elem2) {
 }
 
 __global__ void generateSublocksKernel(data_t* table, uint_t tableLen, uint_t tableBlockSize, uint_t tableSubBlockSize) {
-	extern __shared__ data_t tile[];
-	data_t* sampleTile = &tile[0];
-	data_t* rankTile = &tile[tableLen / tableSubBlockSize];
-
+	extern __shared__ sample_el_t sampleTile[];
 	uint_t sharedMemIdx1, sharedMemIdx2;
 	data_t value1, value2;
 	uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x * tableSubBlockSize;
@@ -115,24 +112,22 @@ __global__ void generateSublocksKernel(data_t* table, uint_t tableLen, uint_t ta
 	// ...and than reversed when added to shared memory
 	sharedMemIdx1 = calculateElementIndex(tableLen, tableBlockSize, tableSubBlockSize, true);
 	sharedMemIdx2 = calculateElementIndex(tableLen, tableBlockSize, tableSubBlockSize, false);
-	sampleTile[sharedMemIdx1] = value1;
-	sampleTile[sharedMemIdx2] = value2;
-	rankTile[threadIdx.x] = sharedMemIdx1 % subBlocksPerBlock + 1;
-	rankTile[threadIdx.x + blockDim.x] = sharedMemIdx2 % subBlocksPerBlock + 1;
+	sampleTile[sharedMemIdx1].sample = value1;
+	sampleTile[sharedMemIdx2].sample = value2;
+	sampleTile[threadIdx.x].rank = sharedMemIdx1 % subBlocksPerBlock + 1;
+	sampleTile[threadIdx.x + blockDim.x].rank = sharedMemIdx2 % subBlocksPerBlock + 1;
+	sampleTile[threadIdx.x].indexBlock = threadIdx.x / subBlocksPerBlock;
+	sampleTile[threadIdx.x + blockDim.x].indexBlock = (threadIdx.x + blockDim.x) / subBlocksPerBlock;
 
 	for (uint_t stride = subBlocksPerBlock; stride > 0; stride /= 2) {
 		__syncthreads();
 		uint_t index = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
 
 		// TODO use max/min or conditional operator (or something else)
-		if (sampleTile[index] > sampleTile[index + stride]) {
-			data_t tempSample = sampleTile[index];
+		if (sampleTile[index].sample > sampleTile[index + stride].sample) {
+			sample_el_t temp = sampleTile[index];
 			sampleTile[index] = sampleTile[index + stride];
-			sampleTile[index + stride] = tempSample;
-
-			uint_t tempRank = rankTile[index];
-			rankTile[index] = rankTile[index + stride];
-			rankTile[index + stride] = tempRank;
+			sampleTile[index + stride] = temp;
 		}
 	}
 }
