@@ -10,7 +10,6 @@ typedef uint32_t uint_t;
 struct SampleElement {
 	data_t sample;
 	uint_t rank;
-	uint_t indexBlock;
 };
 typedef struct SampleElement sample_el_t;
 

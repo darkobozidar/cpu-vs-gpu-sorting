@@ -100,6 +100,7 @@ __global__ void generateSublocksKernel(data_t* table, uint_t tableLen, uint_t ta
 	data_t value1, value2;
 	uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x * tableSubBlockSize;
 	uint_t subBlocksPerBlock = tableBlockSize / tableSubBlockSize;
+	uint_t subBlocksPerMergedBlock = 2 * subBlocksPerBlock;
 
 	// Values are read in coalesced way...
 	if (index < tableLen) {
@@ -114,10 +115,8 @@ __global__ void generateSublocksKernel(data_t* table, uint_t tableLen, uint_t ta
 	sharedMemIdx2 = calculateElementIndex(tableLen, tableBlockSize, tableSubBlockSize, false);
 	sampleTile[sharedMemIdx1].sample = value1;
 	sampleTile[sharedMemIdx2].sample = value2;
-	sampleTile[threadIdx.x].rank = sharedMemIdx1 % subBlocksPerBlock + 1;
-	sampleTile[threadIdx.x + blockDim.x].rank = sharedMemIdx2 % subBlocksPerBlock + 1;
-	sampleTile[threadIdx.x].indexBlock = threadIdx.x / subBlocksPerBlock;
-	sampleTile[threadIdx.x + blockDim.x].indexBlock = (threadIdx.x + blockDim.x) / subBlocksPerBlock;
+	sampleTile[threadIdx.x].rank = sharedMemIdx1;
+	sampleTile[threadIdx.x + blockDim.x].rank = sharedMemIdx2;
 
 	for (uint_t stride = subBlocksPerBlock; stride > 0; stride /= 2) {
 		__syncthreads();
@@ -130,4 +129,14 @@ __global__ void generateSublocksKernel(data_t* table, uint_t tableLen, uint_t ta
 			sampleTile[index + stride] = temp;
 		}
 	}
+
+	__syncthreads();
+
+	// TODO move to binary seach kernel
+	uint_t oppositeBlock1 = (sampleTile[threadIdx.x].rank / subBlocksPerMergedBlock) * 2 + !((sampleTile[threadIdx.x].rank % subBlocksPerMergedBlock) / subBlocksPerBlock);
+	uint_t oppositeBlock2 = (sampleTile[threadIdx.x + blockDim.x].rank / subBlocksPerMergedBlock) * 2 + !((sampleTile[threadIdx.x + blockDim.x].rank % subBlocksPerMergedBlock) / subBlocksPerBlock);
+	uint_t oppositeSubBlock1 = threadIdx.x % subBlocksPerMergedBlock - sampleTile[threadIdx.x].rank % subBlocksPerBlock;
+	uint_t oppositeSubBlock2 = threadIdx.x % subBlocksPerMergedBlock - sampleTile[threadIdx.x + blockDim.x].rank % subBlocksPerBlock;
+
+	printfOnce("\n\n");
 }
