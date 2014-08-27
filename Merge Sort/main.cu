@@ -19,7 +19,7 @@ int comparator(const void * elem1, const void * elem2) {
 
 int main(int argc, char** argv) {
 	// Rename array to table everywhere in code
-	data_t* input;
+	data_t input[32] = { 6, 23, 29, 35, 45, 63, 64, 97, 1, 4, 25, 34, 45, 67, 98, 99, 4, 19, 41, 58, 68, 80, 81, 96, 4, 13, 18, 33, 55, 66, 88, 90 };;
 	data_t* outputParallel;
 	data_t* outputSequential;
 	data_t* correctlySorted;
@@ -34,11 +34,11 @@ int main(int argc, char** argv) {
 	cudaFree(NULL);  // Initializes CUDA, because CUDA init is lazy
 	srand(time(NULL));
 
-	error = cudaHostAlloc(&input, arrayLen * sizeof(*input), cudaHostAllocDefault);
-	checkCudaError(error);
+	// error = cudaHostAlloc(&input, arrayLen * sizeof(*input), cudaHostAllocDefault);
+	// checkCudaError(error);
 	error = cudaHostAlloc(&outputParallel, arrayLen * sizeof(*outputParallel), cudaHostAllocDefault);
 	checkCudaError(error);
-	fillArrayRand(input, arrayLen);
+	// fillArrayRand(input, arrayLen);
 
 	sortParallel(input, outputParallel, arrayLen, orderAsc);
 	printArray(outputParallel, arrayLen);

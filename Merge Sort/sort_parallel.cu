@@ -45,17 +45,11 @@ void runGenerateSublocksKernel(data_t* tableDevice, uint_t tableLen) {
 	cudaError_t error;
 	LARGE_INTEGER timerStart;
 
-	// Every thread compares 2 elements
-	uint_t blockSize = 4;  // arrayLen / 2 < getMaxThreadsPerBlock() ? arrayLen / 2 : getMaxThreadsPerBlock();
-	uint_t blocksPerMultiprocessor = getMaxThreadsPerMultiProcessor() / blockSize;
-	// TODO fix shared memory size from 46KB to 16KB
-	uint_t sharedMemSize = 16384 / sizeof(*tableDevice) / blocksPerMultiprocessor;
-
-	dim3 dimGrid((tableLen - 1) / (2 * blockSize) + 1, 1, 1);
-	dim3 dimBlock(blockSize, 1, 1);
+	dim3 dimGrid(1, 1, 1);
+	dim3 dimBlock(4, 1, 1);
 
 	startStopwatch(&timerStart);
-	generateSublocksKernel<<<dimGrid, dimBlock, sharedMemSize>>>(tableDevice, tableLen, sharedMemSize);
+	generateSublocksKernel<<<dimGrid, dimBlock, 8>>>(tableDevice, tableLen, 8);
 	error = cudaDeviceSynchronize();
 	checkCudaError(error);
 	endStopwatch(timerStart, "Executing Generate Sublocks kernel");

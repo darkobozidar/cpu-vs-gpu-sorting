@@ -65,16 +65,23 @@ __global__ void bitonicSortKernel(data_t* array, uint_t arrayLen, uint_t sharedM
 
 __global__ void generateSublocksKernel(data_t* table, uint_t tableLen, uint_t sharedMemSize) {
 	extern __shared__ data_t tile[];
-	int index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
+	int index = blockIdx.x * 2 * blockDim.x + threadIdx.x * blockDim.x;
 
 	if (index < tableLen) {
 		tile[threadIdx.x] = table[index];
 	}
-	if (index + blockDim.x < tableLen) {
-		tile[threadIdx.x + blockDim.x] = table[index + blockDim.x];
+	if (index + sharedMemSize * 2 < tableLen) {
+		tile[threadIdx.x + 4] = table[index + sharedMemSize * 2];
 	}
 
-	for (uint_t stride = tableLen / 2; stride > 0; stride /= 2) {
+	for (uint_t stride = blockDim.x / 2; stride > 0; stride /= 2) {
+		__syncthreads();
+		uint_t pos = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
 
+		if (tile[pos] > tile[pos + stride]) {
+			data_t temp = tile[pos];
+			tile[pos] = tile[pos + stride];
+			tile[pos + stride] = temp;
+		}
 	}
 }
