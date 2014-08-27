@@ -41,15 +41,17 @@ void runBitonicSortKernel(data_t* tableDevice, uint_t tableLen) {
 	endStopwatch(timerStart, "Executing Merge Sort Kernel");
 }
 
-void runGenerateSublocksKernel(data_t* tableDevice, uint_t tableLen) {
+void runGenerateSublocksKernel(data_t* tableDevice, uint_t tableLen, uint_t tabBlockSize, uint_t tabSubBlockSize) {
 	cudaError_t error;
 	LARGE_INTEGER timerStart;
 
-	dim3 dimGrid(1, 1, 1);
-	dim3 dimBlock(4, 1, 1);
+	uint_t blockSize = tableLen / (2 * tabSubBlockSize);
+	uint_t sharedMemSize = blockSize * 2;
+	dim3 dimGrid((tableLen - 1) / (2 * blockSize * tabSubBlockSize) + 1, 1, 1);
+	dim3 dimBlock(blockSize, 1, 1);
 
 	startStopwatch(&timerStart);
-	generateSublocksKernel<<<dimGrid, dimBlock, 8>>>(tableDevice, tableLen, 8);
+	generateSublocksKernel<<<dimGrid, dimBlock, sharedMemSize>>>(tableDevice, tableLen, tabBlockSize, tabSubBlockSize);
 	error = cudaDeviceSynchronize();
 	checkCudaError(error);
 	endStopwatch(timerStart, "Executing Generate Sublocks kernel");
@@ -62,7 +64,7 @@ void sortParallel(data_t* inputHost, data_t* outputHost, uint_t tableLen, bool o
 
 	deviceMemoryInit(inputHost, &tableDevice, tableLen);
 	runBitonicSortKernel(tableDevice, tableLen);
-	runGenerateSublocksKernel(tableDevice, tableLen);
+	runGenerateSublocksKernel(tableDevice, tableLen, 8, 4);
 
 	error = cudaMemcpy(outputHost, tableDevice, tableLen * sizeof(*outputHost), cudaMemcpyDeviceToHost);
 	checkCudaError(error);
