@@ -18,6 +18,7 @@ int comparator(const void * elem1, const void * elem2) {
 }
 
 int main(int argc, char** argv) {
+	// Rename array to table everywhere in code
 	data_t* input;
 	data_t* outputParallel;
 	data_t* outputSequential;
@@ -39,18 +40,7 @@ int main(int argc, char** argv) {
 	checkCudaError(error);
 	fillArrayRand(input, arrayLen);
 
-	blockSize = sortParallel(input, outputParallel, arrayLen, orderAsc);
-
-	startStopwatch(&timerStart);
-	correctlySorted = copyArray(input, arrayLen);  // TODO Use some C implementation of copy array
-	for (int i = 0; i < arrayLen / blockSize; i++) {
-		qsort(correctlySorted + i * blockSize, blockSize, sizeof(*correctlySorted), comparator);
-	}
-	endStopwatch(timerStart, "Sequential sort");
-
-	printf("\n\n");
-	compareArrays(outputParallel, correctlySorted, arrayLen);
-
+	sortParallel(input, outputParallel, arrayLen, orderAsc);
 	printArray(outputParallel, arrayLen);
 
 	getchar();
