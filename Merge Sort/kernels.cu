@@ -95,11 +95,13 @@ __device__ void compare(data_t* elem1, data_t* elem2) {
 }
 
 __global__ void generateSublocksKernel(data_t* table, uint_t tableLen, uint_t tableBlockSize, uint_t tableSubBlockSize) {
-	extern __shared__ data_t sampleTile[];
-	extern __shared__ uint_t rankTile[];
-	uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x * tableSubBlockSize;
+	extern __shared__ data_t tile[];
+	data_t* sampleTile = &tile[0];
+	data_t* rankTile = &tile[tableLen / tableSubBlockSize];
+
 	uint_t sharedMemIdx1, sharedMemIdx2;
 	data_t value1, value2;
+	uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x * tableSubBlockSize;
 	uint_t subBlocksPerBlock = tableBlockSize / tableSubBlockSize;
 
 	// Values are read in coalesced way...
@@ -117,11 +119,6 @@ __global__ void generateSublocksKernel(data_t* table, uint_t tableLen, uint_t ta
 	sampleTile[sharedMemIdx2] = value2;
 	rankTile[threadIdx.x] = sharedMemIdx1 % subBlocksPerBlock + 1;
 	rankTile[threadIdx.x + blockDim.x] = sharedMemIdx2 % subBlocksPerBlock + 1;
-
-	printf("%d => (%d, %d)\n", threadIdx.x, sampleTile[threadIdx.x], rankTile[threadIdx.x]);
-	__syncthreads();
-	printfOnce("\n\n");
-	printf("%d => (%d, %d)\n", threadIdx.x, sampleTile[threadIdx.x + blockDim.x], rankTile[threadIdx.x + blockDim.x]);
 
 	for (uint_t stride = subBlocksPerBlock; stride > 0; stride /= 2) {
 		__syncthreads();

@@ -45,8 +45,9 @@ void runGenerateSublocksKernel(data_t* tableDevice, uint_t tableLen, uint_t tabB
 	cudaError_t error;
 	LARGE_INTEGER timerStart;
 
+	// * 2 for table of ranks, which has the same size as table of samples
+	uint_t sharedMemSize = tableLen / tabSubBlockSize * 2 * sizeof(*tableDevice);
 	uint_t blockSize = tableLen / (2 * tabSubBlockSize);
-	uint_t sharedMemSize = blockSize * 2;
 	dim3 dimGrid((tableLen - 1) / (2 * blockSize * tabSubBlockSize) + 1, 1, 1);
 	dim3 dimBlock(blockSize, 1, 1);
 
