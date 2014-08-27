@@ -86,18 +86,19 @@ __global__ void generateSublocksKernel(data_t* table, uint_t tableLen, uint_t ta
 	if (index1 < tableLen) {
 		tile[threadIdx.x] = table[index1];
 	}
-	if (index2 + tableLen / 2 < tableLen) {
+	if (index2 < tableLen) {
 		tile[threadIdx.x + blockDim.x] = table[index2];
 	}
 
-	for (uint_t stride = blockDim.x / 2; stride > 0; stride /= 2) {
+	for (uint_t stride = tabBlockSize / tabSubBlockSize; stride > 0; stride /= 2) {
 		__syncthreads();
-		uint_t pos = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
+		uint_t index = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
 
-		if (tile[pos] > tile[pos + stride]) {
-			data_t temp = tile[pos];
-			tile[pos] = tile[pos + stride];
-			tile[pos + stride] = temp;
+		// TODO use max/min or conditional operator
+		if (tile[index] > tile[index + stride]) {
+			data_t temp = tile[index];
+			tile[index] = tile[index + stride];
+			tile[index + stride] = temp;
 		}
 	}
 }
