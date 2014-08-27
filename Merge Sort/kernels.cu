@@ -77,10 +77,10 @@ __global__ void bitonicSortKernel(data_t* array, uint_t arrayLen, uint_t sharedM
 	}
 }
 
-__device__ uint_t calculateSampleIndex(uint_t tableLen, uint_t tabBlockSize, uint_t tabSubBlockSize, bool firstHalf) {
+__device__ uint_t calculateSampleIndex(uint_t tableBlockSize, uint_t tableSubBlockSize, bool firstHalf) {
 	// Thread index for first or second half of the sub-table
 	uint_t threadIdxX = threadIdx.x + (!firstHalf) * blockDim.x;
-	uint_t subBlocksPerBlock = tabBlockSize / tabSubBlockSize;
+	uint_t subBlocksPerBlock = tableBlockSize / tableSubBlockSize;
 	// Index of a block from which thread will read the sample
 	uint_t indexBlock = threadIdxX / subBlocksPerBlock;
 	// Offset to block (we devide and multiply with same value, to lose the offset to 
@@ -94,10 +94,18 @@ __device__ uint_t calculateSampleIndex(uint_t tableLen, uint_t tabBlockSize, uin
 	return index;
 }
 
-__device__ void binarySearch(sample_el_t* sampleTile, uint_t subBlocksPerMergedBlock, uint_t subBlocksPerBlock, bool firstHalf) {
+__device__ void binarySearch(sample_el_t* sampleTile, uint_t tableBlockSize, uint_t tableSubBlockSize, bool firstHalf) {
 	uint_t threadIdxX = threadIdx.x + (!firstHalf) * blockDim.x;
-	uint_t oppositeBlock = (sampleTile[threadIdxX].rank / subBlocksPerMergedBlock) * 2 + !((sampleTile[threadIdxX].rank % subBlocksPerMergedBlock) / subBlocksPerBlock);
-	uint_t oppositeSubBlock = threadIdxX % subBlocksPerMergedBlock - sampleTile[threadIdxX].rank % subBlocksPerBlock;
+	uint_t rank = sampleTile[threadIdxX].rank;
+	uint_t subBlocksPerBlock = tableBlockSize / tableSubBlockSize;
+	uint_t subBlocksPerMergedBlock = 2 * subBlocksPerBlock;
+
+	uint_t oppositeBlockOffset = (rank / subBlocksPerMergedBlock) * 2 + !((rank % subBlocksPerMergedBlock) / subBlocksPerBlock);
+	uint_t oppositeSubBlockOffset = threadIdxX % subBlocksPerMergedBlock - rank % subBlocksPerBlock - 1;
+	uint_t oppositeIndex = oppositeBlockOffset * tableBlockSize + oppositeSubBlockOffset * tableSubBlockSize;
+
+	printf("%2d => (%d, %d)\n", sampleTile[threadIdxX].sample, oppositeIndex, oppositeIndex + tableSubBlockSize);
+	printfOnce("\n");
 }
 
 __global__ void generateSublocksKernel(data_t* table, uint_t tableLen, uint_t tableBlockSize, uint_t tableSubBlockSize) {
@@ -117,8 +125,8 @@ __global__ void generateSublocksKernel(data_t* table, uint_t tableLen, uint_t ta
 	}
 
 	// ...and than reversed when added to shared memory
-	sharedMemIdx1 = calculateSampleIndex(tableLen, tableBlockSize, tableSubBlockSize, true);
-	sharedMemIdx2 = calculateSampleIndex(tableLen, tableBlockSize, tableSubBlockSize, false);
+	sharedMemIdx1 = calculateSampleIndex(tableBlockSize, tableSubBlockSize, true);
+	sharedMemIdx2 = calculateSampleIndex(tableBlockSize, tableSubBlockSize, false);
 	sampleTile[sharedMemIdx1].sample = value1;
 	sampleTile[sharedMemIdx2].sample = value2;
 	sampleTile[threadIdx.x].rank = sharedMemIdx1;
@@ -137,6 +145,6 @@ __global__ void generateSublocksKernel(data_t* table, uint_t tableLen, uint_t ta
 	}
 
 	__syncthreads();
-	binarySearch(sampleTile, subBlocksPerMergedBlock, subBlocksPerBlock, true);
-	binarySearch(sampleTile, subBlocksPerMergedBlock, subBlocksPerBlock, false);
+	binarySearch(sampleTile, tableBlockSize, tableSubBlockSize, true);
+	binarySearch(sampleTile, tableBlockSize, tableSubBlockSize, false);
 }
