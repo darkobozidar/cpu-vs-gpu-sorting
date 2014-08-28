@@ -94,7 +94,7 @@ __device__ uint_t calculateSampleIndex(uint_t tableBlockSize, uint_t tableSubBlo
 	return index;
 }
 
-__device__ void binarySearch(data_t* table, sample_el_t* sampleTile, uint_t tableBlockSize, uint_t tableSubBlockSize, bool firstHalf) {
+__device__ uint_t binarySearch(data_t* table, sample_el_t* sampleTile, uint_t tableBlockSize, uint_t tableSubBlockSize, bool firstHalf) {
 	uint_t threadIdxX = threadIdx.x + (!firstHalf) * blockDim.x;
 	uint_t rank = sampleTile[threadIdxX].rank;
 	uint_t sample = sampleTile[threadIdxX].sample;
@@ -120,6 +120,8 @@ __device__ void binarySearch(data_t* table, sample_el_t* sampleTile, uint_t tabl
 			}
 		}
 	}
+
+	return indexStart - oppositeBlockOffset * tableBlockSize;
 }
 
 __global__ void generateSublocksKernel(data_t* table, uint_t tableLen, uint_t tableBlockSize, uint_t tableSubBlockSize) {
@@ -159,6 +161,10 @@ __global__ void generateSublocksKernel(data_t* table, uint_t tableLen, uint_t ta
 	}
 
 	__syncthreads();
-	binarySearch(table, sampleTile, tableBlockSize, tableSubBlockSize, true);
-	binarySearch(table, sampleTile, tableBlockSize, tableSubBlockSize, false);
+	uint_t index1 = (sampleTile[threadIdx.x].rank * tableSubBlockSize % tableBlockSize) + 1;
+	uint_t index2 = (sampleTile[threadIdx.x + blockDim.x].rank * tableSubBlockSize % tableBlockSize) + 1;
+	uint_t rank1 = binarySearch(table, sampleTile, tableBlockSize, tableSubBlockSize, true);
+	uint_t rank2 = binarySearch(table, sampleTile, tableBlockSize, tableSubBlockSize, false);
+
+	__syncthreads();
 }
