@@ -41,9 +41,15 @@ void endStopwatch(LARGE_INTEGER start, char* comment) {
 	endStopwatch(start, comment, NULL);
 }
 
-void fillArrayRand(data_t* array, uint_t arrayLen) {
-	for (uint_t i = 0; i < arrayLen; i++) {
-		array[i] = rand() % 100;
+void fillArrayRand(data_t* table, uint_t tableLen) {
+	for (uint_t i = 0; i < tableLen; i++) {
+		table[i] = rand() % 100;
+	}
+}
+
+void fillArrayValue(data_t* table, uint_t tableLen, data_t value) {
+	for (uint_t i = 0; i < tableLen; i++) {
+		table[i] = value;
 	}
 }
 

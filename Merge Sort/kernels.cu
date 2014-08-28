@@ -104,12 +104,13 @@ __device__ uint_t binarySearch(data_t* table, sample_el_t* sampleTile, uint_t ta
 	uint_t oppositeBlockOffset = (rank / subBlocksPerMergedBlock) * 2 + !((rank % subBlocksPerMergedBlock) / subBlocksPerBlock);
 	uint_t oppositeSubBlockOffset = threadIdxX % subBlocksPerMergedBlock - rank % subBlocksPerBlock - 1;
 
-	uint_t indexStart = oppositeBlockOffset * tableBlockSize + oppositeSubBlockOffset * tableSubBlockSize;
-	uint_t indexEnd = indexStart + tableSubBlockSize;
+	// Samples shouldn't be considered
+	uint_t indexStart = oppositeBlockOffset * tableBlockSize + oppositeSubBlockOffset * tableSubBlockSize + 1;
+	uint_t indexEnd = indexStart + tableSubBlockSize - 2;
 
 	// Has to be explicitly converted to int, because it is unsigned
 	if (((int) (indexStart - oppositeBlockOffset * tableBlockSize)) >= 0) {
-		while (indexStart <= indexEnd) {
+		while (indexStart < indexEnd) {
 			uint_t index = (indexStart + indexEnd) / 2;
 			data_t currSample = table[index];
 
@@ -121,7 +122,7 @@ __device__ uint_t binarySearch(data_t* table, sample_el_t* sampleTile, uint_t ta
 			}
 		}
 
-		return indexStart - oppositeBlockOffset * tableBlockSize;
+		return indexStart + 1 - oppositeBlockOffset * tableBlockSize;
 	}
 
 	return 0;
@@ -155,6 +156,12 @@ __global__ void generateSublocksKernel(data_t* table, uint_t* rankTable, uint_t 
 				sampleTile[sampleIndex] = sampleTile[sampleIndex + stride];
 				sampleTile[sampleIndex + stride] = temp;
 			}
+
+			if (sampleTile[sampleIndex].sample == sampleTile[sampleIndex + stride].sample && sampleTile[sampleIndex].rank > sampleTile[sampleIndex + stride].rank) {
+				sample_el_t temp = sampleTile[sampleIndex];
+				sampleTile[sampleIndex] = sampleTile[sampleIndex + stride];
+				sampleTile[sampleIndex + stride] = temp;
+			}
 		}
 	}
 
@@ -168,4 +175,9 @@ __global__ void generateSublocksKernel(data_t* table, uint_t* rankTable, uint_t 
 	// TODO comment odd even
 	rankTable[threadIdx.x + oddEvenOffset * blockDim.x] = rank;
 	rankTable[threadIdx.x + (!oddEvenOffset) * blockDim.x] = oppositeRank;
+
+	/*printf("%2d: %d %d\n", sampleTile[threadIdx.x].sample, rankTable[threadIdx.x], oddEvenOffset);
+	__syncthreads();
+	printfOnce("\n\n");
+	printf("%2d: %d %d\n", sampleTile[threadIdx.x].sample, rankTable[threadIdx.x + blockDim.x], oddEvenOffset);*/
 }
