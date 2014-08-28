@@ -94,18 +94,32 @@ __device__ uint_t calculateSampleIndex(uint_t tableBlockSize, uint_t tableSubBlo
 	return index;
 }
 
-__device__ void binarySearch(sample_el_t* sampleTile, uint_t tableBlockSize, uint_t tableSubBlockSize, bool firstHalf) {
+__device__ void binarySearch(data_t* table, sample_el_t* sampleTile, uint_t tableBlockSize, uint_t tableSubBlockSize, bool firstHalf) {
 	uint_t threadIdxX = threadIdx.x + (!firstHalf) * blockDim.x;
 	uint_t rank = sampleTile[threadIdxX].rank;
+	uint_t sample = sampleTile[threadIdxX].sample;
 	uint_t subBlocksPerBlock = tableBlockSize / tableSubBlockSize;
 	uint_t subBlocksPerMergedBlock = 2 * subBlocksPerBlock;
 
 	uint_t oppositeBlockOffset = (rank / subBlocksPerMergedBlock) * 2 + !((rank % subBlocksPerMergedBlock) / subBlocksPerBlock);
 	uint_t oppositeSubBlockOffset = threadIdxX % subBlocksPerMergedBlock - rank % subBlocksPerBlock - 1;
-	uint_t oppositeIndex = oppositeBlockOffset * tableBlockSize + oppositeSubBlockOffset * tableSubBlockSize;
 
-	printf("%2d => (%d, %d)\n", sampleTile[threadIdxX].sample, oppositeIndex, oppositeIndex + tableSubBlockSize);
-	printfOnce("\n");
+	uint_t indexStart = oppositeBlockOffset * tableBlockSize + oppositeSubBlockOffset * tableSubBlockSize;
+	uint_t indexEnd = indexStart + tableSubBlockSize;
+	uint_t binSearchDepth = round(log2((double) tableSubBlockSize));
+
+	if (indexStart >= 0) {
+		while (indexStart <= indexEnd) {
+			uint_t index = (indexStart + indexEnd) / 2;
+			data_t currSample = table[index];
+
+			if (sample < table[index]) {
+				indexEnd = index - 1;
+			} else {
+				indexStart = index + 1;
+			}
+		}
+	}
 }
 
 __global__ void generateSublocksKernel(data_t* table, uint_t tableLen, uint_t tableBlockSize, uint_t tableSubBlockSize) {
@@ -145,6 +159,6 @@ __global__ void generateSublocksKernel(data_t* table, uint_t tableLen, uint_t ta
 	}
 
 	__syncthreads();
-	binarySearch(sampleTile, tableBlockSize, tableSubBlockSize, true);
-	binarySearch(sampleTile, tableBlockSize, tableSubBlockSize, false);
+	binarySearch(table, sampleTile, tableBlockSize, tableSubBlockSize, true);
+	binarySearch(table, sampleTile, tableBlockSize, tableSubBlockSize, false);
 }
