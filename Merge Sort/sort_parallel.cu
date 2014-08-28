@@ -42,17 +42,22 @@ void runBitonicSortKernel(data_t* tableDevice, uint_t tableLen) {
 }
 
 void runGenerateSublocksKernel(data_t* tableDevice, uint_t tableLen, uint_t tabBlockSize, uint_t tabSubBlockSize) {
+	uint_t* rankTable;
+	uint_t rankTableLen = tableLen / tabSubBlockSize * 2;
 	cudaError_t error;
 	LARGE_INTEGER timerStart;
 
+	error = cudaMalloc(&rankTable, rankTableLen * sizeof(*rankTable));
+	checkCudaError(error);
+
 	// * 2 for table of ranks, which has the same size as table of samples
 	uint_t sharedMemSize = tableLen / tabSubBlockSize * sizeof(sample_el_t);
-	uint_t blockSize = tableLen / (2 * tabSubBlockSize);
+	uint_t blockSize = tableLen / tabSubBlockSize;
 	dim3 dimGrid((tableLen - 1) / (2 * blockSize * tabSubBlockSize) + 1, 1, 1);
 	dim3 dimBlock(blockSize, 1, 1);
 
 	startStopwatch(&timerStart);
-	generateSublocksKernel<<<dimGrid, dimBlock, sharedMemSize>>>(tableDevice, tableLen, tabBlockSize, tabSubBlockSize);
+	generateSublocksKernel<<<dimGrid, dimBlock, sharedMemSize>>>(tableDevice, rankTable, tableLen, tabBlockSize, tabSubBlockSize);
 	error = cudaDeviceSynchronize();
 	checkCudaError(error);
 	endStopwatch(timerStart, "Executing Generate Sublocks kernel");

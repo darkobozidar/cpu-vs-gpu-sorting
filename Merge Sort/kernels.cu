@@ -106,65 +106,66 @@ __device__ uint_t binarySearch(data_t* table, sample_el_t* sampleTile, uint_t ta
 
 	uint_t indexStart = oppositeBlockOffset * tableBlockSize + oppositeSubBlockOffset * tableSubBlockSize;
 	uint_t indexEnd = indexStart + tableSubBlockSize;
-	uint_t binSearchDepth = round(log2((double) tableSubBlockSize));
 
-	if (indexStart >= 0) {
+	// Has to be explicitly converted to int, because it is unsigned
+	if (((int) (indexStart - oppositeBlockOffset * tableBlockSize)) >= 0) {
 		while (indexStart <= indexEnd) {
 			uint_t index = (indexStart + indexEnd) / 2;
 			data_t currSample = table[index];
 
 			if (sample < table[index]) {
 				indexEnd = index - 1;
-			} else {
+			}
+			else {
 				indexStart = index + 1;
 			}
 		}
+
+		return indexStart - oppositeBlockOffset * tableBlockSize;
 	}
 
-	return indexStart - oppositeBlockOffset * tableBlockSize;
+	return 0;
 }
 
-__global__ void generateSublocksKernel(data_t* table, uint_t tableLen, uint_t tableBlockSize, uint_t tableSubBlockSize) {
+__global__ void generateSublocksKernel(data_t* table, uint_t* rankTable, uint_t tableLen, uint_t tableBlockSize, uint_t tableSubBlockSize) {
 	extern __shared__ sample_el_t sampleTile[];
-	uint_t sharedMemIdx1, sharedMemIdx2;
-	data_t value1, value2;
+	uint_t sharedMemIdx;
+	data_t value;
 	uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x * tableSubBlockSize;
 	uint_t subBlocksPerBlock = tableBlockSize / tableSubBlockSize;
 	uint_t subBlocksPerMergedBlock = 2 * subBlocksPerBlock;
 
 	// Values are read in coalesced way...
 	if (index < tableLen) {
-		value1 = table[index];
+		value = table[index];
 	}
-	if (index + blockDim.x < tableLen) {
-		value2 = table[index + blockDim.x * tableSubBlockSize];
-	}
-
 	// ...and than reversed when added to shared memory
-	sharedMemIdx1 = calculateSampleIndex(tableBlockSize, tableSubBlockSize, true);
-	sharedMemIdx2 = calculateSampleIndex(tableBlockSize, tableSubBlockSize, false);
-	sampleTile[sharedMemIdx1].sample = value1;
-	sampleTile[sharedMemIdx2].sample = value2;
-	sampleTile[threadIdx.x].rank = sharedMemIdx1;
-	sampleTile[threadIdx.x + blockDim.x].rank = sharedMemIdx2;
+	sharedMemIdx = calculateSampleIndex(tableBlockSize, tableSubBlockSize, true);
+	sampleTile[sharedMemIdx].sample = value;
+	sampleTile[threadIdx.x].rank = sharedMemIdx;
 
-	for (uint_t stride = subBlocksPerBlock; stride > 0; stride /= 2) {
-		__syncthreads();
-		uint_t index = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
+	if (threadIdx.x < blockDim.x / 2) {
+		for (uint_t stride = subBlocksPerBlock; stride > 0; stride /= 2) {
+			__syncthreads();
+			uint_t sampleIndex = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
 
-		// TODO use max/min or conditional operator (or something else)
-		if (sampleTile[index].sample > sampleTile[index + stride].sample) {
-			sample_el_t temp = sampleTile[index];
-			sampleTile[index] = sampleTile[index + stride];
-			sampleTile[index + stride] = temp;
+			// TODO use max/min or conditional operator (or something else)
+			if (sampleTile[sampleIndex].sample > sampleTile[sampleIndex + stride].sample) {
+				sample_el_t temp = sampleTile[sampleIndex];
+				sampleTile[sampleIndex] = sampleTile[sampleIndex + stride];
+				sampleTile[sampleIndex + stride] = temp;
+			}
 		}
 	}
 
 	__syncthreads();
-	uint_t index1 = (sampleTile[threadIdx.x].rank * tableSubBlockSize % tableBlockSize) + 1;
-	uint_t index2 = (sampleTile[threadIdx.x + blockDim.x].rank * tableSubBlockSize % tableBlockSize) + 1;
-	uint_t rank1 = binarySearch(table, sampleTile, tableBlockSize, tableSubBlockSize, true);
-	uint_t rank2 = binarySearch(table, sampleTile, tableBlockSize, tableSubBlockSize, false);
+	uint_t rank = (sampleTile[threadIdx.x].rank * tableSubBlockSize % tableBlockSize) + 1;
+	uint_t oppositeRank = binarySearch(table, sampleTile, tableBlockSize, tableSubBlockSize, true);
 
 	__syncthreads();
+	uint_t oddEvenOffset = (sampleTile[threadIdx.x].rank / subBlocksPerBlock) % 2;
+	// TODO fix to write in coalesced way
+	// TODO comment odd even
+	rankTable[threadIdx.x + oddEvenOffset * blockDim.x] = rank;
+	rankTable[threadIdx.x + (!oddEvenOffset) * blockDim.x] = oppositeRank;
 }
