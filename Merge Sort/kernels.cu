@@ -165,6 +165,7 @@ __global__ void generateSublocksKernel(data_t* table, uint_t* rankTable, uint_t 
         }
     }
 
+    // TODO verify if all __syncthreads are needed
     __syncthreads();
     uint_t rank = (sampleTile[threadIdx.x].rank * tableSubBlockSize % tableBlockSize) + 1;
     uint_t oppositeRank = binarySearch(table, sampleTile, tableBlockSize, tableSubBlockSize, true);
@@ -183,5 +184,12 @@ __global__ void generateSublocksKernel(data_t* table, uint_t* rankTable, uint_t 
 }
 
 __global__ void mergeKernel(data_t* dataTable, uint_t* rankTable, uint_t tableLen, uint_t tableBlockSize, uint_t tableSubBlockSize) {
+    extern __shared__ data_t dataTile[];
+    uint_t index = blockIdx.x * blockDim.x + threadIdx.x;
 
+    if (index < tableLen) {
+        dataTile[threadIdx.x] = dataTable[index];
+    }
+
+    printf("%d => %d\n", index, dataTile[threadIdx.x]);
 }

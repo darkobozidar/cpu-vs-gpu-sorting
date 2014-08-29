@@ -57,14 +57,33 @@ void runGenerateSublocksKernel(data_t* tableDevice, uint_t* rankTable, uint_t ta
     dim3 dimBlock(blockSize, 1, 1);
 
     startStopwatch(&timerStart);
-    generateSublocksKernel<<<dimGrid, dimBlock, sharedMemSize>>>(tableDevice, rankTable, tableLen, tabBlockSize, tabSubBlockSize);
+    generateSublocksKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
+        tableDevice, rankTable, tableLen, tabBlockSize, tabSubBlockSize
+    );
     error = cudaDeviceSynchronize();
     checkCudaError(error);
     endStopwatch(timerStart, "Executing Generate Sublocks kernel");
 }
 
-void runMergeKernel(data_t* tableDevice, uint_t tableLen, uint_t tabBlockSize, uint_t tabSubBlockSize) {
+void runMergeKernel(data_t* tableDevice, uint_t* rankTable, uint_t tableLen, uint_t tabBlockSize,
+                    uint_t tabSubBlockSize) {
+    cudaError_t error;
+    LARGE_INTEGER timerStart;
 
+    // Each sub-block has to be loaded into shared memory, that's why * 2
+    // TODO hardcoded
+    uint_t sharedMemSize = tabSubBlockSize * sizeof(*tableDevice) * 2;
+    uint_t blockSize = tabSubBlockSize;
+    dim3 dimGrid((tableLen - 1) / blockSize + 1, 1, 1);
+    dim3 dimBlock(blockSize, 1, 1);
+
+    startStopwatch(&timerStart);
+    mergeKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
+        tableDevice, rankTable, tableLen, tabBlockSize, tabSubBlockSize
+    );
+    error = cudaDeviceSynchronize();
+    checkCudaError(error);
+    endStopwatch(timerStart, "Executing merge kernel");
 }
 
 void sortParallel(data_t* inputHost, data_t* outputHost, uint_t tableLen, bool orderAsc) {
@@ -78,6 +97,7 @@ void sortParallel(data_t* inputHost, data_t* outputHost, uint_t tableLen, bool o
     deviceMemoryInit(inputHost, &tableDevice, &rankTableDevice, tableLen, rankTableLen);
     runBitonicSortKernel(tableDevice, tableLen);
     runGenerateSublocksKernel(tableDevice, rankTableDevice, tableLen, tabBlockSize, tabSubBlockSize);
+    runMergeKernel(tableDevice, rankTableDevice, tableLen, tabBlockSize, tabSubBlockSize);
 
     error = cudaMemcpy(outputHost, tableDevice, tableLen * sizeof(*outputHost), cudaMemcpyDeviceToHost);
     checkCudaError(error);
