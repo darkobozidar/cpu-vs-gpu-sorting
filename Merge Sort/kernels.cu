@@ -179,17 +179,36 @@ __global__ void generateSublocksKernel(data_t* table, uint_t* rankTable, uint_t 
 
     /*printf("%2d: %d %d\n", sampleTile[threadIdx.x].sample, rankTable[threadIdx.x], oddEvenOffset);
     __syncthreads();
-    printfOnce("\n\n");
-    printf("%2d: %d %d\n", sampleTile[threadIdx.x].sample, rankTable[threadIdx.x + blockDim.x], oddEvenOffset);*/
+    printfOnce("\n");
+    printf("%2d: %d %d\n", sampleTile[threadIdx.x].sample, rankTable[threadIdx.x + blockDim.x], oddEvenOffset);
+    printfOnce("\n\n");*/
 }
 
-__global__ void mergeKernel(data_t* dataTable, uint_t* rankTable, uint_t tableLen, uint_t tableBlockSize, uint_t tableSubBlockSize) {
+__global__ void mergeKernel(data_t* dataTable, uint_t* rankTable, uint_t tableLen, uint_t rankTableLen,
+                            uint_t tableBlockSize, uint_t tableSubBlockSize) {
     extern __shared__ data_t dataTile[];
-    uint_t index = blockIdx.x * blockDim.x + threadIdx.x;
+    uint_t indexRank = blockIdx.y * tableSubBlockSize + blockIdx.x;
+    uint_t dataOffset = blockIdx.y * 2 * tableBlockSize;
+    uint_t indexStart1, indexStart2, indexEnd1, indexEnd2;
 
-    if (index < tableLen) {
-        dataTile[threadIdx.x] = dataTable[index];
+    // TODO read in coalasced way
+    if (blockIdx.x > 0) {
+        indexStart1 = rankTable[indexRank - 1];
+        indexStart2 = rankTable[(indexRank - 1) + rankTableLen / 2];
+    } else {
+        indexStart1 = 0;
+        indexStart2 = 0;
     }
 
-    printf("%d => %d\n", index, dataTile[threadIdx.x]);
+    if (blockIdx.x < tableSubBlockSize && indexRank < rankTableLen) {
+        indexEnd1 = rankTable[indexRank];
+        indexEnd2 = rankTable[indexRank + rankTableLen / 2];
+    } else {
+        indexEnd1 = tableBlockSize;
+        indexEnd2 = tableBlockSize;
+    }
+
+    /*if (blockIdx.y > 0) {
+        printf("%d => odd: (%d, %d), even: (%d, %d)\n", blockIdx.x, indexStart1, indexEnd1, indexStart2, indexEnd2);
+    }*/
 }

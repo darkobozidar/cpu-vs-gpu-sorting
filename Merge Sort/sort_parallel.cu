@@ -65,21 +65,20 @@ void runGenerateSublocksKernel(data_t* tableDevice, uint_t* rankTable, uint_t ta
     endStopwatch(timerStart, "Executing Generate Sublocks kernel");
 }
 
-void runMergeKernel(data_t* tableDevice, uint_t* rankTable, uint_t tableLen, uint_t tabBlockSize,
-                    uint_t tabSubBlockSize) {
+void runMergeKernel(data_t* tableDevice, uint_t* rankTable, uint_t tableLen, uint_t rankTableLen,
+                    uint_t tabBlockSize, uint_t tabSubBlockSize) {
     cudaError_t error;
     LARGE_INTEGER timerStart;
 
-    // Each sub-block has to be loaded into shared memory, that's why * 2
-    // TODO hardcoded
+    uint_t subBlocksPerMergedBlock = tabBlockSize / tabSubBlockSize * 2;
+    uint_t numMergedBlocks = tableLen / (tabBlockSize * 2);
     uint_t sharedMemSize = tabSubBlockSize * sizeof(*tableDevice) * 2;
-    uint_t blockSize = tabSubBlockSize;
-    dim3 dimGrid((tableLen - 1) / blockSize + 1, 1, 1);
-    dim3 dimBlock(blockSize, 1, 1);
+    dim3 dimGrid(subBlocksPerMergedBlock + 1, numMergedBlocks, 1);
+    dim3 dimBlock(tabSubBlockSize, 1, 1);
 
     startStopwatch(&timerStart);
     mergeKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
-        tableDevice, rankTable, tableLen, tabBlockSize, tabSubBlockSize
+        tableDevice, rankTable, tableLen, rankTableLen, tabBlockSize, tabSubBlockSize
     );
     error = cudaDeviceSynchronize();
     checkCudaError(error);
@@ -97,7 +96,7 @@ void sortParallel(data_t* inputHost, data_t* outputHost, uint_t tableLen, bool o
     deviceMemoryInit(inputHost, &tableDevice, &rankTableDevice, tableLen, rankTableLen);
     runBitonicSortKernel(tableDevice, tableLen);
     runGenerateSublocksKernel(tableDevice, rankTableDevice, tableLen, tabBlockSize, tabSubBlockSize);
-    runMergeKernel(tableDevice, rankTableDevice, tableLen, tabBlockSize, tabSubBlockSize);
+    runMergeKernel(tableDevice, rankTableDevice, tableLen, rankTableLen, tabBlockSize, tabSubBlockSize);
 
     error = cudaMemcpy(outputHost, tableDevice, tableLen * sizeof(*outputHost), cudaMemcpyDeviceToHost);
     checkCudaError(error);
