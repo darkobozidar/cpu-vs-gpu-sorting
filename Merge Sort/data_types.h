@@ -8,8 +8,8 @@ typedef uint32_t uint_t;
 
 // TODO comment
 struct SampleElement {
-	data_t sample;
-	uint_t rank;
+    data_t sample;
+    uint_t rank;
 };
 typedef struct SampleElement sample_el_t;
 

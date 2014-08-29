@@ -6,59 +6,59 @@
 
 
 cudaDeviceProp getCudaDeviceProp(int deviceIndex) {
-	cudaDeviceProp deviceProp;
-	cudaGetDeviceProperties(&deviceProp, deviceIndex);
-	return deviceProp;
+    cudaDeviceProp deviceProp;
+    cudaGetDeviceProperties(&deviceProp, deviceIndex);
+    return deviceProp;
 }
 
 cudaDeviceProp getCudaDeviceProp() {
-	return getCudaDeviceProp(0);
+    return getCudaDeviceProp(0);
 }
 
 int getMaxThreadsPerBlock(int deviceIndex) {
-	return getCudaDeviceProp(deviceIndex).maxThreadsPerBlock;
+    return getCudaDeviceProp(deviceIndex).maxThreadsPerBlock;
 }
 
 int getMaxThreadsPerBlock() {
-	return getMaxThreadsPerBlock(0);
+    return getMaxThreadsPerBlock(0);
 }
 
 int getMaxThreadsPerMultiProcessor(int deviceIndex) {
-	return getCudaDeviceProp(deviceIndex).maxThreadsPerMultiProcessor;
+    return getCudaDeviceProp(deviceIndex).maxThreadsPerMultiProcessor;
 }
 
 int getMaxThreadsPerMultiProcessor() {
-	return getMaxThreadsPerMultiProcessor(0);
+    return getMaxThreadsPerMultiProcessor(0);
 }
 
 int getMultiProcessorCount(int deviceIndex) {
-	return getCudaDeviceProp(deviceIndex).multiProcessorCount;
+    return getCudaDeviceProp(deviceIndex).multiProcessorCount;
 }
 
 int getMultiProcessorCount() {
-	return getMultiProcessorCount(0);
+    return getMultiProcessorCount(0);
 }
 
 int getSharedMemoryPerBlock(int deviceIndex) {
-	return getCudaDeviceProp(deviceIndex).sharedMemPerBlock;
+    return getCudaDeviceProp(deviceIndex).sharedMemPerBlock;
 }
 
 int getSharedMemoryPerBlock() {
-	return getSharedMemoryPerBlock(0);
+    return getSharedMemoryPerBlock(0);
 }
 
 int getSharedMemoryPerMultiprocesor(int deviceIndex) {
-	return getCudaDeviceProp(deviceIndex).sharedMemPerMultiprocessor;
+    return getCudaDeviceProp(deviceIndex).sharedMemPerMultiprocessor;
 }
 
 int getSharedMemoryPerMultiprocesor() {
-	return getSharedMemoryPerMultiprocesor(0);
+    return getSharedMemoryPerMultiprocesor(0);
 }
 
 void checkCudaError(cudaError_t error) {
-	if (error != cudaSuccess) {
-		printf("Error in CUDA function.\nError: %s\n", cudaGetErrorString(error));
-		getchar();
-		exit(EXIT_FAILURE);
-	}
+    if (error != cudaSuccess) {
+        printf("Error in CUDA function.\nError: %s\n", cudaGetErrorString(error));
+        getchar();
+        exit(EXIT_FAILURE);
+    }
 }

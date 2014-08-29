@@ -13,65 +13,65 @@
 
 
 void deviceMemoryInit(data_t* inputHost, data_t** arrayDevice, uint_t arrayLen) {
-	cudaError_t error;
+    cudaError_t error;
 
-	error = cudaMalloc(arrayDevice, arrayLen * sizeof(*arrayDevice));
-	checkCudaError(error);
-	error = cudaMemcpy(*arrayDevice, inputHost, arrayLen * sizeof(*arrayDevice), cudaMemcpyHostToDevice);
-	checkCudaError(error);
+    error = cudaMalloc(arrayDevice, arrayLen * sizeof(*arrayDevice));
+    checkCudaError(error);
+    error = cudaMemcpy(*arrayDevice, inputHost, arrayLen * sizeof(*arrayDevice), cudaMemcpyHostToDevice);
+    checkCudaError(error);
 }
 
 void runBitonicSortKernel(data_t* tableDevice, uint_t tableLen) {
-	cudaError_t error;
-	LARGE_INTEGER timerStart;
+    cudaError_t error;
+    LARGE_INTEGER timerStart;
 
-	// Every thread compares 2 elements
-	uint_t blockSize = 4;  // arrayLen / 2 < getMaxThreadsPerBlock() ? arrayLen / 2 : getMaxThreadsPerBlock();
-	uint_t blocksPerMultiprocessor = getMaxThreadsPerMultiProcessor() / blockSize;
-	// TODO fix shared memory size from 46KB to 16KB
-	uint_t sharedMemSize = 16384 / sizeof(*tableDevice) / blocksPerMultiprocessor;
+    // Every thread compares 2 elements
+    uint_t blockSize = 4;  // arrayLen / 2 < getMaxThreadsPerBlock() ? arrayLen / 2 : getMaxThreadsPerBlock();
+    uint_t blocksPerMultiprocessor = getMaxThreadsPerMultiProcessor() / blockSize;
+    // TODO fix shared memory size from 46KB to 16KB
+    uint_t sharedMemSize = 16384 / sizeof(*tableDevice) / blocksPerMultiprocessor;
 
-	dim3 dimGrid((tableLen - 1) / (2 * blockSize) + 1, 1, 1);
-	dim3 dimBlock(blockSize, 1, 1);
+    dim3 dimGrid((tableLen - 1) / (2 * blockSize) + 1, 1, 1);
+    dim3 dimBlock(blockSize, 1, 1);
 
-	startStopwatch(&timerStart);
-	bitonicSortKernel<<<dimGrid, dimBlock, sharedMemSize * sizeof(*tableDevice)>>>(tableDevice, tableLen, sharedMemSize);
-	error = cudaDeviceSynchronize();
-	checkCudaError(error);
-	endStopwatch(timerStart, "Executing Merge Sort Kernel");
+    startStopwatch(&timerStart);
+    bitonicSortKernel<<<dimGrid, dimBlock, sharedMemSize * sizeof(*tableDevice)>>>(tableDevice, tableLen, sharedMemSize);
+    error = cudaDeviceSynchronize();
+    checkCudaError(error);
+    endStopwatch(timerStart, "Executing Merge Sort Kernel");
 }
 
 void runGenerateSublocksKernel(data_t* tableDevice, uint_t tableLen, uint_t tabBlockSize, uint_t tabSubBlockSize) {
-	uint_t* rankTable;
-	uint_t rankTableLen = tableLen / tabSubBlockSize * 2;
-	cudaError_t error;
-	LARGE_INTEGER timerStart;
+    uint_t* rankTable;
+    uint_t rankTableLen = tableLen / tabSubBlockSize * 2;
+    cudaError_t error;
+    LARGE_INTEGER timerStart;
 
-	error = cudaMalloc(&rankTable, rankTableLen * sizeof(*rankTable));
-	checkCudaError(error);
+    error = cudaMalloc(&rankTable, rankTableLen * sizeof(*rankTable));
+    checkCudaError(error);
 
-	// * 2 for table of ranks, which has the same size as table of samples
-	uint_t sharedMemSize = tableLen / tabSubBlockSize * sizeof(sample_el_t);
-	uint_t blockSize = tableLen / tabSubBlockSize;
-	dim3 dimGrid((tableLen - 1) / (2 * blockSize * tabSubBlockSize) + 1, 1, 1);
-	dim3 dimBlock(blockSize, 1, 1);
+    // * 2 for table of ranks, which has the same size as table of samples
+    uint_t sharedMemSize = tableLen / tabSubBlockSize * sizeof(sample_el_t);
+    uint_t blockSize = tableLen / tabSubBlockSize;
+    dim3 dimGrid((tableLen - 1) / (2 * blockSize * tabSubBlockSize) + 1, 1, 1);
+    dim3 dimBlock(blockSize, 1, 1);
 
-	startStopwatch(&timerStart);
-	generateSublocksKernel<<<dimGrid, dimBlock, sharedMemSize>>>(tableDevice, rankTable, tableLen, tabBlockSize, tabSubBlockSize);
-	error = cudaDeviceSynchronize();
-	checkCudaError(error);
-	endStopwatch(timerStart, "Executing Generate Sublocks kernel");
+    startStopwatch(&timerStart);
+    generateSublocksKernel<<<dimGrid, dimBlock, sharedMemSize>>>(tableDevice, rankTable, tableLen, tabBlockSize, tabSubBlockSize);
+    error = cudaDeviceSynchronize();
+    checkCudaError(error);
+    endStopwatch(timerStart, "Executing Generate Sublocks kernel");
 }
 
 void sortParallel(data_t* inputHost, data_t* outputHost, uint_t tableLen, bool orderAsc) {
-	data_t* tableDevice;  // Sort in device is done in place
-	data_t* samplesDevice;
-	cudaError_t error;
+    data_t* tableDevice;  // Sort in device is done in place
+    data_t* samplesDevice;
+    cudaError_t error;
 
-	deviceMemoryInit(inputHost, &tableDevice, tableLen);
-	runBitonicSortKernel(tableDevice, tableLen);
-	runGenerateSublocksKernel(tableDevice, tableLen, 8, 4);
+    deviceMemoryInit(inputHost, &tableDevice, tableLen);
+    runBitonicSortKernel(tableDevice, tableLen);
+    runGenerateSublocksKernel(tableDevice, tableLen, 8, 4);
 
-	error = cudaMemcpy(outputHost, tableDevice, tableLen * sizeof(*outputHost), cudaMemcpyDeviceToHost);
-	checkCudaError(error);
+    error = cudaMemcpy(outputHost, tableDevice, tableLen * sizeof(*outputHost), cudaMemcpyDeviceToHost);
+    checkCudaError(error);
 }
