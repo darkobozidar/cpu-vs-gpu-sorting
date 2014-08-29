@@ -4,7 +4,7 @@
 __global__ void bitonicSortKernel(data_t* array, uint_t arrayLen, uint_t sharedMemSize);
 __global__ void generateSublocksKernel(data_t* table, uint_t* rankTable,uint_t tableLen,
                                        uint_t tabBlockSize, uint_t tabSubBlockSize);
-__global__ void binarySearchMergeKernel(data_t* dataTable, uint_t* rankTable, uint_t tableLen,
-                                        uint_t tableBlockSize, uint_t tableSubBlockSize);
+__global__ void mergeKernel(data_t* dataTable, uint_t* rankTable, uint_t tableLen,
+                            uint_t tableBlockSize, uint_t tableSubBlockSize);
 
 #endif

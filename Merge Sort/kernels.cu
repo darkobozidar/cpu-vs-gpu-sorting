@@ -182,6 +182,6 @@ __global__ void generateSublocksKernel(data_t* table, uint_t* rankTable, uint_t 
     printf("%2d: %d %d\n", sampleTile[threadIdx.x].sample, rankTable[threadIdx.x + blockDim.x], oddEvenOffset);*/
 }
 
-__global__ void binarySearchMergeKernel(data_t* dataTable, uint_t* rankTable, uint_t tableLen, uint_t tableBlockSize, uint_t tableSubBlockSize) {
+__global__ void mergeKernel(data_t* dataTable, uint_t* rankTable, uint_t tableLen, uint_t tableBlockSize, uint_t tableSubBlockSize) {
 
 }
