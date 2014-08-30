@@ -101,7 +101,7 @@ void sortParallel(data_t* inputHost, data_t* outputHost, uint_t tableLen, bool o
     error = cudaDeviceSynchronize();
     checkCudaError(error);
 
-    for (; tabBlockSize < tableLen / 2; tabBlockSize *= 2) {
+    for (; tabBlockSize < tableLen; tabBlockSize *= 2) {
         // TODO verify, if ALL (also up) device syncs are necessary
         runGenerateSublocksKernel(inputTableDevice, rankTableDevice, tableLen, tabBlockSize, tabSubBlockSize);
         error = cudaDeviceSynchronize();

@@ -235,7 +235,7 @@ __global__ void mergeKernel(data_t* inputDataTable, data_t* outputDataTable, uin
         indexStart2 = 0;
     }
 
-    if (blockIdx.x < tableSubBlockSize && indexRank < rankTableLen) {
+    if (blockIdx.x < tableBlockSize / 2 && indexRank < tableBlockSize * 2) {
         indexEnd1 = rankTable[indexRank];
         indexEnd2 = rankTable[indexRank + rankTableLen / 2];
     } else {
@@ -248,7 +248,7 @@ __global__ void mergeKernel(data_t* inputDataTable, data_t* outputDataTable, uin
     offset1 = dataOffset + indexStart1;
     offset2 = dataOffset + tableBlockSize + indexStart2;
 
-    /*if (blockIdx.x == 0 && blockIdx.y == 0 && threadIdx.x == 0) {
+   /* if (blockIdx.x == 6 && blockIdx.y == 0 && threadIdx.x == 0) {
         printf("\n(%u, %u), (%u, %u)\n\n", indexStart1, indexEnd1, indexStart2, indexEnd2);
     }*/
 
