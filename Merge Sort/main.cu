@@ -35,11 +35,11 @@ int main(int argc, char** argv) {
     cudaFree(NULL);  // Initializes CUDA, because CUDA init is lazy
     srand(time(NULL));
 
-    //error = cudaHostAlloc(&input, tableLen * sizeof(*input), cudaHostAllocDefault);
-    //checkCudaError(error);
+    /*error = cudaHostAlloc(&input, tableLen * sizeof(*input), cudaHostAllocDefault);
+    checkCudaError(error);*/
     error = cudaHostAlloc(&outputParallel, tableLen * sizeof(*outputParallel), cudaHostAllocDefault);
     checkCudaError(error);
-    // fillArrayRand(input, arrayLen);
+    //fillArrayRand(input, arrayLen);
     //fillArrayValue(input, tableLen, 5);
 
     sortParallel(input, outputParallel, tableLen, orderAsc);
