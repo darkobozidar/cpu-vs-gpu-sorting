@@ -216,8 +216,8 @@ __device__ int binarySearchOdd(data_t* dataTile, int indexStart, int indexEnd, u
     return indexStart;
 }
 
-__global__ void mergeKernel(data_t* dataTable, uint_t* rankTable, uint_t tableLen, uint_t rankTableLen,
-                            uint_t tableBlockSize, uint_t tableSubBlockSize) {
+__global__ void mergeKernel(data_t* inputDataTable, data_t* outputDataTable, uint_t* rankTable, uint_t tableLen,
+                            uint_t rankTableLen, uint_t tableBlockSize, uint_t tableSubBlockSize) {
     extern __shared__ data_t dataTile[];
     uint_t indexRank = blockIdx.y * tableSubBlockSize + blockIdx.x;
     uint_t dataOffset = blockIdx.y * 2 * tableBlockSize;
@@ -248,38 +248,44 @@ __global__ void mergeKernel(data_t* dataTable, uint_t* rankTable, uint_t tableLe
     offset1 = dataOffset + indexStart1;
     offset2 = dataOffset + tableBlockSize + indexStart2;
 
-    /*if (blockIdx.x == 2 && blockIdx.y == 1 && threadIdx.x == 0) {
-        printf("\n(%d, %d), (%d, %d)\n\n", indexStart1, indexEnd1, indexStart2, indexEnd2);
+    /*if (blockIdx.x == 0 && blockIdx.y == 0 && threadIdx.x == 0) {
+        printf("\n(%u, %u), (%u, %u)\n\n", indexStart1, indexEnd1, indexStart2, indexEnd2);
     }*/
 
     if (threadIdx.x < numOfElements1) {
         index1 = offset1 + threadIdx.x;
-        dataTile[threadIdx.x] = dataTable[index1];
+        dataTile[threadIdx.x] = inputDataTable[index1];
     }
     if (threadIdx.x < numOfElements2) {
         index2 = offset2 + threadIdx.x;
-        dataTile[threadIdx.x + tableSubBlockSize] = dataTable[index2];
+        dataTile[threadIdx.x + tableSubBlockSize] = inputDataTable[index2];
     }
     __syncthreads();
 
     if (threadIdx.x < numOfElements1) {
-        /*if (blockIdx.x == 2 && blockIdx.y == 1) {
+        /*if (blockIdx.x == 0 && blockIdx.y == 0) {
             printf("thread: %d\n", threadIdx.x);
             printf("Search Interval: [%d, %d], target: %d\n", tableSubBlockSize, tableSubBlockSize + numOfElements2 - 1, dataTile[threadIdx.x]);
             rank1 = binarySearchOdd(dataTile, tableSubBlockSize, tableSubBlockSize + numOfElements2 - 1, dataTile[threadIdx.x]);
             rank1 = rank1 - tableSubBlockSize + indexStart2;
             printf("index: %d, rank: %d\n", dataOffset + indexStart1 + threadIdx.x, rank1);
         }*/
+
+        rank1 = binarySearchOdd(dataTile, tableSubBlockSize, tableSubBlockSize + numOfElements2 - 1, dataTile[threadIdx.x]);
+        rank1 = rank1 - tableSubBlockSize + indexStart2;
+        outputDataTable[dataOffset + indexStart1 + threadIdx.x + rank1] = dataTile[threadIdx.x];
     }
     if (threadIdx.x < numOfElements2) {
-        /*if (blockIdx.x == 2 && blockIdx.y == 1) {
+        /*if (blockIdx.x == 0 && blockIdx.y == 0) {
             printf("thread: %d\n", threadIdx.x);
             printf("Search Interval: [%d, %d], target: %d\n", 0, numOfElements1 - 1, dataTile[threadIdx.x + tableSubBlockSize]);
             rank2 = binarySearchEven(dataTile, 0, numOfElements1 - 1, dataTile[threadIdx.x + tableSubBlockSize]);
             rank2 += indexStart1;
             printf("index: %d, rank: %d\n", dataOffset + indexStart2 + threadIdx.x, rank2);
         }*/
-    }
 
-    // Output to index + rank
+        rank2 = binarySearchEven(dataTile, 0, numOfElements1 - 1, dataTile[threadIdx.x + tableSubBlockSize]);
+        rank2 += indexStart1;
+        outputDataTable[dataOffset + indexStart2 + threadIdx.x + rank2] = dataTile[threadIdx.x + tableSubBlockSize];
+    }
 }

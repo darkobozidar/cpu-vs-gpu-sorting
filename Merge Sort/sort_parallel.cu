@@ -12,16 +12,18 @@
 #include "kernels.h"
 
 
-void deviceMemoryInit(data_t* inputHost, data_t** tableDevice, uint_t** rankTable, uint_t tableLen,
-                      uint_t rankTableLen) {
+void deviceMemoryInit(data_t* inputHost, data_t** inputTableDevice, data_t** outputTableDevice, uint_t** rankTable,
+                      uint_t tableLen, uint_t rankTableLen) {
     cudaError_t error;
 
-    error = cudaMalloc(tableDevice, tableLen * sizeof(*tableDevice));
+    error = cudaMalloc(inputTableDevice, tableLen * sizeof(*inputTableDevice));
+    checkCudaError(error);
+    error = cudaMalloc(outputTableDevice, tableLen * sizeof(*outputTableDevice));
     checkCudaError(error);
     error = cudaMalloc(rankTable, rankTableLen * sizeof(*rankTable));
     checkCudaError(error);
 
-    error = cudaMemcpy(*tableDevice, inputHost, tableLen * sizeof(*tableDevice), cudaMemcpyHostToDevice);
+    error = cudaMemcpy(*inputTableDevice, inputHost, tableLen * sizeof(*inputTableDevice), cudaMemcpyHostToDevice);
     checkCudaError(error);
 }
 
@@ -65,20 +67,20 @@ void runGenerateSublocksKernel(data_t* tableDevice, uint_t* rankTable, uint_t ta
     endStopwatch(timerStart, "Executing Generate Sublocks kernel");
 }
 
-void runMergeKernel(data_t* tableDevice, uint_t* rankTable, uint_t tableLen, uint_t rankTableLen,
-                    uint_t tabBlockSize, uint_t tabSubBlockSize) {
+void runMergeKernel(data_t* inputTableDevice, data_t* outputTableDevice, uint_t* rankTable, uint_t tableLen,
+                    uint_t rankTableLen, uint_t tabBlockSize, uint_t tabSubBlockSize) {
     cudaError_t error;
     LARGE_INTEGER timerStart;
 
     uint_t subBlocksPerMergedBlock = tabBlockSize / tabSubBlockSize * 2;
     uint_t numMergedBlocks = tableLen / (tabBlockSize * 2);
-    uint_t sharedMemSize = tabSubBlockSize * sizeof(*tableDevice) * 2;
+    uint_t sharedMemSize = tabSubBlockSize * sizeof(*inputTableDevice) * 2;
     dim3 dimGrid(subBlocksPerMergedBlock + 1, numMergedBlocks, 1);
     dim3 dimBlock(tabSubBlockSize, 1, 1);
 
     startStopwatch(&timerStart);
     mergeKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
-        tableDevice, rankTable, tableLen, rankTableLen, tabBlockSize, tabSubBlockSize
+        inputTableDevice, outputTableDevice, rankTable, tableLen, rankTableLen, tabBlockSize, tabSubBlockSize
     );
     error = cudaDeviceSynchronize();
     checkCudaError(error);
@@ -86,18 +88,35 @@ void runMergeKernel(data_t* tableDevice, uint_t* rankTable, uint_t tableLen, uin
 }
 
 void sortParallel(data_t* inputHost, data_t* outputHost, uint_t tableLen, bool orderAsc) {
-    data_t* tableDevice;  // Sort in device is done in place
+    data_t* inputTableDevice;  // Sort in device is done in place
+    data_t* outputTableDevice;
     uint_t* rankTableDevice;
     uint_t tabBlockSize = 8;
     uint_t tabSubBlockSize = 4;  // TODO could be constant
     uint_t rankTableLen = tableLen / tabSubBlockSize * 2;
     cudaError_t error;
 
-    deviceMemoryInit(inputHost, &tableDevice, &rankTableDevice, tableLen, rankTableLen);
-    runBitonicSortKernel(tableDevice, tableLen);
-    runGenerateSublocksKernel(tableDevice, rankTableDevice, tableLen, tabBlockSize, tabSubBlockSize);
-    runMergeKernel(tableDevice, rankTableDevice, tableLen, rankTableLen, tabBlockSize, tabSubBlockSize);
+    deviceMemoryInit(inputHost, &inputTableDevice, &outputTableDevice, &rankTableDevice, tableLen, rankTableLen);
+    runBitonicSortKernel(inputTableDevice, tableLen);
+    error = cudaDeviceSynchronize();
+    checkCudaError(error);
 
-    error = cudaMemcpy(outputHost, tableDevice, tableLen * sizeof(*outputHost), cudaMemcpyDeviceToHost);
+    for (; tabBlockSize < tableLen / 2; tabBlockSize *= 2) {
+        // TODO verify, if ALL (also up) device syncs are necessary
+        runGenerateSublocksKernel(inputTableDevice, rankTableDevice, tableLen, tabBlockSize, tabSubBlockSize);
+        error = cudaDeviceSynchronize();
+        checkCudaError(error);
+
+        runMergeKernel(inputTableDevice, outputTableDevice, rankTableDevice, tableLen, rankTableLen, tabBlockSize,
+                       tabSubBlockSize);
+        error = cudaDeviceSynchronize();
+        checkCudaError(error);
+
+        data_t* temp = inputTableDevice;
+        inputTableDevice = outputTableDevice;
+        outputTableDevice = temp;
+    }
+
+    error = cudaMemcpy(outputHost, inputTableDevice, tableLen * sizeof(*outputHost), cudaMemcpyDeviceToHost);
     checkCudaError(error);
 }
