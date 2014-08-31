@@ -11,19 +11,16 @@
 #include "utils_cuda.h"
 #include "utils_host.h"
 #include "sort_parallel.h"
+#include "sort_sequential.h"
 
-
-int comparator(const void * elem1, const void * elem2) {
-    return (*(data_t*)elem1 - *(data_t*)elem2);
-}
 
 int main(int argc, char** argv) {
     // Rename array to table everywhere in code
-    //data_t input[32] = { 6, 23, 29, 35, 45, 63, 64, 97, 1, 4, 25, 34, 45, 67, 98, 99, 4, 19, 41, 58, 68, 80, 81, 96, 4, 13, 18, 33, 55, 66, 88, 90 };;
-    data_t* input;
+    data_t input[32] = { 6, 23, 29, 35, 45, 63, 64, 97, 1, 4, 25, 34, 45, 67, 98, 99, 4, 19, 41, 58, 68, 80, 81, 96, 4, 13, 18, 33, 55, 66, 88, 90 };;
+    //data_t* input;
     data_t* outputParallel;
     data_t* outputSequential;
-    data_t* correctlySorted;
+    data_t* outputCorrect;
 
     uint_t tableLen = 1 << 5;
     uint_t blockSize;
@@ -35,21 +32,26 @@ int main(int argc, char** argv) {
     cudaFree(NULL);  // Initializes CUDA, because CUDA init is lazy
     srand(time(NULL));
 
-    error = cudaHostAlloc(&input, tableLen * sizeof(*input), cudaHostAllocDefault);
-    checkCudaError(error);
+    // Memory allocation on device
+    /*error = cudaHostAlloc(&input, tableLen * sizeof(*input), cudaHostAllocDefault);
+    checkCudaError(error);*/
     error = cudaHostAlloc(&outputParallel, tableLen * sizeof(*outputParallel), cudaHostAllocDefault);
     checkCudaError(error);
-    fillArrayRand(input, tableLen);
+
+    //fillArrayRand(input, tableLen);
     //fillArrayValue(input, tableLen, 5);
 
     sortParallel(input, outputParallel, tableLen, orderAsc);
     printArray(outputParallel, tableLen);
 
-    correctlySorted = copyArray(input, tableLen);
-    qsort(correctlySorted, tableLen, sizeof(correctlySorted), comparator);
-
-    compareArrays(outputParallel, correctlySorted, tableLen);
+    outputCorrect = sortCorrect(input, tableLen);
+    compareArrays(outputParallel, outputCorrect, tableLen);
     // TODO free memory
+
+    // cudaFreeHost(input);
+    cudaFreeHost(outputParallel);
+    //free(outputSequential);
+    free(outputCorrect);
 
     getchar();
     return 0;

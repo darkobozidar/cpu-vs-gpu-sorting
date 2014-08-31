@@ -5,6 +5,7 @@
 
 typedef int data_t;
 typedef uint32_t uint_t;
+typedef int32_t int_t;
 
 // TODO comment
 struct SampleElement {

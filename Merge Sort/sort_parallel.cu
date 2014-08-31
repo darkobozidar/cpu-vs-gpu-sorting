@@ -23,7 +23,7 @@ void deviceMemoryInit(data_t* inputHost, data_t** inputTableDevice, data_t** out
     error = cudaMalloc(rankTable, rankTableLen * sizeof(*rankTable));
     checkCudaError(error);
 
-    error = cudaMemcpy(*inputTableDevice, inputHost, tableLen * sizeof(*inputTableDevice), cudaMemcpyHostToDevice);
+    error = cudaMemcpy(*inputTableDevice, inputHost, tableLen * sizeof(**inputTableDevice), cudaMemcpyHostToDevice);
     checkCudaError(error);
 }
 
