@@ -9,7 +9,6 @@
 
 #include "data_types.h"
 #include "constants.h"
-#include "sort_lib.h"
 
 
 /*
@@ -22,7 +21,7 @@ __host__ __device__ int_t compare(const void* elem1, const void* elem2) {
 /*
 Compares 2 elements with compare function and exchanges them according to orderAsc.
 */
-__device__ void compareExchange(data_t* elem1, data_t* elem2, bool orderAsc) {
+__host__ __device__ void compareExchange(data_t* elem1, data_t* elem2, bool orderAsc) {
     if ((compare(elem1, elem2) < 0) ^ orderAsc) {
         data_t temp = *elem1;
         *elem1 = *elem2;
