@@ -9,7 +9,20 @@
 
 #include "data_types.h"
 #include "constants.h"
+#include "sort_lib.h"
 
+
+__host__ __device__ int_t compare(const void* elem1, const void* elem2) {
+    return (*(data_t*)elem1 - *(data_t*)elem2);
+}
+
+__device__ void compareExchange(data_t* elem1, data_t* elem2, bool orderAsc) {
+    bool comparison = (compare(elem1, elem2) > 0) ^ orderAsc;
+
+    data_t temp = comparison * (*elem1) + (!comparison) * (*elem2);
+    *elem1 = comparison * (*elem2) + (!comparison) * (*elem1);
+    *elem2 = temp;
+}
 
 __global__ void bitonicSortKernel(data_t* data, uint_t dataLen, uint_t sortedBlockSize, bool orderAsc) {
     extern __shared__ data_t tile[];
@@ -32,24 +45,34 @@ __global__ void bitonicSortKernel(data_t* data, uint_t dataLen, uint_t sortedBlo
             uint_t leftId = (threadIdx.x & (pairDistance - 1)) + (threadIdx.x >> (stage - pass)) * blockWidth;
             uint_t rightId = leftId + pairDistance;
 
-            data_t leftElement, rightElement;
-            data_t greater, lesser;
-            leftElement = tile[leftId];
-            rightElement = tile[rightId];
-
             uint_t sameDirectionBlockWidth = threadIdx.x >> stage;
             uint_t sameDirection = sameDirectionBlockWidth & 0x1;
 
-            uint_t temp = sameDirection ? rightId : temp;
-            rightId = sameDirection ? leftId : rightId;
-            leftId = sameDirection ? temp : leftId;
+            //// Olde
+            //data_t leftElement, rightElement;
+            //data_t greater, lesser;
+            //leftElement = tile[leftId];
+            //rightElement = tile[rightId];
 
-            bool compareResult = (leftElement < rightElement);
-            greater = compareResult ? rightElement : leftElement;
-            lesser = compareResult ? leftElement : rightElement;
+            //uint_t temp = sameDirection ? rightId : temp;
+            //rightId = sameDirection ? leftId : rightId;
+            //leftId = sameDirection ? temp : leftId;
 
-            tile[leftId] = lesser;
-            tile[rightId] = greater;
+            //bool compareResult = (leftElement < rightElement);
+            //greater = compareResult ? rightElement : leftElement;
+            //lesser = compareResult ? leftElement : rightElement;
+
+            //tile[leftId] = lesser;
+            //tile[rightId] = greater;
+
+            //// New
+            data_t left = tile[leftId];
+            data_t right = tile[rightId];
+
+            compareExchange(&left, &right, sameDirection ^ (!orderAsc));
+
+            tile[leftId] = left;
+            tile[rightId] = right;
         }
     }
 

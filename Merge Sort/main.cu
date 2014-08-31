@@ -43,8 +43,8 @@ int main(int argc, char** argv) {
     outputDataParallel = sortParallel(inputData, dataLen, orderAsc);
     printArray(outputDataParallel, dataLen);
 
-    outputDataCorrect = sortCorrect(inputData, dataLen);
-    compareArrays(outputDataParallel, outputDataCorrect, dataLen);
+    /*outputDataCorrect = sortCorrect(inputData, dataLen);
+    compareArrays(outputDataParallel, outputDataCorrect, dataLen);*/
 
     // cudaFreeHost(input);
     cudaFreeHost(outputDataParallel);

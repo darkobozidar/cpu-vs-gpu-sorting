@@ -19,7 +19,7 @@ data_t* sortCorrect(data_t* input, uint_t tableLen) {
     std::copy(input, input + tableLen, output);
 
     startStopwatch(&timer);
-    qsort(output, tableLen, sizeof(*output), compare);
+    //qsort(output, tableLen, sizeof(*output), compare);
     endStopwatch(timer, "Executing C sort implementation");
 
     return output;
