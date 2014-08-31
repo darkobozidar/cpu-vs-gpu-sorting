@@ -11,7 +11,7 @@
 #include "constants.h"
 
 
-__global__ void bitonicSortKernel(data_t* data, uint_t dataLen, uint_t sortedBlockSize) {
+__global__ void bitonicSortKernel(data_t* data, uint_t dataLen, uint_t sortedBlockSize, bool orderAsc) {
     extern __shared__ data_t tile[];
     uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
     uint_t numStages = ceil(log2((double)sortedBlockSize));
@@ -62,6 +62,45 @@ __global__ void bitonicSortKernel(data_t* data, uint_t dataLen, uint_t sortedBlo
         data[index + blockDim.x] = tile[threadIdx.x + blockDim.x];
     }
 }
+
+//__global__ void bitonicSortKernel(data_t* data, uint_t dataLen, uint_t sortedBlockSize, bool orderAsc) {
+//    extern __shared__ data_t tile[];
+//    uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
+//
+//    if (index < dataLen) {
+//        tile[threadIdx.x] = data[index];
+//    }
+//    if (index + blockDim.x < dataLen) {
+//        tile[threadIdx.x + blockDim.x] = data[index + blockDim.x];
+//    }
+//
+//    // First log2(sortedBlockSize) - 1 phases of bitonic merge
+//    for (uint_t size = 2; size < sortedBlockSize; size <<= 1) {
+//        uint_t direction = orderAsc ^ ((threadIdx.x & (size / 2)) != 0);
+//
+//        for (uint_t stride = size / 2; stride > 0; stride >>= 1) {
+//            __syncthreads();
+//            uint_t pos = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
+//            // TODO exchange
+//        }
+//    }
+//
+//    // Last phase of bitonic merge
+//    for (uint_t stride = sortedBlockSize / 2; stride > 0; stride >>= 1) {
+//        __syncthreads();
+//        uint_t pos = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
+//        // TODO exchange
+//    }
+//
+//    __syncthreads();
+//
+//    if (index < dataLen) {
+//        data[index] = tile[threadIdx.x];
+//    }
+//    if (index + blockDim.x < dataLen) {
+//        data[index + blockDim.x] = tile[threadIdx.x + blockDim.x];
+//    }
+//}
 
 __device__ uint_t calculateSampleIndex(uint_t tableBlockSize, uint_t tableSubBlockSize, bool firstHalf) {
     // Thread index for first or second half of the sub-table

@@ -29,25 +29,27 @@ int main(int argc, char** argv) {
     LARGE_INTEGER timerStart;
 
     // TODO remove bottom comment when tested
-    // cudaFuncCachePreferNone, cudaFuncCachePreferShared, cudaFuncCachePreferL1, cudaFuncCachePreferEqual
+    //cudaFuncCachePreferNone, cudaFuncCachePreferShared, cudaFuncCachePreferL1, cudaFuncCachePreferEqual
     error = cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
     checkCudaError(error);
     cudaFree(NULL);  // Initializes CUDA, because CUDA init is lazy
     srand(time(NULL));
-    //fillArrayRand(input, tableLen);
-    //fillArrayValue(input, tableLen, 5);
+
+    /*error = cudaHostAlloc(&inputData, dataLen * sizeof(*inputData), cudaHostAllocDefault);
+    checkCudaError(error);
+    fillArrayRand(inputData, dataLen);*/
+    //fillArrayValue(inputData, dataLen, 5);
 
     outputDataParallel = sortParallel(inputData, dataLen, orderAsc);
     printArray(outputDataParallel, dataLen);
 
     outputDataCorrect = sortCorrect(inputData, dataLen);
     compareArrays(outputDataParallel, outputDataCorrect, dataLen);
-    // TODO free memory
 
     // cudaFreeHost(input);
     cudaFreeHost(outputDataParallel);
     //free(outputDataSequential);
-    free(outputDataCorrect);
+    //free(outputDataCorrect);
 
     getchar();
     return 0;
