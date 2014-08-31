@@ -12,7 +12,6 @@
 #include "kernels.h"
 
 
-
 /*
 Initializes memory needed for parallel implementation of merge sort.
 */
@@ -38,24 +37,29 @@ void memoryInit(data_t* inputDataHost, data_t** outputDataHost, data_t** inputDa
     checkCudaError(error);
 }
 
-void runBitonicSortKernel(data_t* tableDevice, uint_t tableLen) {
+/*
+Sorts blocks od data table with bitonic sort. Returns the size of one sorted block.
+*/
+uint_t runBitonicSortKernel(data_t* data, uint_t dataLen) {
     cudaError_t error;
-    LARGE_INTEGER timerStart;
+    LARGE_INTEGER timer;
 
-    // Every thread compares 2 elements
-    uint_t blockSize = 4;  // arrayLen / 2 < getMaxThreadsPerBlock() ? arrayLen / 2 : getMaxThreadsPerBlock();
-    uint_t blocksPerMultiprocessor = getMaxThreadsPerMultiProcessor() / blockSize;
-    // TODO fix shared memory size from 46KB to 16KB
-    uint_t sharedMemSize = 16384 / sizeof(*tableDevice) / blocksPerMultiprocessor;
+    uint_t elementsPerSharedMem = MAX_SHARED_MEM_SIZE / sizeof(*data);
+    // If table length is lower than max threads per block, than fewer steps are needed for bitonic sort
+    // If data type used is big, than only limited ammount of data can be saved in shared memory
+    uint_t threadBlockSize = 4;  // min(min(dataLen / 2, getMaxThreadsPerBlock()), elementsPerSharedMem / 2);
+    uint_t sortedBlockSize = 2 * threadBlockSize; // Every thread compares/sorts 2 elements
 
-    dim3 dimGrid((tableLen - 1) / (2 * blockSize) + 1, 1, 1);
-    dim3 dimBlock(blockSize, 1, 1);
+    dim3 dimGrid((dataLen - 1) / sortedBlockSize + 1, 1, 1);
+    dim3 dimBlock(threadBlockSize, 1, 1);
 
-    startStopwatch(&timerStart);
-    bitonicSortKernel<<<dimGrid, dimBlock, sharedMemSize * sizeof(*tableDevice)>>>(tableDevice, tableLen, sharedMemSize);
+    startStopwatch(&timer);
+    bitonicSortKernel<<<dimGrid, dimBlock, sortedBlockSize * sizeof(*data)>>>(data, dataLen, sortedBlockSize);
     error = cudaDeviceSynchronize();
     checkCudaError(error);
-    endStopwatch(timerStart, "Executing Merge Sort Kernel");
+    endStopwatch(timer, "Executing Merge Sort Kernel");
+
+    return sortedBlockSize;
 }
 
 void runGenerateSublocksKernel(data_t* tableDevice, uint_t* rankTable, uint_t tableLen,
@@ -110,10 +114,7 @@ data_t* sortParallel(data_t* inputDataHost, uint_t dataLen, bool orderAsc) {
 
     memoryInit(inputDataHost, &outputDataHost, &inputDataDevice, &outputDataDevice,
                &ranksDevice, dataLen, ranksLen);
-
     runBitonicSortKernel(inputDataDevice, dataLen);
-    error = cudaDeviceSynchronize();
-    checkCudaError(error);
 
     // TODO verify, if ALL (also up) device syncs are necessary
     for (; tableBlockSize < dataLen; tableBlockSize *= 2) {

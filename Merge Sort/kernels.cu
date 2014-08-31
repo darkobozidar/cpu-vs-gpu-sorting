@@ -11,30 +11,16 @@
 #include "constants.h"
 
 
-__device__ void compare(void* val1, void* val2) {
-    // TODO
-}
-
-__device__ void compare(data_t* elem1, data_t* elem2) {
-    // TODO
-}
-
-__device__ void printfOnce(char* text) {
-    if (threadIdx.x == 0) {
-        printf(text);
-    }
-}
-
-__global__ void bitonicSortKernel(data_t* array, uint_t arrayLen, uint_t sharedMemSize) {
+__global__ void bitonicSortKernel(data_t* data, uint_t dataLen, uint_t sortedBlockSize) {
     extern __shared__ data_t tile[];
     uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
-    uint_t numStages = ceil(log2((double) sharedMemSize));
+    uint_t numStages = ceil(log2((double)sortedBlockSize));
 
-    if (index < arrayLen) {
-        tile[threadIdx.x] = array[index];
+    if (index < dataLen) {
+        tile[threadIdx.x] = data[index];
     }
-    if (index + blockDim.x < arrayLen) {
-        tile[threadIdx.x + blockDim.x] = array[index + blockDim.x];
+    if (index + blockDim.x < dataLen) {
+        tile[threadIdx.x + blockDim.x] = data[index + blockDim.x];
     }
 
     for (uint_t stage = 0; stage < numStages; stage++) {
@@ -69,11 +55,11 @@ __global__ void bitonicSortKernel(data_t* array, uint_t arrayLen, uint_t sharedM
 
     __syncthreads();
 
-    if (index < arrayLen) {
-        array[index] = tile[threadIdx.x];
+    if (index < dataLen) {
+        data[index] = tile[threadIdx.x];
     }
-    if (index + blockDim.x < arrayLen) {
-        array[index + blockDim.x] = tile[threadIdx.x + blockDim.x];
+    if (index + blockDim.x < dataLen) {
+        data[index + blockDim.x] = tile[threadIdx.x + blockDim.x];
     }
 }
 

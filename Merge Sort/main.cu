@@ -23,17 +23,17 @@ int main(int argc, char** argv) {
     data_t* outputDataCorrect;
 
     uint_t dataLen = 1 << 5;
-    bool orderAsc = TRUE;
+    bool orderAsc = true;  // TODO use this
     cudaError_t error;
 
     LARGE_INTEGER timerStart;
 
+    // TODO remove bottom comment when tested
+    // cudaFuncCachePreferNone, cudaFuncCachePreferShared, cudaFuncCachePreferL1, cudaFuncCachePreferEqual
+    error = cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
+    checkCudaError(error);
     cudaFree(NULL);  // Initializes CUDA, because CUDA init is lazy
     srand(time(NULL));
-
-    // Memory allocation on device
-    /*error = cudaHostAlloc(&input, tableLen * sizeof(*input), cudaHostAllocDefault);
-    checkCudaError(error);*/
     //fillArrayRand(input, tableLen);
     //fillArrayValue(input, tableLen, 5);
 
