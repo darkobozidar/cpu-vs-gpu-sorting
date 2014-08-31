@@ -16,14 +16,13 @@
 
 int main(int argc, char** argv) {
     // Rename array to table everywhere in code
-    data_t input[32] = { 6, 23, 29, 35, 45, 63, 64, 97, 1, 4, 25, 34, 45, 67, 98, 99, 4, 19, 41, 58, 68, 80, 81, 96, 4, 13, 18, 33, 55, 66, 88, 90 };;
-    //data_t* input;
-    data_t* outputParallel;
-    data_t* outputSequential;
-    data_t* outputCorrect;
+    data_t inputData[32] = { 6, 23, 29, 35, 45, 63, 64, 97, 1, 4, 25, 34, 45, 67, 98, 99, 4, 19, 41, 58, 68, 80, 81, 96, 4, 13, 18, 33, 55, 66, 88, 90 };;
+    //data_t* inputData;
+    data_t* outputDataParallel;
+    data_t* outputDataSequential;
+    data_t* outputDataCorrect;
 
-    uint_t tableLen = 1 << 5;
-    uint_t blockSize;
+    uint_t dataLen = 1 << 5;
     bool orderAsc = TRUE;
     cudaError_t error;
 
@@ -35,23 +34,20 @@ int main(int argc, char** argv) {
     // Memory allocation on device
     /*error = cudaHostAlloc(&input, tableLen * sizeof(*input), cudaHostAllocDefault);
     checkCudaError(error);*/
-    error = cudaHostAlloc(&outputParallel, tableLen * sizeof(*outputParallel), cudaHostAllocDefault);
-    checkCudaError(error);
-
     //fillArrayRand(input, tableLen);
     //fillArrayValue(input, tableLen, 5);
 
-    sortParallel(input, outputParallel, tableLen, orderAsc);
-    printArray(outputParallel, tableLen);
+    outputDataParallel = sortParallel(inputData, dataLen, orderAsc);
+    printArray(outputDataParallel, dataLen);
 
-    outputCorrect = sortCorrect(input, tableLen);
-    compareArrays(outputParallel, outputCorrect, tableLen);
+    outputDataCorrect = sortCorrect(inputData, dataLen);
+    compareArrays(outputDataParallel, outputDataCorrect, dataLen);
     // TODO free memory
 
     // cudaFreeHost(input);
-    cudaFreeHost(outputParallel);
-    //free(outputSequential);
-    free(outputCorrect);
+    cudaFreeHost(outputDataParallel);
+    //free(outputDataSequential);
+    free(outputDataCorrect);
 
     getchar();
     return 0;
