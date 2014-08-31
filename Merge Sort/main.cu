@@ -16,8 +16,8 @@
 
 int main(int argc, char** argv) {
     // Rename array to table everywhere in code
-    data_t inputData[32] = { 6, 23, 29, 35, 45, 63, 64, 97, 1, 4, 25, 34, 45, 67, 98, 99, 4, 19, 41, 58, 68, 80, 81, 96, 4, 13, 18, 33, 55, 66, 88, 90 };;
-    //data_t* inputData;
+    //data_t inputData[32] = { 6, 23, 29, 35, 45, 63, 64, 97, 1, 4, 25, 34, 45, 67, 98, 99, 4, 19, 41, 58, 68, 80, 81, 96, 4, 13, 18, 33, 55, 66, 88, 90 };;
+    data_t* inputData;
     data_t* outputDataParallel;
     data_t* outputDataSequential;
     data_t* outputDataCorrect;
@@ -35,9 +35,9 @@ int main(int argc, char** argv) {
     cudaFree(NULL);  // Initializes CUDA, because CUDA init is lazy
     srand(time(NULL));
 
-    /*error = cudaHostAlloc(&inputData, dataLen * sizeof(*inputData), cudaHostAllocDefault);
+    error = cudaHostAlloc(&inputData, dataLen * sizeof(*inputData), cudaHostAllocDefault);
     checkCudaError(error);
-    fillArrayRand(inputData, dataLen);*/
+    fillArrayRand(inputData, dataLen);
     //fillArrayValue(inputData, dataLen, 5);
 
     outputDataParallel = sortParallel(inputData, dataLen, orderAsc);

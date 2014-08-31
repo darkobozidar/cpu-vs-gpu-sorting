@@ -12,22 +12,30 @@
 #include "sort_lib.h"
 
 
+/*
+Compare function for sort.
+*/
 __host__ __device__ int_t compare(const void* elem1, const void* elem2) {
     return (*(data_t*)elem1 - *(data_t*)elem2);
 }
 
+/*
+Compares 2 elements with compare function and exchanges them according to orderAsc.
+*/
 __device__ void compareExchange(data_t* elem1, data_t* elem2, bool orderAsc) {
-    bool comparison = (compare(elem1, elem2) > 0) ^ orderAsc;
-
-    data_t temp = comparison * (*elem1) + (!comparison) * (*elem2);
-    *elem1 = comparison * (*elem2) + (!comparison) * (*elem1);
-    *elem2 = temp;
+    if ((compare(elem1, elem2) < 0) ^ orderAsc) {
+        data_t temp = *elem1;
+        *elem1 = *elem2;
+        *elem2 = temp;
+    }
 }
 
+/*
+Sorts sub blocks of size sortedBlockSize with bitonic sort.
+*/
 __global__ void bitonicSortKernel(data_t* data, uint_t dataLen, uint_t sortedBlockSize, bool orderAsc) {
     extern __shared__ data_t tile[];
     uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
-    uint_t numStages = ceil(log2((double)sortedBlockSize));
 
     if (index < dataLen) {
         tile[threadIdx.x] = data[index];
@@ -36,48 +44,25 @@ __global__ void bitonicSortKernel(data_t* data, uint_t dataLen, uint_t sortedBlo
         tile[threadIdx.x + blockDim.x] = data[index + blockDim.x];
     }
 
-    for (uint_t stage = 0; stage < numStages; stage++) {
-        for (uint_t pass = 0; pass <= stage; pass++) {
+    // First log2(sortedBlockSize) - 1 phases of bitonic merge
+    for (uint_t size = 2; size < sortedBlockSize; size <<= 1) {
+        uint_t direction = (!orderAsc) ^ ((threadIdx.x & (size / 2)) != 0);
+
+        for (uint_t stride = size / 2; stride > 0; stride >>= 1) {
             __syncthreads();
-
-            uint_t pairDistance = 1 << (stage - pass);
-            uint_t blockWidth = 2 * pairDistance;
-            uint_t leftId = (threadIdx.x & (pairDistance - 1)) + (threadIdx.x >> (stage - pass)) * blockWidth;
-            uint_t rightId = leftId + pairDistance;
-
-            uint_t sameDirectionBlockWidth = threadIdx.x >> stage;
-            uint_t sameDirection = sameDirectionBlockWidth & 0x1;
-
-            //// Olde
-            //data_t leftElement, rightElement;
-            //data_t greater, lesser;
-            //leftElement = tile[leftId];
-            //rightElement = tile[rightId];
-
-            //uint_t temp = sameDirection ? rightId : temp;
-            //rightId = sameDirection ? leftId : rightId;
-            //leftId = sameDirection ? temp : leftId;
-
-            //bool compareResult = (leftElement < rightElement);
-            //greater = compareResult ? rightElement : leftElement;
-            //lesser = compareResult ? leftElement : rightElement;
-
-            //tile[leftId] = lesser;
-            //tile[rightId] = greater;
-
-            //// New
-            data_t left = tile[leftId];
-            data_t right = tile[rightId];
-
-            compareExchange(&left, &right, sameDirection ^ (!orderAsc));
-
-            tile[leftId] = left;
-            tile[rightId] = right;
+            uint_t pos = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
+            compareExchange(&tile[pos], &tile[pos + stride], direction);
         }
     }
 
-    __syncthreads();
+    // Last phase of bitonic merge
+    for (uint_t stride = sortedBlockSize / 2; stride > 0; stride >>= 1) {
+        __syncthreads();
+        uint_t pos = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
+        compareExchange(&tile[pos], &tile[pos + stride], orderAsc);
+    }
 
+    __syncthreads();
     if (index < dataLen) {
         data[index] = tile[threadIdx.x];
     }
@@ -85,45 +70,6 @@ __global__ void bitonicSortKernel(data_t* data, uint_t dataLen, uint_t sortedBlo
         data[index + blockDim.x] = tile[threadIdx.x + blockDim.x];
     }
 }
-
-//__global__ void bitonicSortKernel(data_t* data, uint_t dataLen, uint_t sortedBlockSize, bool orderAsc) {
-//    extern __shared__ data_t tile[];
-//    uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
-//
-//    if (index < dataLen) {
-//        tile[threadIdx.x] = data[index];
-//    }
-//    if (index + blockDim.x < dataLen) {
-//        tile[threadIdx.x + blockDim.x] = data[index + blockDim.x];
-//    }
-//
-//    // First log2(sortedBlockSize) - 1 phases of bitonic merge
-//    for (uint_t size = 2; size < sortedBlockSize; size <<= 1) {
-//        uint_t direction = orderAsc ^ ((threadIdx.x & (size / 2)) != 0);
-//
-//        for (uint_t stride = size / 2; stride > 0; stride >>= 1) {
-//            __syncthreads();
-//            uint_t pos = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
-//            // TODO exchange
-//        }
-//    }
-//
-//    // Last phase of bitonic merge
-//    for (uint_t stride = sortedBlockSize / 2; stride > 0; stride >>= 1) {
-//        __syncthreads();
-//        uint_t pos = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
-//        // TODO exchange
-//    }
-//
-//    __syncthreads();
-//
-//    if (index < dataLen) {
-//        data[index] = tile[threadIdx.x];
-//    }
-//    if (index + blockDim.x < dataLen) {
-//        data[index + blockDim.x] = tile[threadIdx.x + blockDim.x];
-//    }
-//}
 
 __device__ uint_t calculateSampleIndex(uint_t tableBlockSize, uint_t tableSubBlockSize, bool firstHalf) {
     // Thread index for first or second half of the sub-table
@@ -337,3 +283,42 @@ __global__ void mergeKernel(data_t* inputDataTable, data_t* outputDataTable, uin
         outputDataTable[dataOffset + indexStart2 + threadIdx.x + rank2] = dataTile[threadIdx.x + tableSubBlockSize];
     }
 }
+
+/*
+Old bitonic sorti implementation.
+*/
+//__global__ void bitonicSortKernel(data_t* data, uint_t dataLen, uint_t sortedBlockSize, bool orderAsc) {
+//    extern __shared__ data_t tile[];
+//    uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
+//    uint_t numStages = ceil(log2((double)sortedBlockSize));
+//
+//    if (index < dataLen) {
+//        tile[threadIdx.x] = data[index];
+//    }
+//    if (index + blockDim.x < dataLen) {
+//        tile[threadIdx.x + blockDim.x] = data[index + blockDim.x];
+//    }
+//
+//    for (uint_t stage = 0; stage < numStages; stage++) {
+//        for (uint_t pass = 0; pass <= stage; pass++) {
+//            __syncthreads();
+//
+//            uint_t pairDistance = 1 << (stage - pass);
+//            uint_t blockWidth = 2 * pairDistance;
+//            uint_t direction = ((threadIdx.x >> stage) & 0x1) ^ orderAsc;
+//            uint_t leftId = (threadIdx.x & (pairDistance - 1)) + (threadIdx.x >> (stage - pass)) * blockWidth;
+//            uint_t rightId = leftId + pairDistance;
+//
+//            compareExchange(&tile[leftId], &tile[rightId], direction);
+//        }
+//    }
+//
+//    __syncthreads();
+//
+//    if (index < dataLen) {
+//        data[index] = tile[threadIdx.x];
+//    }
+//    if (index + blockDim.x < dataLen) {
+//        data[index + blockDim.x] = tile[threadIdx.x + blockDim.x];
+//    }
+//}
