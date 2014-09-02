@@ -31,7 +31,7 @@ int main(int argc, char** argv) {
     data_t* outputDataSequential;
     data_t* outputDataCorrect;
 
-    uint_t dataLen = 1 << 12;
+    uint_t dataLen = 1 << 20;
     bool orderAsc = true;  // TODO use this
     cudaError_t error;
 

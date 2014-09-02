@@ -138,13 +138,9 @@ data_t* sortParallel(data_t* inputDataHost, uint_t dataLen, bool orderAsc) {
     // TODO verify, if ALL (also up) device syncs are necessary
     for (; sortedBlockSize < dataLen; sortedBlockSize *= 2) {
         runGenerateRanksKernel(inputDataDevice, ranksDevice, dataLen, sortedBlockSize, subBlockSize);
-        error = cudaDeviceSynchronize();
-        checkCudaError(error);
 
         runMergeKernel(inputDataDevice, outputDataDevice, ranksDevice, dataLen, ranksLen,
                        sortedBlockSize, subBlockSize);
-        error = cudaDeviceSynchronize();
-        checkCudaError(error);
 
         data_t* temp = inputDataDevice;
         inputDataDevice = outputDataDevice;

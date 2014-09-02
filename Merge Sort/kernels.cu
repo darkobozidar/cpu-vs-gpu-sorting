@@ -149,7 +149,6 @@ __global__ void generateRanksKernel(data_t* data, uint_t* ranks, uint_t dataLen,
         ranksTile[tileIndex].sample = data[dataIndex];
         ranksTile[threadIdx.x].rank = tileIndex;
     }
-    __syncthreads();
 
     // TODO test on bigger tables
     for (uint_t stride = subBlocksPerSortedBlock; stride > 0; stride /= 2) {
@@ -234,7 +233,7 @@ __device__ int binarySearchOdd(data_t* dataTile, int indexStart, int indexEnd, u
 __global__ void mergeKernel(data_t* inputData, data_t* outputData, uint_t* ranks, uint_t dataLen,
                             uint_t ranksLen, uint_t sortedBlockSize, uint_t subBlockSize) {
     extern __shared__ data_t dataTile[];
-    uint_t indexRank = blockIdx.y * (sortedBlockSize / 2) + blockIdx.x;
+    uint_t indexRank = blockIdx.y * (sortedBlockSize / subBlockSize * 2) + blockIdx.x;
     uint_t indexSortedBlock = blockIdx.y * 2 * sortedBlockSize;
     uint_t indexStartEven, indexStartOdd, indexEndEven, indexEndOdd;
     uint_t offsetEven, offsetOdd;
