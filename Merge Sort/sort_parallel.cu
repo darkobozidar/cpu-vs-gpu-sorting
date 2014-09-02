@@ -23,7 +23,7 @@ Returns the initial size of sorted sub-blocks.
 uint_t getInitSortedBlockSize(uint_t dataElementSizeof, uint_t dataLen) {
     uint_t elementsPerSharedMem = MAX_SHARED_MEM_SIZE / dataElementSizeof;
     uint_t sortedBlockSize = min(min(dataLen, getMaxThreadsPerBlock() * 2), elementsPerSharedMem);
-    return sortedBlockSize;
+    return 8;
 }
 
 /*
@@ -71,27 +71,28 @@ void runBitonicSortKernel(data_t* data, uint_t dataLen, uint_t sortedBlockSize, 
 }
 
 /*
-Generates indexes of sub-blocks that need to be merged.
+Generates ranks of sub-blocks that need to be merged.
 */
-void runGenerateSublocksKernel(data_t* tableDevice, uint_t* rankTable, uint_t tableLen,
-                               uint_t tabBlockSize, uint_t tabSubBlockSize) {
+void runGenerateRanksKernel(data_t* tableDevice, uint_t* rankTable, uint_t tableLen,
+                            uint_t sortedBlockSize, uint_t mergedBlockSize) {
     cudaError_t error;
-    LARGE_INTEGER timerStart;
+    LARGE_INTEGER timer;
 
-    uint_t samplesPerSharedMem = MAX_SHARED_MEM_SIZE / sizeof(sample_el_t);
-    uint_t numSamples = tableLen / tabSubBlockSize;
-    uint_t threadBlockSize = min(samplesPerSharedMem, numSamples);
+    uint_t ranksPerSharedMem = MAX_SHARED_MEM_SIZE / sizeof(sample_el_t);
+    uint_t numAllRanks = tableLen / mergedBlockSize;
+    uint_t threadBlockSize = min(ranksPerSharedMem, numAllRanks);
+    uint_t mergedPerSorted = sortedBlockSize / mergedBlockSize;
 
-    dim3 dimGrid((tableLen - 1) / threadBlockSize + 1, 1, 1);
-    dim3 dimBlock(tabSubBlockSize, threadBlockSize / tabSubBlockSize, 1);
+    dim3 dimGrid((numAllRanks - 1) / threadBlockSize + 1, 1, 1);
+    dim3 dimBlock(mergedPerSorted * 2, threadBlockSize / (mergedPerSorted * 2), 1);
 
-    startStopwatch(&timerStart);
-    generateSublocksKernel<<<dimGrid, dimBlock, numSamples>>>(
-        tableDevice, rankTable, tableLen, tabBlockSize, tabSubBlockSize
+    startStopwatch(&timer);
+    generateRanksKernel<<<dimGrid, dimBlock, threadBlockSize * sizeof(sample_el_t)>>>(
+        tableDevice, rankTable, tableLen, sortedBlockSize, mergedBlockSize
     );
     error = cudaDeviceSynchronize();
     checkCudaError(error);
-    endStopwatch(timerStart, "Executing Generate Sublocks kernel");
+    endStopwatch(timer, "Executing Generate ranks kernel");
 }
 
 void runMergeKernel(data_t* inputTableDevice, data_t* outputTableDevice, uint_t* rankTable, uint_t tableLen,
@@ -129,8 +130,9 @@ data_t* sortParallel(data_t* inputDataHost, uint_t dataLen, bool orderAsc) {
                &ranksDevice, dataLen, ranksLen);
     runBitonicSortKernel(inputDataDevice, dataLen, sortedBlockSize, orderAsc);
 
-    /*runGenerateSublocksKernel(inputDataDevice, ranksDevice, dataLen, sortedBlockSize, mergedBlockSize);
-    error = cudaDeviceSynchronize();*/
+    runGenerateRanksKernel(inputDataDevice, ranksDevice, dataLen, sortedBlockSize, mergedBlockSize);
+    error = cudaDeviceSynchronize();
+    checkCudaError(error);
 
     /*
     // TODO verify, if ALL (also up) device syncs are necessary

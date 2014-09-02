@@ -33,14 +33,14 @@ __host__ __device__ void compareExchange(data_t* elem1, data_t* elem2, bool orde
 Sorts sub blocks of size sortedBlockSize with bitonic sort.
 */
 __global__ void bitonicSortKernel(data_t* data, uint_t dataLen, uint_t sortedBlockSize, bool orderAsc) {
-    extern __shared__ data_t tile[];
+    extern __shared__ data_t sortTile[];
     uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
 
     if (index < dataLen) {
-        tile[threadIdx.x] = data[index];
+        sortTile[threadIdx.x] = data[index];
     }
     if (index + blockDim.x < dataLen) {
-        tile[threadIdx.x + blockDim.x] = data[index + blockDim.x];
+        sortTile[threadIdx.x + blockDim.x] = data[index + blockDim.x];
     }
 
     // First log2(sortedBlockSize) - 1 phases of bitonic merge
@@ -50,7 +50,7 @@ __global__ void bitonicSortKernel(data_t* data, uint_t dataLen, uint_t sortedBlo
         for (uint_t stride = size / 2; stride > 0; stride >>= 1) {
             __syncthreads();
             uint_t pos = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
-            compareExchange(&tile[pos], &tile[pos + stride], direction);
+            compareExchange(&sortTile[pos], &sortTile[pos + stride], direction);
         }
     }
 
@@ -58,15 +58,15 @@ __global__ void bitonicSortKernel(data_t* data, uint_t dataLen, uint_t sortedBlo
     for (uint_t stride = sortedBlockSize / 2; stride > 0; stride >>= 1) {
         __syncthreads();
         uint_t pos = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
-        compareExchange(&tile[pos], &tile[pos + stride], orderAsc);
+        compareExchange(&sortTile[pos], &sortTile[pos + stride], orderAsc);
     }
 
     __syncthreads();
     if (index < dataLen) {
-        data[index] = tile[threadIdx.x];
+        data[index] = sortTile[threadIdx.x];
     }
     if (index + blockDim.x < dataLen) {
-        data[index + blockDim.x] = tile[threadIdx.x + blockDim.x];
+        data[index + blockDim.x] = sortTile[threadIdx.x + blockDim.x];
     }
 }
 
@@ -121,13 +121,14 @@ __device__ uint_t binarySearch(data_t* table, sample_el_t* sampleTile, uint_t ta
     return 0;
 }
 
-__global__ void generateSublocksKernel(data_t* table, uint_t* rankTable, uint_t tableLen, uint_t tableBlockSize, uint_t tableSubBlockSize) {
-    extern __shared__ sample_el_t sampleTile[];
+__global__ void generateRanksKernel(data_t* table, uint_t* rankTable, uint_t tableLen, uint_t tableBlockSize, uint_t tableSubBlockSize) {
+    extern __shared__ sample_el_t ranksTile[];
     uint_t sharedMemIdx;
     data_t value;
     uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x * tableSubBlockSize;
-    uint_t subBlocksPerBlock = tableBlockSize / tableSubBlockSize;
-    uint_t subBlocksPerMergedBlock = 2 * subBlocksPerBlock;
+
+    //uint_t subBlocksPerBlock = tableBlockSize / tableSubBlockSize;
+    //uint_t subBlocksPerMergedBlock = 2 * subBlocksPerBlock;
 
     // Values are read in coalesced way...
     if (index < tableLen) {
@@ -135,40 +136,40 @@ __global__ void generateSublocksKernel(data_t* table, uint_t* rankTable, uint_t 
     }
     // ...and than reversed when added to shared memory
     sharedMemIdx = calculateSampleIndex(tableBlockSize, tableSubBlockSize, true);
-    sampleTile[sharedMemIdx].sample = value;
-    sampleTile[threadIdx.x].rank = sharedMemIdx;
+    ranksTile[sharedMemIdx].sample = value;
+    ranksTile[threadIdx.x].rank = sharedMemIdx;
 
-    if (threadIdx.x < blockDim.x / 2) {
-        for (uint_t stride = subBlocksPerBlock; stride > 0; stride /= 2) {
-            __syncthreads();
-            uint_t sampleIndex = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
+    //if (threadIdx.x < blockDim.x / 2) {
+    //    for (uint_t stride = subBlocksPerBlock; stride > 0; stride /= 2) {
+    //        __syncthreads();
+    //        uint_t sampleIndex = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
 
-            // TODO use max/min or conditional operator (or something else)
-            if (sampleTile[sampleIndex].sample > sampleTile[sampleIndex + stride].sample) {
-                sample_el_t temp = sampleTile[sampleIndex];
-                sampleTile[sampleIndex] = sampleTile[sampleIndex + stride];
-                sampleTile[sampleIndex + stride] = temp;
-            }
+    //        // TODO use max/min or conditional operator (or something else)
+    //        if (sampleTile[sampleIndex].sample > sampleTile[sampleIndex + stride].sample) {
+    //            sample_el_t temp = sampleTile[sampleIndex];
+    //            sampleTile[sampleIndex] = sampleTile[sampleIndex + stride];
+    //            sampleTile[sampleIndex + stride] = temp;
+    //        }
 
-            if (sampleTile[sampleIndex].sample == sampleTile[sampleIndex + stride].sample && sampleTile[sampleIndex].rank > sampleTile[sampleIndex + stride].rank) {
-                sample_el_t temp = sampleTile[sampleIndex];
-                sampleTile[sampleIndex] = sampleTile[sampleIndex + stride];
-                sampleTile[sampleIndex + stride] = temp;
-            }
-        }
-    }
+    //        if (sampleTile[sampleIndex].sample == sampleTile[sampleIndex + stride].sample && sampleTile[sampleIndex].rank > sampleTile[sampleIndex + stride].rank) {
+    //            sample_el_t temp = sampleTile[sampleIndex];
+    //            sampleTile[sampleIndex] = sampleTile[sampleIndex + stride];
+    //            sampleTile[sampleIndex + stride] = temp;
+    //        }
+    //    }
+    //}
 
-    // TODO verify if all __syncthreads are needed
-    __syncthreads();
-    uint_t rank = (sampleTile[threadIdx.x].rank * tableSubBlockSize % tableBlockSize) + 1;
-    uint_t oppositeRank = binarySearch(table, sampleTile, tableBlockSize, tableSubBlockSize, true);
+    //// TODO verify if all __syncthreads are needed
+    //__syncthreads();
+    //uint_t rank = (sampleTile[threadIdx.x].rank * tableSubBlockSize % tableBlockSize) + 1;
+    //uint_t oppositeRank = binarySearch(table, sampleTile, tableBlockSize, tableSubBlockSize, true);
 
-    __syncthreads();
-    uint_t oddEvenOffset = (sampleTile[threadIdx.x].rank / subBlocksPerBlock) % 2;
-    // TODO fix to write in coalesced way
-    // TODO comment odd even
-    rankTable[threadIdx.x + oddEvenOffset * blockDim.x] = rank;
-    rankTable[threadIdx.x + (!oddEvenOffset) * blockDim.x] = oppositeRank;
+    //__syncthreads();
+    //uint_t oddEvenOffset = (sampleTile[threadIdx.x].rank / subBlocksPerBlock) % 2;
+    //// TODO fix to write in coalesced way
+    //// TODO comment odd even
+    //rankTable[threadIdx.x + oddEvenOffset * blockDim.x] = rank;
+    //rankTable[threadIdx.x + (!oddEvenOffset) * blockDim.x] = oppositeRank;
 
     /*printf("%2d: %d %d\n", sampleTile[threadIdx.x].sample, rankTable[threadIdx.x], oddEvenOffset);
     __syncthreads();
