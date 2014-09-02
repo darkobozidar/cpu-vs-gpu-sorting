@@ -23,7 +23,7 @@ Returns the initial size of sorted sub-blocks.
 uint_t getInitSortedBlockSize(uint_t dataElementSizeof, uint_t dataLen) {
     uint_t elementsPerSharedMem = MAX_SHARED_MEM_SIZE / dataElementSizeof;
     uint_t sortedBlockSize = min(min(dataLen, getMaxThreadsPerBlock() * 2), elementsPerSharedMem);
-    return 8;
+    return sortedBlockSize;
 }
 
 /*
@@ -67,7 +67,7 @@ void runBitonicSortKernel(data_t* data, uint_t dataLen, uint_t sortedBlockSize, 
     );
     error = cudaDeviceSynchronize();
     checkCudaError(error);
-    endStopwatch(timer, "Executing Bitonic sort Kernel");
+    //endStopwatch(timer, "Executing Bitonic sort Kernel");
 }
 
 /*
@@ -91,7 +91,7 @@ void runGenerateRanksKernel(data_t* data, uint_t* ranks, uint_t dataLen, uint_t 
     );
     error = cudaDeviceSynchronize();
     checkCudaError(error);
-    endStopwatch(timer, "Executing Generate ranks kernel");
+    //endStopwatch(timer, "Executing Generate ranks kernel");
 }
 
 /*
@@ -114,7 +114,7 @@ void runMergeKernel(data_t* inputData, data_t* outputData, uint_t* ranks, uint_t
     );
     error = cudaDeviceSynchronize();
     checkCudaError(error);
-    endStopwatch(timer, "Executing merge kernel");
+    //endStopwatch(timer, "Executing merge kernel");
 }
 
 data_t* sortParallel(data_t* inputDataHost, uint_t dataLen, bool orderAsc) {
@@ -150,7 +150,6 @@ data_t* sortParallel(data_t* inputDataHost, uint_t dataLen, bool orderAsc) {
         inputDataDevice = outputDataDevice;
         outputDataDevice = temp;
     }
-
     endStopwatch(timer, "\n\nExiecuting parallel Merge Sort");
 
     error = cudaMemcpy(outputDataHost, inputDataDevice, dataLen * sizeof(*outputDataHost),

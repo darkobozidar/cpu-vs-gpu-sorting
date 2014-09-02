@@ -31,7 +31,7 @@ int main(int argc, char** argv) {
     data_t* outputDataSequential;
     data_t* outputDataCorrect;
 
-    uint_t dataLen = 1 << 8;
+    uint_t dataLen = 1 << 12;
     bool orderAsc = true;  // TODO use this
     cudaError_t error;
 
@@ -46,14 +46,18 @@ int main(int argc, char** argv) {
 
     error = cudaHostAlloc(&inputData, dataLen * sizeof(*inputData), cudaHostAllocDefault);
     checkCudaError(error);
-    fillArrayRand(inputData, dataLen);
-    //fillArrayValue(inputData, dataLen, 5);
 
-    outputDataParallel = sortParallel(inputData, dataLen, orderAsc);
-    //printArray(outputDataParallel, dataLen);
+    for (int i = 0; i < 3; i++) {
+        fillArrayRand(inputData, dataLen);
+        //fillArrayValue(inputData, dataLen, 5);
+        //printArray(inputData, dataLen);
 
-    outputDataCorrect = sortCorrect(inputData, dataLen);
-    compareArrays(outputDataParallel, outputDataCorrect, dataLen);
+        outputDataParallel = sortParallel(inputData, dataLen, orderAsc);
+        //printArray(outputDataParallel, dataLen);
+
+        outputDataCorrect = sortCorrect(inputData, dataLen);
+        compareArrays(outputDataParallel, outputDataCorrect, dataLen);
+    }
 
     //cudaFreeHost(inputData);
     cudaFreeHost(outputDataParallel);

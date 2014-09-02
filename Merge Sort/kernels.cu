@@ -120,16 +120,6 @@ __device__ uint_t binarySearchRank(data_t* data, uint_t sortedBlockSize, uint_t 
             }
         }
 
-        uint_t bla = indexStart - offsetBlockOpposite * sortedBlockSize;
-
-        /*if (bla == 9) {
-            for (int i = iStart; i < iEnd; i++) {
-                printf("%d: %d, ", i, data[i]);
-            }
-
-            printf("\n\n%d\n\n", sample);
-        }*/
-
         return indexStart - offsetBlockOpposite * sortedBlockSize;
     }
 
@@ -159,19 +149,24 @@ __global__ void generateRanksKernel(data_t* data, uint_t* ranks, uint_t dataLen,
         ranksTile[tileIndex].sample = data[dataIndex];
         ranksTile[threadIdx.x].rank = tileIndex;
     }
+    __syncthreads();
 
     // TODO test on bigger tables
-    // TODO currently this sort is performed twice
     for (uint_t stride = subBlocksPerSortedBlock; stride > 0; stride /= 2) {
         __syncthreads();
-        uint_t threadIndex = threadIdx.x % (blockDim.x / 2);
-        uint_t sampleIndex = (2 * threadIndex - (threadIndex & (stride - 1)));
+        // Only half of the threads have to perform bitonic merge
+        if (threadIdx.x >= blockDim.x / 2) {
+            continue;
+        }
+
+        uint_t sampleIndex = (2 * threadIdx.x - (threadIdx.x & (stride - 1)));
 
         if (ranksTile[sampleIndex].sample > ranksTile[sampleIndex + stride].sample) {
             sample_el_t temp = ranksTile[sampleIndex];
             ranksTile[sampleIndex] = ranksTile[sampleIndex + stride];
             ranksTile[sampleIndex + stride] = temp;
-        } else if (ranksTile[sampleIndex].sample == ranksTile[sampleIndex + stride].sample && ranksTile[sampleIndex].rank > ranksTile[sampleIndex + stride].rank) {
+        }
+        else if (ranksTile[sampleIndex].sample == ranksTile[sampleIndex + stride].sample && ranksTile[sampleIndex].rank > ranksTile[sampleIndex + stride].rank) {
             sample_el_t temp = ranksTile[sampleIndex];
             ranksTile[sampleIndex] = ranksTile[sampleIndex + stride];
             ranksTile[sampleIndex + stride] = temp;
@@ -193,14 +188,17 @@ __global__ void generateRanksKernel(data_t* data, uint_t* ranks, uint_t dataLen,
     ranks[threadIdx.x + (!oddEvenOffset) * blockDim.x] = rankDataOpposite;
 
     /*__syncthreads();
-    printOnce("\n\n");
-    if (threadIdx.x >= 60) {
-        printf("%2d %2d: %d %d\n", threadIdx.x, sample, ranks[threadIdx.x], oddEvenOffset);
-        __syncthreads();
-        printOnce("\n");
-        printf("%2d %2d: %d %d\n", threadIdx.x, sample, ranks[threadIdx.x + blockDim.x], oddEvenOffset);
-        printOnce("\n\n");
-    }*/
+    printf("%2d %2d: %2d %d\n", threadIdx.x, sample, ranks[threadIdx.x], oddEvenOffset);
+    __syncthreads();
+    printOnce("\n");
+    printf("%2d %2d: %2d %d\n", threadIdx.x, sample, ranks[threadIdx.x + blockDim.x], oddEvenOffset);
+    printOnce("\n\n");*/
+}
+
+__global__ void printRanks(uint_t* ranks, uint_t ranksLen) {
+    for (int i = 0; i < ranksLen; i++) {
+        printf("%d, ", ranks[i]);
+    }
 }
 
 __device__ int binarySearchEven(data_t* dataTile, int indexStart, int indexEnd, uint_t target) {
@@ -210,8 +208,7 @@ __device__ int binarySearchEven(data_t* dataTile, int indexStart, int indexEnd, 
 
         if (target < currSample) {
             indexEnd = index - 1;
-        }
-        else {
+        } else {
             indexStart = index + 1;
         }
     }
@@ -226,8 +223,7 @@ __device__ int binarySearchOdd(data_t* dataTile, int indexStart, int indexEnd, u
 
         if (target <= currSample) {
             indexEnd = index - 1;
-        }
-        else {
+        } else {
             indexStart = index + 1;
         }
     }
@@ -253,7 +249,7 @@ __global__ void mergeKernel(data_t* inputData, data_t* outputData, uint_t* ranks
         indexStartOdd = 0;
     }
     // Read the END index for even and odd sub-blocks
-    if (blockIdx.x < sortedBlockSize / 2) {
+    if (blockIdx.x < gridDim.x - 1) {
         indexEndEven = ranks[indexRank];
         indexEndOdd = ranks[indexRank + ranksLen / 2];
     } else {
@@ -293,7 +289,9 @@ __global__ void mergeKernel(data_t* inputData, data_t* outputData, uint_t* ranks
 }
 
 /*if (blockIdx.x == 6 && blockIdx.y == 0 && threadIdx.x == 0) {
-printf("\n(%u, %u), (%u, %u)\n\n", indexStart1, indexEnd1, indexStart2, indexEnd2);
+if (gridDim.x >= 64 && threadIdx.x == 0) {
+printf("\n(%u, %u), (%u, %u)\n", indexStartEven, indexEndEven, indexStartOdd, indexEndOdd);
+}
 }*/
 
 /*if (blockIdx.x == 0 && blockIdx.y == 0) {

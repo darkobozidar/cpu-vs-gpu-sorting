@@ -7,4 +7,7 @@ __global__ void generateRanksKernel(data_t* table, uint_t* rankTable, uint_t tab
 __global__ void mergeKernel(data_t* inputDataTable, data_t* outputDataTable, uint_t* rankTable, uint_t tableLen,
                             uint_t rankTableLen, uint_t tableBlockSize, uint_t tableSubBlockSize);
 
+// TODO remove
+__global__ void printRanks(uint_t* ranks, uint_t ranksLen);
+
 #endif
