@@ -23,7 +23,7 @@ Returns the initial size of sorted sub-blocks.
 uint_t getInitSortedBlockSize(uint_t dataElementSizeof, uint_t dataLen) {
     uint_t elementsPerSharedMem = MAX_SHARED_MEM_SIZE / dataElementSizeof;
     uint_t sortedBlockSize = min(min(dataLen, getMaxThreadsPerBlock() * 2), elementsPerSharedMem);
-    return sortedBlockSize;
+    return 8;
 }
 
 /*

@@ -193,7 +193,7 @@ __device__ int binarySearchEven(data_t* dataTile, int indexStart, int indexEnd, 
         int index = (indexStart + indexEnd) / 2;
         data_t currSample = dataTile[index];
 
-        if (target < dataTile[index]) {
+        if (target < currSample) {
             indexEnd = index - 1;
         }
         else {
@@ -209,7 +209,7 @@ __device__ int binarySearchOdd(data_t* dataTile, int indexStart, int indexEnd, u
         int index = (indexStart + indexEnd) / 2;
         data_t currSample = dataTile[index];
 
-        if (target <= dataTile[index]) {
+        if (target <= currSample) {
             indexEnd = index - 1;
         }
         else {
@@ -223,11 +223,11 @@ __device__ int binarySearchOdd(data_t* dataTile, int indexStart, int indexEnd, u
 __global__ void mergeKernel(data_t* inputData, data_t* outputData, uint_t* ranks, uint_t dataLen,
                             uint_t ranksLen, uint_t sortedBlockSize, uint_t subBlockSize) {
     extern __shared__ data_t dataTile[];
-    uint_t indexRank = blockIdx.y * subBlockSize + blockIdx.x;
+    uint_t indexRank = blockIdx.y * (sortedBlockSize / 2) + blockIdx.x;
     uint_t indexSortedBlock = blockIdx.y * 2 * sortedBlockSize;
     uint_t indexStartEven, indexStartOdd, indexEndEven, indexEndOdd;
-    uint_t numElementsEven, numElementsOdd;
     uint_t offsetEven, offsetOdd;
+    uint_t numElementsEven, numElementsOdd;
 
     // Read the START index for even and odd sub-blocks
     if (blockIdx.x > 0) {
@@ -238,7 +238,7 @@ __global__ void mergeKernel(data_t* inputData, data_t* outputData, uint_t* ranks
         indexStartOdd = 0;
     }
     // Read the END index for even and odd sub-blocks
-    if (blockIdx.x < sortedBlockSize / 2 && indexRank < sortedBlockSize * 2) {
+    if (blockIdx.x < sortedBlockSize / 2) {
         indexEndEven = ranks[indexRank];
         indexEndOdd = ranks[indexRank + ranksLen / 2];
     } else {
@@ -273,7 +273,7 @@ __global__ void mergeKernel(data_t* inputData, data_t* outputData, uint_t* ranks
         uint_t rankEven = binarySearchEven(dataTile, 0, numElementsEven - 1,
                                            dataTile[subBlockSize + threadIdx.x]);
         rankEven += indexStartEven;
-        outputData[offsetOdd + rankEven] = dataTile[threadIdx.x + subBlockSize];
+        outputData[offsetOdd + rankEven] = dataTile[subBlockSize + threadIdx.x];
     }
 }
 
