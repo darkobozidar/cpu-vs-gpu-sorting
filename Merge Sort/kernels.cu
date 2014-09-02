@@ -150,7 +150,6 @@ __global__ void generateRanksKernel(data_t* data, uint_t* ranks, uint_t dataLen,
         ranksTile[threadIdx.x].rank = tileIndex;
     }
 
-    // TODO test on bigger tables
     for (uint_t stride = subBlocksPerSortedBlock; stride > 0; stride /= 2) {
         __syncthreads();
         // Only half of the threads have to perform bitonic merge
@@ -159,16 +158,12 @@ __global__ void generateRanksKernel(data_t* data, uint_t* ranks, uint_t dataLen,
         }
 
         uint_t sampleIndex = (2 * threadIdx.x - (threadIdx.x & (stride - 1)));
+        sample_el_t left = ranksTile[sampleIndex];
+        sample_el_t right = ranksTile[sampleIndex + stride];
 
-        if (ranksTile[sampleIndex].sample > ranksTile[sampleIndex + stride].sample) {
-            sample_el_t temp = ranksTile[sampleIndex];
-            ranksTile[sampleIndex] = ranksTile[sampleIndex + stride];
-            ranksTile[sampleIndex + stride] = temp;
-        }
-        else if (ranksTile[sampleIndex].sample == ranksTile[sampleIndex + stride].sample && ranksTile[sampleIndex].rank > ranksTile[sampleIndex + stride].rank) {
-            sample_el_t temp = ranksTile[sampleIndex];
-            ranksTile[sampleIndex] = ranksTile[sampleIndex + stride];
-            ranksTile[sampleIndex + stride] = temp;
+        if (left.sample > right.sample || left.sample == right.sample && left.rank > right.rank) {
+            ranksTile[sampleIndex] = right;
+            ranksTile[sampleIndex + stride] = left;
         }
     }
 
@@ -194,18 +189,11 @@ __global__ void generateRanksKernel(data_t* data, uint_t* ranks, uint_t dataLen,
     printOnce("\n\n");*/
 }
 
-__global__ void printRanks(uint_t* ranks, uint_t ranksLen) {
-    for (int i = 0; i < ranksLen; i++) {
-        printf("%d, ", ranks[i]);
-    }
-}
-
 __device__ int binarySearchEven(data_t* dataTile, int indexStart, int indexEnd, uint_t target) {
     while (indexStart <= indexEnd) {
         int index = (indexStart + indexEnd) / 2;
-        data_t currSample = dataTile[index];
 
-        if (target < currSample) {
+        if (target < dataTile[index]) {
             indexEnd = index - 1;
         } else {
             indexStart = index + 1;
@@ -218,9 +206,8 @@ __device__ int binarySearchEven(data_t* dataTile, int indexStart, int indexEnd, 
 __device__ int binarySearchOdd(data_t* dataTile, int indexStart, int indexEnd, uint_t target) {
     while (indexStart <= indexEnd) {
         int index = (indexStart + indexEnd) / 2;
-        data_t currSample = dataTile[index];
 
-        if (target <= currSample) {
+        if (target <= dataTile[index]) {
             indexEnd = index - 1;
         } else {
             indexStart = index + 1;

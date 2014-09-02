@@ -146,7 +146,7 @@ data_t* sortParallel(data_t* inputDataHost, uint_t dataLen, bool orderAsc) {
         inputDataDevice = outputDataDevice;
         outputDataDevice = temp;
     }
-    endStopwatch(timer, "\n\nExiecuting parallel Merge Sort");
+    endStopwatch(timer, "Executing parallel Merge Sort");
 
     error = cudaMemcpy(outputDataHost, inputDataDevice, dataLen * sizeof(*outputDataHost),
                        cudaMemcpyDeviceToHost);
