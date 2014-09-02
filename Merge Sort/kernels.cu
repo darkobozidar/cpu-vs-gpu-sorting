@@ -220,115 +220,79 @@ __device__ int binarySearchOdd(data_t* dataTile, int indexStart, int indexEnd, u
     return indexStart;
 }
 
-__global__ void mergeKernel(data_t* inputDataTable, data_t* outputDataTable, uint_t* rankTable, uint_t tableLen,
-                            uint_t rankTableLen, uint_t tableBlockSize, uint_t tableSubBlockSize) {
+__global__ void mergeKernel(data_t* inputData, data_t* outputData, uint_t* ranks, uint_t dataLen,
+                            uint_t ranksLen, uint_t sortedBlockSize, uint_t subBlockSize) {
     extern __shared__ data_t dataTile[];
-    uint_t indexRank = blockIdx.y * tableSubBlockSize + blockIdx.x;
-    uint_t dataOffset = blockIdx.y * 2 * tableBlockSize;
-    uint_t indexStart1, indexStart2, indexEnd1, indexEnd2;
-    uint_t index1, index2, rank1, rank2;
-    uint_t offset1, offset2;
-    uint_t numOfElements1, numOfElements2;
+    uint_t indexRank = blockIdx.y * subBlockSize + blockIdx.x;
+    uint_t indexSortedBlock = blockIdx.y * 2 * sortedBlockSize;
+    uint_t indexStartEven, indexStartOdd, indexEndEven, indexEndOdd;
+    uint_t numElementsEven, numElementsOdd;
+    uint_t offsetEven, offsetOdd;
 
-    // TODO read in coalasced way
+    // Read the START index for even and odd sub-blocks
     if (blockIdx.x > 0) {
-        indexStart1 = rankTable[indexRank - 1];
-        indexStart2 = rankTable[(indexRank - 1) + rankTableLen / 2];
+        indexStartEven = ranks[indexRank - 1];
+        indexStartOdd = ranks[(indexRank - 1) + ranksLen / 2];
     } else {
-        indexStart1 = 0;
-        indexStart2 = 0;
+        indexStartEven = 0;
+        indexStartOdd = 0;
     }
-
-    if (blockIdx.x < tableBlockSize / 2 && indexRank < tableBlockSize * 2) {
-        indexEnd1 = rankTable[indexRank];
-        indexEnd2 = rankTable[indexRank + rankTableLen / 2];
+    // Read the END index for even and odd sub-blocks
+    if (blockIdx.x < sortedBlockSize / 2 && indexRank < sortedBlockSize * 2) {
+        indexEndEven = ranks[indexRank];
+        indexEndOdd = ranks[indexRank + ranksLen / 2];
     } else {
-        indexEnd1 = tableBlockSize;
-        indexEnd2 = tableBlockSize;
+        indexEndEven = sortedBlockSize;
+        indexEndOdd = sortedBlockSize;
     }
 
-    numOfElements1 = indexEnd1 - indexStart1;
-    numOfElements2 = indexEnd2 - indexStart2;
-    offset1 = dataOffset + indexStart1;
-    offset2 = dataOffset + tableBlockSize + indexStart2;
+    numElementsEven = indexEndEven - indexStartEven;
+    numElementsOdd = indexEndOdd - indexStartOdd;
 
-    /*if (blockIdx.x == 6 && blockIdx.y == 0 && threadIdx.x == 0) {
-        printf("\n(%u, %u), (%u, %u)\n\n", indexStart1, indexEnd1, indexStart2, indexEnd2);
-    }*/
+    // Read data for sub-block in EVEN sorted block
+    if (threadIdx.x < numElementsEven) {
+        offsetEven = indexSortedBlock + indexStartEven + threadIdx.x;
+        dataTile[threadIdx.x] = inputData[offsetEven];
+    }
+    // Read data for sub-block in ODD sorted block
+    if (threadIdx.x < numElementsOdd) {
+        offsetOdd = indexSortedBlock + indexStartOdd + threadIdx.x;
+        dataTile[subBlockSize + threadIdx.x] = inputData[offsetOdd + sortedBlockSize];
+    }
 
-    if (threadIdx.x < numOfElements1) {
-        index1 = offset1 + threadIdx.x;
-        dataTile[threadIdx.x] = inputDataTable[index1];
-    }
-    if (threadIdx.x < numOfElements2) {
-        index2 = offset2 + threadIdx.x;
-        dataTile[threadIdx.x + tableSubBlockSize] = inputDataTable[index2];
-    }
     __syncthreads();
-
-    if (threadIdx.x < numOfElements1) {
-        /*if (blockIdx.x == 0 && blockIdx.y == 0) {
-            printf("thread: %d\n", threadIdx.x);
-            printf("Search Interval: [%d, %d], target: %d\n", tableSubBlockSize, tableSubBlockSize + numOfElements2 - 1, dataTile[threadIdx.x]);
-            rank1 = binarySearchOdd(dataTile, tableSubBlockSize, tableSubBlockSize + numOfElements2 - 1, dataTile[threadIdx.x]);
-            rank1 = rank1 - tableSubBlockSize + indexStart2;
-            printf("index: %d, rank: %d\n", dataOffset + indexStart1 + threadIdx.x, rank1);
-        }*/
-
-        rank1 = binarySearchOdd(dataTile, tableSubBlockSize, tableSubBlockSize + numOfElements2 - 1, dataTile[threadIdx.x]);
-        rank1 = rank1 - tableSubBlockSize + indexStart2;
-        outputDataTable[dataOffset + indexStart1 + threadIdx.x + rank1] = dataTile[threadIdx.x];
+    // Search for ranks in ODD sub-block for all elements in EVEN sub-block
+    if (threadIdx.x < numElementsEven) {
+        uint_t rankOdd = binarySearchOdd(dataTile, subBlockSize, subBlockSize + numElementsOdd - 1,
+                                         dataTile[threadIdx.x]);
+        rankOdd = rankOdd - subBlockSize + indexStartOdd;
+        outputData[offsetEven + rankOdd] = dataTile[threadIdx.x];
     }
-    if (threadIdx.x < numOfElements2) {
-        /*if (blockIdx.x == 0 && blockIdx.y == 0) {
-            printf("thread: %d\n", threadIdx.x);
-            printf("Search Interval: [%d, %d], target: %d\n", 0, numOfElements1 - 1, dataTile[threadIdx.x + tableSubBlockSize]);
-            rank2 = binarySearchEven(dataTile, 0, numOfElements1 - 1, dataTile[threadIdx.x + tableSubBlockSize]);
-            rank2 += indexStart1;
-            printf("index: %d, rank: %d\n", dataOffset + indexStart2 + threadIdx.x, rank2);
-        }*/
-
-        rank2 = binarySearchEven(dataTile, 0, numOfElements1 - 1, dataTile[threadIdx.x + tableSubBlockSize]);
-        rank2 += indexStart1;
-        outputDataTable[dataOffset + indexStart2 + threadIdx.x + rank2] = dataTile[threadIdx.x + tableSubBlockSize];
+    // Search for ranks in EVEN sub-block for all elements in ODD sub-block
+    if (threadIdx.x < numElementsOdd) {
+        uint_t rankEven = binarySearchEven(dataTile, 0, numElementsEven - 1,
+                                           dataTile[subBlockSize + threadIdx.x]);
+        rankEven += indexStartEven;
+        outputData[offsetOdd + rankEven] = dataTile[threadIdx.x + subBlockSize];
     }
 }
 
-/*
-Old bitonic sorti implementation.
-*/
-//__global__ void bitonicSortKernel(data_t* data, uint_t dataLen, uint_t sortedBlockSize, bool orderAsc) {
-//    extern __shared__ data_t tile[];
-//    uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
-//    uint_t numStages = ceil(log2((double)sortedBlockSize));
-//
-//    if (index < dataLen) {
-//        tile[threadIdx.x] = data[index];
-//    }
-//    if (index + blockDim.x < dataLen) {
-//        tile[threadIdx.x + blockDim.x] = data[index + blockDim.x];
-//    }
-//
-//    for (uint_t stage = 0; stage < numStages; stage++) {
-//        for (uint_t pass = 0; pass <= stage; pass++) {
-//            __syncthreads();
-//
-//            uint_t pairDistance = 1 << (stage - pass);
-//            uint_t blockWidth = 2 * pairDistance;
-//            uint_t direction = ((threadIdx.x >> stage) & 0x1) ^ orderAsc;
-//            uint_t leftId = (threadIdx.x & (pairDistance - 1)) + (threadIdx.x >> (stage - pass)) * blockWidth;
-//            uint_t rightId = leftId + pairDistance;
-//
-//            compareExchange(&tile[leftId], &tile[rightId], direction);
-//        }
-//    }
-//
-//    __syncthreads();
-//
-//    if (index < dataLen) {
-//        data[index] = tile[threadIdx.x];
-//    }
-//    if (index + blockDim.x < dataLen) {
-//        data[index + blockDim.x] = tile[threadIdx.x + blockDim.x];
-//    }
-//}
+/*if (blockIdx.x == 6 && blockIdx.y == 0 && threadIdx.x == 0) {
+printf("\n(%u, %u), (%u, %u)\n\n", indexStart1, indexEnd1, indexStart2, indexEnd2);
+}*/
+
+/*if (blockIdx.x == 0 && blockIdx.y == 0) {
+printf("thread: %d\n", threadIdx.x);
+printf("Search Interval: [%d, %d], target: %d\n", tableSubBlockSize, tableSubBlockSize + numOfElements2 - 1, dataTile[threadIdx.x]);
+rank1 = binarySearchOdd(dataTile, tableSubBlockSize, tableSubBlockSize + numOfElements2 - 1, dataTile[threadIdx.x]);
+rank1 = rank1 - tableSubBlockSize + indexStart2;
+printf("index: %d, rank: %d\n", dataOffset + indexStart1 + threadIdx.x, rank1);
+}*/
+
+/*if (blockIdx.x == 0 && blockIdx.y == 0) {
+printf("thread: %d\n", threadIdx.x);
+printf("Search Interval: [%d, %d], target: %d\n", 0, numOfElements1 - 1, dataTile[threadIdx.x + tableSubBlockSize]);
+rank2 = binarySearchEven(dataTile, 0, numOfElements1 - 1, dataTile[threadIdx.x + tableSubBlockSize]);
+rank2 += indexStart1;
+printf("index: %d, rank: %d\n", dataOffset + indexStart2 + threadIdx.x, rank2);
+}*/
