@@ -86,19 +86,23 @@ __global__ void bitonicSortKernel(data_t* data, uint_t dataLen, uint_t sortedBlo
     }
 }
 
-__device__ uint_t binarySearch(data_t* data, sample_el_t* ranksTile, uint_t sortedBlockSize, uint_t mergedBlockSize) {
-    uint_t rank = ranksTile[threadIdx.x].rank;
-    uint_t sample = ranksTile[threadIdx.x].sample;
-    uint_t mergedPerSorted = sortedBlockSize / mergedBlockSize;
-    uint_t mergedPerMergedSorted = 2 * mergedPerSorted;
+/*
+Binary search, which return rank in the opposite sub-block of specified sample.
+*/
+__device__ uint_t binarySearchRank(data_t* data, uint_t sortedBlockSize, uint_t subBlockSize,
+                                   uint_t rank, uint_t sample) {
+    uint_t subBlocksPerSortedBlock = sortedBlockSize / subBlockSize;
+    uint_t subBlocksPerMergedBlock = 2 * subBlocksPerSortedBlock;
 
-    // Offset to current merged group of sorted blocks + offset to odd / even block
-    uint_t offsetBlockOpposite = (rank / mergedPerMergedSorted) * 2 + !((rank % mergedPerMergedSorted) / mergedPerSorted);
+    // Offset to current merged group of sorted blocks...
+    uint_t offsetBlockOpposite = (rank / subBlocksPerMergedBlock) * 2;
+    // ... + offset to odd / even block
+    offsetBlockOpposite += !((rank % subBlocksPerMergedBlock) / subBlocksPerSortedBlock);
     // Calculate the rank in opposite block
-    uint_t offsetSubBlockOpposite = threadIdx.x % mergedPerMergedSorted - rank % mergedPerSorted - 1;
+    uint_t offsetSubBlockOpposite = threadIdx.x % subBlocksPerMergedBlock - rank % subBlocksPerSortedBlock - 1;
 
-    uint_t indexStart = offsetBlockOpposite * sortedBlockSize + offsetSubBlockOpposite * mergedBlockSize + 1;
-    uint_t indexEnd = indexStart + mergedBlockSize - 2;
+    uint_t indexStart = offsetBlockOpposite * sortedBlockSize + offsetSubBlockOpposite * subBlockSize + 1;
+    uint_t indexEnd = indexStart + subBlockSize - 2;
 
     // Has to be explicitly converted to int, because it can be negative
     if ((int_t)(indexStart - offsetBlockOpposite * sortedBlockSize) >= 0) {
@@ -120,21 +124,21 @@ __device__ uint_t binarySearch(data_t* data, sample_el_t* ranksTile, uint_t sort
 }
 
 __global__ void generateRanksKernel(data_t* data, uint_t* ranks, uint_t dataLen, uint_t sortedBlockSize,
-                                    uint_t mergedBlockSize) {
+                                    uint_t subBlockSize) {
     extern __shared__ sample_el_t ranksTile[];
 
-    uint_t mergedPerSorted = sortedBlockSize / mergedBlockSize;
-    uint_t indexSortedBlock = threadIdx.x / mergedPerSorted;
-    //uint_t subBlocksPerBlock = tableBlockSize / tableSubBlockSize;
-    //uint_t subBlocksPerMergedBlock = 2 * subBlocksPerBlock;
+    uint_t subBlocksPerSortedBlock = sortedBlockSize / subBlockSize;
+    uint_t subBlocksPerMergedBlock = 2 * subBlocksPerSortedBlock;
+    uint_t indexSortedBlock = threadIdx.x / subBlocksPerSortedBlock;
 
-    uint_t dataIndex = blockIdx.x * (blockDim.x * mergedBlockSize) + threadIdx.x * mergedBlockSize;
+    uint_t dataIndex = blockIdx.x * (blockDim.x * subBlockSize) + threadIdx.x * subBlockSize;
     // Offset to correct sorted block
-    uint_t tileIndex = indexSortedBlock * mergedPerSorted;
+    uint_t tileIndex = indexSortedBlock * subBlocksPerSortedBlock;
     // Offset for sub-block index inside block for ODD block
-    tileIndex += ((indexSortedBlock % 2 == 0) * threadIdx.x) % mergedPerSorted;
+    tileIndex += ((indexSortedBlock % 2 == 0) * threadIdx.x) % subBlocksPerSortedBlock;
     // Offset for sub-block index inside block for EVEN block (index has to be reversed)
-    tileIndex += ((indexSortedBlock % 2 == 1) * (mergedPerSorted - (threadIdx.x + 1))) % mergedPerSorted;
+    tileIndex += ((indexSortedBlock % 2 == 1) * (subBlocksPerSortedBlock - (threadIdx.x + 1)))
+                  % subBlocksPerSortedBlock;
 
     // Read the samples from global memory in to shared memory in such a way, to get a bitonic
     // sequence of samples
@@ -146,7 +150,7 @@ __global__ void generateRanksKernel(data_t* data, uint_t* ranks, uint_t dataLen,
     // Only first half of threads have to do the bitonic sort
     if (threadIdx.x < blockDim.x / 2) {
         // TODO test on bigger tables
-        for (uint_t stride = mergedPerSorted; stride > 0; stride /= 2) {
+        for (uint_t stride = subBlocksPerSortedBlock; stride > 0; stride /= 2) {
             __syncthreads();
             uint_t sampleIndex = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
 
@@ -164,21 +168,24 @@ __global__ void generateRanksKernel(data_t* data, uint_t* ranks, uint_t dataLen,
 
     // Calculate ranks of current and opposite sorted block in global table
     __syncthreads();
-    uint_t rankDataCurrent = (ranksTile[threadIdx.x].rank * mergedBlockSize % sortedBlockSize) + 1;
-    uint_t rankDataOpposite = binarySearch(data, ranksTile, sortedBlockSize, mergedBlockSize);
+    uint_t rank = ranksTile[threadIdx.x].rank;
+    uint_t sample = ranksTile[threadIdx.x].sample;
+    uint_t rankDataCurrent = (rank * subBlockSize % sortedBlockSize) + 1;
+    uint_t rankDataOpposite = binarySearchRank(data, sortedBlockSize, subBlockSize, rank, sample);
 
     __syncthreads();
-    uint_t oddEvenOffset = (ranksTile[threadIdx.x].rank / mergedPerSorted) % 2;
-    // TODO fix to write in coalesced way
-    // TODO comment odd even
+    // Check if rank came from odd or even sorted block
+    uint_t oddEvenOffset = (rank / subBlocksPerSortedBlock) % 2;
+    // Write ranks, which came from EVEN sorted blocks in FIRST half of table of ranks and
+    // write ranks, which came from ODD sorted blocks to SECOND half of ranks table
     ranks[threadIdx.x + oddEvenOffset * blockDim.x] = rankDataCurrent;
     ranks[threadIdx.x + (!oddEvenOffset) * blockDim.x] = rankDataOpposite;
 
-    printf("%2d: %d %d\n", ranksTile[threadIdx.x].sample, ranks[threadIdx.x], oddEvenOffset);
+    /*printf("%2d: %d %d\n", sample, ranks[threadIdx.x], oddEvenOffset);
     __syncthreads();
     printOnce("\n");
-    printf("%2d: %d %d\n", ranksTile[threadIdx.x].sample, ranks[threadIdx.x + blockDim.x], oddEvenOffset);
-    printOnce("\n\n");
+    printf("%2d: %d %d\n", sample, ranks[threadIdx.x + blockDim.x], oddEvenOffset);
+    printOnce("\n\n");*/
 }
 
 __device__ int binarySearchEven(data_t* dataTile, int indexStart, int indexEnd, uint_t target) {
@@ -245,7 +252,7 @@ __global__ void mergeKernel(data_t* inputDataTable, data_t* outputDataTable, uin
     offset1 = dataOffset + indexStart1;
     offset2 = dataOffset + tableBlockSize + indexStart2;
 
-   /* if (blockIdx.x == 6 && blockIdx.y == 0 && threadIdx.x == 0) {
+    /*if (blockIdx.x == 6 && blockIdx.y == 0 && threadIdx.x == 0) {
         printf("\n(%u, %u), (%u, %u)\n\n", indexStart1, indexEnd1, indexStart2, indexEnd2);
     }*/
 
