@@ -81,10 +81,9 @@ void runGenerateRanksKernel(data_t* tableDevice, uint_t* rankTable, uint_t table
     uint_t ranksPerSharedMem = MAX_SHARED_MEM_SIZE / sizeof(sample_el_t);
     uint_t numAllRanks = tableLen / mergedBlockSize;
     uint_t threadBlockSize = min(ranksPerSharedMem, numAllRanks);
-    uint_t mergedPerSorted = sortedBlockSize / mergedBlockSize;
 
     dim3 dimGrid((numAllRanks - 1) / threadBlockSize + 1, 1, 1);
-    dim3 dimBlock(mergedPerSorted * 2, threadBlockSize / (mergedPerSorted * 2), 1);
+    dim3 dimBlock(threadBlockSize, 1, 1);
 
     startStopwatch(&timer);
     generateRanksKernel<<<dimGrid, dimBlock, threadBlockSize * sizeof(sample_el_t)>>>(

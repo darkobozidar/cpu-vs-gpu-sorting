@@ -30,6 +30,22 @@ __host__ __device__ void compareExchange(data_t* elem1, data_t* elem2, bool orde
 }
 
 /*
+For debugging purposes only specified thread prints to console.
+*/
+__device__ void printOnce(char* text, uint_t threadIndex) {
+    if (threadIdx.x == threadIndex) {
+        printf(text);
+    }
+}
+
+/*
+For debugging purposes only thread 0 prints to console.
+*/
+__device__ void printOnce(char* text) {
+    printOnce(text, 0);
+}
+
+/*
 Sorts sub blocks of size sortedBlockSize with bitonic sort.
 */
 __global__ void bitonicSortKernel(data_t* data, uint_t dataLen, uint_t sortedBlockSize, bool orderAsc) {
@@ -70,112 +86,99 @@ __global__ void bitonicSortKernel(data_t* data, uint_t dataLen, uint_t sortedBlo
     }
 }
 
-__device__ uint_t calculateSampleIndex(uint_t tableBlockSize, uint_t tableSubBlockSize, bool firstHalf) {
-    // Thread index for first or second half of the sub-table
-    uint_t threadIdxX = threadIdx.x + (!firstHalf) * blockDim.x;
-    uint_t subBlocksPerBlock = tableBlockSize / tableSubBlockSize;
-    // Index of a block from which thread will read the sample
-    uint_t indexBlock = threadIdxX / subBlocksPerBlock;
-    // Offset to block (we devide and multiply with same value, to lose the offset to 
-    // sub-block inside last block)
-    uint_t index = indexBlock * subBlocksPerBlock;
-    // Offset for sub-block index inside block for ODD block
-    index += ((indexBlock % 2 == 0) * threadIdxX) % subBlocksPerBlock;
-    // Offset for sub-block index inside block for EVEN block (index has to be reversed)
-    index += ((indexBlock % 2 == 1) * (subBlocksPerBlock - (threadIdxX + 1))) % subBlocksPerBlock;
+__device__ uint_t binarySearch(data_t* data, sample_el_t* ranksTile, uint_t sortedBlockSize, uint_t mergedBlockSize) {
+    uint_t rank = ranksTile[threadIdx.x].rank;
+    uint_t sample = ranksTile[threadIdx.x].sample;
+    uint_t mergedPerSorted = sortedBlockSize / mergedBlockSize;
+    uint_t mergedPerMergedSorted = 2 * mergedPerSorted;
 
-    return index;
-}
+    // Offset to current merged group of sorted blocks + offset to odd / even block
+    uint_t offsetBlockOpposite = (rank / mergedPerMergedSorted) * 2 + !((rank % mergedPerMergedSorted) / mergedPerSorted);
+    // Calculate the rank in opposite block
+    uint_t offsetSubBlockOpposite = threadIdx.x % mergedPerMergedSorted - rank % mergedPerSorted - 1;
 
-__device__ uint_t binarySearch(data_t* table, sample_el_t* sampleTile, uint_t tableBlockSize, uint_t tableSubBlockSize, bool firstHalf) {
-    uint_t threadIdxX = threadIdx.x + (!firstHalf) * blockDim.x;
-    uint_t rank = sampleTile[threadIdxX].rank;
-    uint_t sample = sampleTile[threadIdxX].sample;
-    uint_t subBlocksPerBlock = tableBlockSize / tableSubBlockSize;
-    uint_t subBlocksPerMergedBlock = 2 * subBlocksPerBlock;
+    uint_t indexStart = offsetBlockOpposite * sortedBlockSize + offsetSubBlockOpposite * mergedBlockSize + 1;
+    uint_t indexEnd = indexStart + mergedBlockSize - 2;
 
-    uint_t oppositeBlockOffset = (rank / subBlocksPerMergedBlock) * 2 + !((rank % subBlocksPerMergedBlock) / subBlocksPerBlock);
-    uint_t oppositeSubBlockOffset = threadIdxX % subBlocksPerMergedBlock - rank % subBlocksPerBlock - 1;
-
-    // Samples shouldn't be considered
-    uint_t indexStart = oppositeBlockOffset * tableBlockSize + oppositeSubBlockOffset * tableSubBlockSize + 1;
-    uint_t indexEnd = indexStart + tableSubBlockSize - 2;
-
-    // Has to be explicitly converted to int, because it is unsigned
-    if (((int) (indexStart - oppositeBlockOffset * tableBlockSize)) >= 0) {
+    // Has to be explicitly converted to int, because it can be negative
+    if ((int_t)(indexStart - offsetBlockOpposite * sortedBlockSize) >= 0) {
         while (indexStart <= indexEnd) {
             uint_t index = (indexStart + indexEnd) / 2;
-            data_t currSample = table[index];
+            data_t currSample = data[index];
 
-            if (sample <= table[index]) {
+            if (sample <= currSample) {
                 indexEnd = index - 1;
-            }
-            else {
+            } else {
                 indexStart = index + 1;
             }
         }
 
-        return indexStart - oppositeBlockOffset * tableBlockSize;
+        return indexStart - offsetBlockOpposite * sortedBlockSize;
     }
 
     return 0;
 }
 
-__global__ void generateRanksKernel(data_t* table, uint_t* rankTable, uint_t tableLen, uint_t tableBlockSize, uint_t tableSubBlockSize) {
+__global__ void generateRanksKernel(data_t* data, uint_t* ranks, uint_t dataLen, uint_t sortedBlockSize,
+                                    uint_t mergedBlockSize) {
     extern __shared__ sample_el_t ranksTile[];
-    uint_t sharedMemIdx;
-    data_t value;
-    uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x * tableSubBlockSize;
 
+    uint_t mergedPerSorted = sortedBlockSize / mergedBlockSize;
+    uint_t indexSortedBlock = threadIdx.x / mergedPerSorted;
     //uint_t subBlocksPerBlock = tableBlockSize / tableSubBlockSize;
     //uint_t subBlocksPerMergedBlock = 2 * subBlocksPerBlock;
 
-    // Values are read in coalesced way...
-    if (index < tableLen) {
-        value = table[index];
+    uint_t dataIndex = blockIdx.x * (blockDim.x * mergedBlockSize) + threadIdx.x * mergedBlockSize;
+    // Offset to correct sorted block
+    uint_t tileIndex = indexSortedBlock * mergedPerSorted;
+    // Offset for sub-block index inside block for ODD block
+    tileIndex += ((indexSortedBlock % 2 == 0) * threadIdx.x) % mergedPerSorted;
+    // Offset for sub-block index inside block for EVEN block (index has to be reversed)
+    tileIndex += ((indexSortedBlock % 2 == 1) * (mergedPerSorted - (threadIdx.x + 1))) % mergedPerSorted;
+
+    // Read the samples from global memory in to shared memory in such a way, to get a bitonic
+    // sequence of samples
+    if (dataIndex < dataLen) {
+        ranksTile[tileIndex].sample = data[dataIndex];
+        ranksTile[threadIdx.x].rank = tileIndex;
     }
-    // ...and than reversed when added to shared memory
-    sharedMemIdx = calculateSampleIndex(tableBlockSize, tableSubBlockSize, true);
-    ranksTile[sharedMemIdx].sample = value;
-    ranksTile[threadIdx.x].rank = sharedMemIdx;
 
-    //if (threadIdx.x < blockDim.x / 2) {
-    //    for (uint_t stride = subBlocksPerBlock; stride > 0; stride /= 2) {
-    //        __syncthreads();
-    //        uint_t sampleIndex = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
+    // Only first half of threads have to do the bitonic sort
+    if (threadIdx.x < blockDim.x / 2) {
+        // TODO test on bigger tables
+        for (uint_t stride = mergedPerSorted; stride > 0; stride /= 2) {
+            __syncthreads();
+            uint_t sampleIndex = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
 
-    //        // TODO use max/min or conditional operator (or something else)
-    //        if (sampleTile[sampleIndex].sample > sampleTile[sampleIndex + stride].sample) {
-    //            sample_el_t temp = sampleTile[sampleIndex];
-    //            sampleTile[sampleIndex] = sampleTile[sampleIndex + stride];
-    //            sampleTile[sampleIndex + stride] = temp;
-    //        }
+            if (ranksTile[sampleIndex].sample > ranksTile[sampleIndex + stride].sample) {
+                sample_el_t temp = ranksTile[sampleIndex];
+                ranksTile[sampleIndex] = ranksTile[sampleIndex + stride];
+                ranksTile[sampleIndex + stride] = temp;
+            } else if (ranksTile[sampleIndex].sample == ranksTile[sampleIndex + stride].sample && ranksTile[sampleIndex].rank > ranksTile[sampleIndex + stride].rank) {
+                sample_el_t temp = ranksTile[sampleIndex];
+                ranksTile[sampleIndex] = ranksTile[sampleIndex + stride];
+                ranksTile[sampleIndex + stride] = temp;
+            }
+        }
+    }
 
-    //        if (sampleTile[sampleIndex].sample == sampleTile[sampleIndex + stride].sample && sampleTile[sampleIndex].rank > sampleTile[sampleIndex + stride].rank) {
-    //            sample_el_t temp = sampleTile[sampleIndex];
-    //            sampleTile[sampleIndex] = sampleTile[sampleIndex + stride];
-    //            sampleTile[sampleIndex + stride] = temp;
-    //        }
-    //    }
-    //}
-
-    //// TODO verify if all __syncthreads are needed
-    //__syncthreads();
-    //uint_t rank = (sampleTile[threadIdx.x].rank * tableSubBlockSize % tableBlockSize) + 1;
-    //uint_t oppositeRank = binarySearch(table, sampleTile, tableBlockSize, tableSubBlockSize, true);
-
-    //__syncthreads();
-    //uint_t oddEvenOffset = (sampleTile[threadIdx.x].rank / subBlocksPerBlock) % 2;
-    //// TODO fix to write in coalesced way
-    //// TODO comment odd even
-    //rankTable[threadIdx.x + oddEvenOffset * blockDim.x] = rank;
-    //rankTable[threadIdx.x + (!oddEvenOffset) * blockDim.x] = oppositeRank;
-
-    /*printf("%2d: %d %d\n", sampleTile[threadIdx.x].sample, rankTable[threadIdx.x], oddEvenOffset);
+    // Calculate ranks of current and opposite sorted block in global table
     __syncthreads();
-    printfOnce("\n");
-    printf("%2d: %d %d\n", sampleTile[threadIdx.x].sample, rankTable[threadIdx.x + blockDim.x], oddEvenOffset);
-    printfOnce("\n\n");*/
+    uint_t rankDataCurrent = (ranksTile[threadIdx.x].rank * mergedBlockSize % sortedBlockSize) + 1;
+    uint_t rankDataOpposite = binarySearch(data, ranksTile, sortedBlockSize, mergedBlockSize);
+
+    __syncthreads();
+    uint_t oddEvenOffset = (ranksTile[threadIdx.x].rank / mergedPerSorted) % 2;
+    // TODO fix to write in coalesced way
+    // TODO comment odd even
+    ranks[threadIdx.x + oddEvenOffset * blockDim.x] = rankDataCurrent;
+    ranks[threadIdx.x + (!oddEvenOffset) * blockDim.x] = rankDataOpposite;
+
+    printf("%2d: %d %d\n", ranksTile[threadIdx.x].sample, ranks[threadIdx.x], oddEvenOffset);
+    __syncthreads();
+    printOnce("\n");
+    printf("%2d: %d %d\n", ranksTile[threadIdx.x].sample, ranks[threadIdx.x + blockDim.x], oddEvenOffset);
+    printOnce("\n\n");
 }
 
 __device__ int binarySearchEven(data_t* dataTile, int indexStart, int indexEnd, uint_t target) {
