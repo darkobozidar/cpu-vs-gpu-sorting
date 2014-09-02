@@ -126,10 +126,13 @@ data_t* sortParallel(data_t* inputDataHost, uint_t dataLen, bool orderAsc) {
     uint_t sortedBlockSize = getInitSortedBlockSize(sizeof(*inputDataDevice), dataLen);
     uint_t subBlockSize = sortedBlockSize / 2;
     uint_t ranksLen = (dataLen / subBlockSize) * 2;
+    LARGE_INTEGER timer;
     cudaError_t error;
 
     memoryInit(inputDataHost, &outputDataHost, &inputDataDevice, &outputDataDevice,
                &ranksDevice, dataLen, ranksLen);
+
+    startStopwatch(&timer);
     runBitonicSortKernel(inputDataDevice, dataLen, sortedBlockSize, orderAsc);
 
     // TODO verify, if ALL (also up) device syncs are necessary
@@ -147,6 +150,8 @@ data_t* sortParallel(data_t* inputDataHost, uint_t dataLen, bool orderAsc) {
         inputDataDevice = outputDataDevice;
         outputDataDevice = temp;
     }
+
+    endStopwatch(timer, "\n\nExiecuting parallel Merge Sort");
 
     error = cudaMemcpy(outputDataHost, inputDataDevice, dataLen * sizeof(*outputDataHost),
                        cudaMemcpyDeviceToHost);

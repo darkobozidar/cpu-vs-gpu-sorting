@@ -73,6 +73,15 @@ void printArray(data_t* array, uint_t arrayLen) {
     printf("\n\n");
 }
 
+void printArray(data_t* array, uint_t startIndex, uint_t endIndex) {
+    for (uint_t i = startIndex; i <= endIndex; i++) {
+        char* separator = i == endIndex ? "" : ", ";
+        printf("%d%s", array[i], separator);
+    }
+
+    printf("\n\n");
+}
+
 data_t* copyArray(data_t* array, uint_t arrayLen) {
     data_t* arrayCopy = (data_t*)malloc(arrayLen * sizeof(*arrayCopy));
 
