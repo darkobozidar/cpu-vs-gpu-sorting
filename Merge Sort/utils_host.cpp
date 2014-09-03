@@ -41,21 +41,13 @@ void endStopwatch(LARGE_INTEGER start, char* comment) {
     endStopwatch(start, comment, NULL);
 }
 
-void fillArrayRand(data_t* table, uint_t tableLen, uint_t interval) {
+/*
+Keys are filled with random numbers and values are filled with consecutive naumbers.
+*/
+void fillTable(el_t *table, uint_t tableLen, uint_t interval) {
     for (uint_t i = 0; i < tableLen; i++) {
-        table[i] = rand() % interval;
-    }
-}
-
-void fillArrayConsecutive(data_t* table, uint_t tableLen) {
-    for (uint_t i = 0; i < tableLen; i++) {
-        table[i] = i;
-    }
-}
-
-void fillArrayValue(data_t* table, uint_t tableLen, data_t value) {
-    for (uint_t i = 0; i < tableLen; i++) {
-        table[i] = value;
+        table[i].key = rand() % interval;
+        table[i].val = i;
     }
 }
 
@@ -70,30 +62,20 @@ void compareArrays(data_t* array1, data_t* array2, uint_t arrayLen) {
     printf("Arrays are the same.\n");
 }
 
-void printArray(data_t* array, uint_t arrayLen) {
-    for (uint_t i = 0; i < arrayLen; i++) {
-        char* separator = i == arrayLen - 1 ? "" : ", ";
-        printf("%d%s", array[i], separator);
-    }
-
-    printf("\n\n");
-}
-
-void printArray(data_t* array, uint_t startIndex, uint_t endIndex) {
+void printTable(el_t *table, uint_t startIndex, uint_t endIndex) {
     for (uint_t i = startIndex; i <= endIndex; i++) {
         char* separator = i == endIndex ? "" : ", ";
-        printf("%d%s", array[i], separator);
+        printf("%d%s", table[i].key, separator);
     }
+    printf("\n\n");
 
+    for (uint_t i = startIndex; i <= endIndex; i++) {
+        char* separator = i == endIndex ? "" : ", ";
+        printf("%d%s", table[i].val, separator);
+    }
     printf("\n\n");
 }
 
-data_t* copyArray(data_t* array, uint_t arrayLen) {
-    data_t* arrayCopy = (data_t*)malloc(arrayLen * sizeof(*arrayCopy));
-
-    for (int i = 0; i < arrayLen; i++) {
-        arrayCopy[i] = array[i];
-    }
-
-    return arrayCopy;
+void printTable(el_t *table, uint_t tableLen) {
+    printTable(table, 0, tableLen - 1);
 }

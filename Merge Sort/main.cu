@@ -16,9 +16,9 @@
 
 int main(int argc, char** argv) {
     // Rename array to table everywhere in code
-    data_t *h_inputKeys, *h_inputVals, *h_outputKeys, *h_outputVals;
+    el_t *h_input, *h_output;
 
-    uint_t arrayLen = 1 << 3;
+    uint_t tableLen = 1 << 3;
     uint_t interval = 5;
     bool orderAsc = true;  // TODO use this
     cudaError_t error;
@@ -26,21 +26,14 @@ int main(int argc, char** argv) {
     cudaFree(NULL);  // Initializes CUDA, because CUDA init is lazy
     srand(time(NULL));
 
-    error = cudaHostAlloc(&h_inputKeys, arrayLen * sizeof(*h_inputKeys), cudaHostAllocDefault);
+    error = cudaHostAlloc(&h_input, tableLen * sizeof(*h_input), cudaHostAllocDefault);
     checkCudaError(error);
-    error = cudaHostAlloc(&h_inputVals, arrayLen * sizeof(*h_inputVals), cudaHostAllocDefault);
+    error = cudaHostAlloc(&h_output, tableLen * sizeof(*h_output), cudaHostAllocDefault);
     checkCudaError(error);
-    error = cudaHostAlloc(&h_outputKeys, arrayLen * sizeof(*h_outputKeys), cudaHostAllocDefault);
-    checkCudaError(error);
-    error = cudaHostAlloc(&h_outputVals, arrayLen * sizeof(*h_outputVals), cudaHostAllocDefault);
-    checkCudaError(error);
+    fillTable(h_input, tableLen, interval);
 
-    fillArrayRand(h_inputKeys, arrayLen, interval);
-    fillArrayConsecutive(h_inputVals, arrayLen);
-
-    sortParallel(h_inputKeys, h_inputVals, h_outputKeys, h_outputVals, arrayLen, orderAsc);
-    printArray(h_outputKeys, arrayLen);
-    printArray(h_outputVals, arrayLen);
+    sortParallel(h_input, h_output, tableLen, orderAsc);
+    printTable(h_output, tableLen);
 
     //outputDataCorrect = sortCorrect(inputData, dataLen);
     //compareArrays(outputDataParallel, outputDataCorrect, dataLen);

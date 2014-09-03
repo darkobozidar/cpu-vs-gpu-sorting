@@ -13,56 +13,36 @@
 
 
 /*
-Returns the initial size of sorted sub-blocks.
-
-- If table length is lower than max threads per block (every thread loads 2 elements in initial
-  bitonic sort kernel), than fewer threads (and steps) are needed for bitonic sort
-- If data type used is big (for example double), than only limited ammount of data can be saved
-  into shared memory
-*/
-uint_t getInitSortedBlockSize(uint_t dataElementSizeof, uint_t dataLen) {
-    uint_t elementsPerSharedMem = MAX_SHARED_MEM_SIZE / dataElementSizeof;
-    uint_t sortedBlockSize = min(min(dataLen, getMaxThreadsPerBlock() * 2), elementsPerSharedMem);
-    return sortedBlockSize;
-}
-
-/*
 Initializes memory needed for parallel implementation of merge sort.
 */
-void memoryInit(data_t *h_inputKeys, data_t *h_inputVals, data_t **d_inputKeys, data_t **d_inputVals,
-                data_t **d_outputKeys, data_t **d_outputVals, uint_t arrayLen) {
+void memoryInit(el_t *h_input, el_t **d_input, el_t **d_output, el_t **d_buffer, uint_t tableLen) {
     cudaError_t error;
 
-    error = cudaMalloc(d_inputKeys, arrayLen * sizeof(*d_inputKeys));
+    error = cudaMalloc(d_input, tableLen * sizeof(**d_input));
     checkCudaError(error);
-    error = cudaMalloc(d_inputVals, arrayLen * sizeof(*d_inputVals));
+    error = cudaMalloc(d_output, tableLen * sizeof(**d_output));
     checkCudaError(error);
-    error = cudaMalloc(d_outputKeys, arrayLen * sizeof(*d_outputKeys));
-    checkCudaError(error);
-    error = cudaMalloc(d_outputVals, arrayLen * sizeof(*d_outputVals));
+    error = cudaMalloc(d_buffer, tableLen * sizeof(**d_buffer));
     checkCudaError(error);
 
-    error = cudaMemcpy(*d_inputKeys, h_inputKeys, arrayLen * sizeof(*d_inputKeys), cudaMemcpyHostToDevice);
-    checkCudaError(error);
-    error = cudaMemcpy(*d_inputVals, h_inputVals, arrayLen * sizeof(*d_inputVals), cudaMemcpyHostToDevice);
+    error = cudaMemcpy(*d_input, h_input, tableLen * sizeof(**d_input), cudaMemcpyHostToDevice);
     checkCudaError(error);
 }
 
 /*
 Sorts data blocks of size sortedBlockSize with bitonic sort.
 */
-void runBitonicSortKernel(data_t *d_inputKeys, data_t *d_inputVals, data_t *d_outputKeys, data_t *d_outputVals,
-                          uint_t arrayLen, bool orderAsc) {
+void runBitonicSortKernel(el_t *input, el_t *output, uint_t tableLen, bool orderAsc) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
-    uint_t sharedMemSize = min(arrayLen, MAX_SHARED_MEM_SIZE);
-    dim3 dimGrid((arrayLen - 1) / sharedMemSize + 1, 1, 1);
+    uint_t sharedMemSize = min(tableLen, MAX_SHARED_MEM_SIZE);
+    dim3 dimGrid((tableLen - 1) / sharedMemSize + 1, 1, 1);
     dim3 dimBlock(sharedMemSize / 2, 1, 1);
 
     startStopwatch(&timer);
-    bitonicSortKernel<<<dimGrid, dimBlock, 2 * sharedMemSize * sizeof(*d_inputKeys)>>>(
-        d_inputKeys, d_inputVals, d_outputKeys, d_outputVals, orderAsc
+    bitonicSortKernel<<<dimGrid, dimBlock, sharedMemSize * sizeof(*input)>>>(
+        input, output, orderAsc
     );
     error = cudaDeviceSynchronize();
     checkCudaError(error);
@@ -116,14 +96,12 @@ void runMergeKernel(data_t* inputData, data_t* outputData, uint_t* ranks, uint_t
     //endStopwatch(timer, "Executing merge kernel");
 }
 
-void sortParallel(data_t *h_inputKeys, data_t *h_inputVals, data_t *h_outputKeys, data_t *h_outputVals,
-                  uint_t arrayLen, bool orderAsc) {
-    data_t *d_inputKeys, *d_inputVals, *d_outputKeys, *d_outputVals;
+void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc) {
+    el_t *d_input, *d_output, *d_buffer;
     cudaError_t error;
 
-    memoryInit(h_inputKeys, h_inputVals, &d_inputKeys, &d_inputVals, &d_outputKeys, &d_outputVals, arrayLen);
-
-    runBitonicSortKernel(d_inputKeys, d_inputVals, d_outputKeys, d_outputVals, arrayLen, orderAsc);
+    memoryInit(h_input, &d_input, &d_output, &d_buffer, tableLen);
+    runBitonicSortKernel(d_input, d_output, tableLen, orderAsc);
 
     //// TODO verify, if ALL (also up) device syncs are necessary
     //for (; sortedBlockSize < dataLen; sortedBlockSize *= 2) {
@@ -137,9 +115,7 @@ void sortParallel(data_t *h_inputKeys, data_t *h_inputVals, data_t *h_outputKeys
     //    outputDataDevice = temp;
     //}
 
-    error = cudaMemcpy(h_outputKeys, d_outputKeys, arrayLen * sizeof(*h_outputKeys), cudaMemcpyDeviceToHost);
-    checkCudaError(error);
-    error = cudaMemcpy(h_outputVals, d_outputVals, arrayLen * sizeof(*h_outputVals), cudaMemcpyDeviceToHost);
+    error = cudaMemcpy(h_output, d_output, tableLen * sizeof(*h_output), cudaMemcpyDeviceToHost);
     checkCudaError(error);
 
     //return outputDataHost;
