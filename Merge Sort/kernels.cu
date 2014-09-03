@@ -12,20 +12,19 @@
 
 
 /*
-Compare function for sort.
-*/
-__host__ __device__ int_t compare(const void* elem1, const void* elem2) {
-    return (*(data_t*)elem1 - *(data_t*)elem2);
-}
-
-/*
 Compares 2 elements with compare function and exchanges them according to orderAsc.
 */
-__host__ __device__ void compareExchange(data_t* elem1, data_t* elem2, bool orderAsc) {
-    if ((compare(elem1, elem2) < 0) ^ orderAsc) {
-        data_t temp = *elem1;
-        *elem1 = *elem2;
-        *elem2 = temp;
+__host__ __device__ void compareExchange(data_t *key1, data_t *key2, data_t *val1, data_t *val2, bool orderAsc) {
+    if ((*key1 <= *key2) ^ orderAsc) {
+        data_t temp;
+
+        temp = *key1;
+        *key1 = *key2;
+        *key2 = temp;
+
+        temp = *val1;
+        *val1 = *val2;
+        *val2 = temp;
     }
 }
 
@@ -46,44 +45,43 @@ __device__ void printOnce(char* text) {
 }
 
 /*
-Sorts sub blocks of size sortedBlockSize with bitonic sort.
+Sorts sub blocks of input data with bitonic sort.
 */
-__global__ void bitonicSortKernel(data_t* data, uint_t dataLen, uint_t sortedBlockSize, bool orderAsc) {
+__global__ void bitonicSortKernel(data_t *d_inputKeys, data_t *d_inputVals, data_t *d_outputKeys,
+                                  data_t *d_outputVals, bool orderAsc) {
     extern __shared__ data_t sortTile[];
     uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
 
-    if (index < dataLen) {
-        sortTile[threadIdx.x] = data[index];
-    }
-    if (index + blockDim.x < dataLen) {
-        sortTile[threadIdx.x + blockDim.x] = data[index + blockDim.x];
-    }
+    // Load keys and values
+    sortTile[0 * blockDim.x + threadIdx.x] = d_inputKeys[index];
+    sortTile[1 * blockDim.x + threadIdx.x] = d_inputKeys[index + blockDim.x];
+    sortTile[2 * blockDim.x + threadIdx.x] = d_inputVals[index];
+    sortTile[3 * blockDim.x + threadIdx.x] = d_inputVals[index + blockDim.x];
 
     // First log2(sortedBlockSize) - 1 phases of bitonic merge
-    for (uint_t size = 2; size < sortedBlockSize; size <<= 1) {
+    for (uint_t size = 2; size < 2 * blockDim.x; size <<= 1) {
         uint_t direction = (!orderAsc) ^ ((threadIdx.x & (size / 2)) != 0);
 
         for (uint_t stride = size / 2; stride > 0; stride >>= 1) {
             __syncthreads();
             uint_t pos = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
-            compareExchange(&sortTile[pos], &sortTile[pos + stride], direction);
+            compareExchange(&sortTile[pos], &sortTile[pos + stride], &sortTile[2 * blockDim.x + pos],
+                            &sortTile[2 * blockDim.x + pos + stride], orderAsc);
         }
     }
 
-    // Last phase of bitonic merge
-    for (uint_t stride = sortedBlockSize / 2; stride > 0; stride >>= 1) {
+    for (uint_t stride = blockDim.x; stride > 0; stride >>= 1) {
         __syncthreads();
         uint_t pos = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
-        compareExchange(&sortTile[pos], &sortTile[pos + stride], orderAsc);
+        compareExchange(&sortTile[pos], &sortTile[pos + stride], &sortTile[2 * blockDim.x + pos],
+                        &sortTile[2 * blockDim.x + pos + stride], orderAsc);
     }
 
     __syncthreads();
-    if (index < dataLen) {
-        data[index] = sortTile[threadIdx.x];
-    }
-    if (index + blockDim.x < dataLen) {
-        data[index + blockDim.x] = sortTile[threadIdx.x + blockDim.x];
-    }
+    d_outputKeys[index] = sortTile[0 * blockDim.x + threadIdx.x];
+    d_outputKeys[index + blockDim.x] = sortTile[1 * blockDim.x + threadIdx.x];
+    d_outputVals[index] = sortTile[2 * blockDim.x + threadIdx.x];
+    d_outputVals[index + blockDim.x] = sortTile[3 * blockDim.x + threadIdx.x];
 }
 
 /*
@@ -273,25 +271,3 @@ __global__ void mergeKernel(data_t* inputData, data_t* outputData, uint_t* ranks
         outputData[offsetOdd + rankEven] = dataTile[subBlockSize + threadIdx.x];
     }
 }
-
-/*if (blockIdx.x == 6 && blockIdx.y == 0 && threadIdx.x == 0) {
-if (gridDim.x >= 64 && threadIdx.x == 0) {
-printf("\n(%u, %u), (%u, %u)\n", indexStartEven, indexEndEven, indexStartOdd, indexEndOdd);
-}
-}*/
-
-/*if (blockIdx.x == 0 && blockIdx.y == 0) {
-printf("thread: %d\n", threadIdx.x);
-printf("Search Interval: [%d, %d], target: %d\n", tableSubBlockSize, tableSubBlockSize + numOfElements2 - 1, dataTile[threadIdx.x]);
-rank1 = binarySearchOdd(dataTile, tableSubBlockSize, tableSubBlockSize + numOfElements2 - 1, dataTile[threadIdx.x]);
-rank1 = rank1 - tableSubBlockSize + indexStart2;
-printf("index: %d, rank: %d\n", dataOffset + indexStart1 + threadIdx.x, rank1);
-}*/
-
-/*if (blockIdx.x == 0 && blockIdx.y == 0) {
-printf("thread: %d\n", threadIdx.x);
-printf("Search Interval: [%d, %d], target: %d\n", 0, numOfElements1 - 1, dataTile[threadIdx.x + tableSubBlockSize]);
-rank2 = binarySearchEven(dataTile, 0, numOfElements1 - 1, dataTile[threadIdx.x + tableSubBlockSize]);
-rank2 += indexStart1;
-printf("index: %d, rank: %d\n", dataOffset + indexStart2 + threadIdx.x, rank2);
-}*/

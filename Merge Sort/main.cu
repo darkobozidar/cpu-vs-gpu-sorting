@@ -18,8 +18,8 @@ int main(int argc, char** argv) {
     // Rename array to table everywhere in code
     data_t *h_inputKeys, *h_inputVals, *h_outputKeys, *h_outputVals;
 
-    uint_t arrayLen = 1 << 5;
-    uint_t interval = 65536;
+    uint_t arrayLen = 1 << 3;
+    uint_t interval = 5;
     bool orderAsc = true;  // TODO use this
     cudaError_t error;
 
@@ -39,7 +39,8 @@ int main(int argc, char** argv) {
     fillArrayConsecutive(h_inputVals, arrayLen);
 
     sortParallel(h_inputKeys, h_inputVals, h_outputKeys, h_outputVals, arrayLen, orderAsc);
-    ////printArray(outputDataParallel, dataLen);
+    printArray(h_outputKeys, arrayLen);
+    printArray(h_outputVals, arrayLen);
 
     //outputDataCorrect = sortCorrect(inputData, dataLen);
     //compareArrays(outputDataParallel, outputDataCorrect, dataLen);

@@ -51,20 +51,22 @@ void memoryInit(data_t *h_inputKeys, data_t *h_inputVals, data_t **d_inputKeys, 
 /*
 Sorts data blocks of size sortedBlockSize with bitonic sort.
 */
-void runBitonicSortKernel(data_t* data, uint_t dataLen, uint_t sortedBlockSize, bool orderAsc) {
+void runBitonicSortKernel(data_t *d_inputKeys, data_t *d_inputVals, data_t *d_outputKeys, data_t *d_outputVals,
+                          uint_t arrayLen, bool orderAsc) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
-    dim3 dimGrid((dataLen - 1) / sortedBlockSize + 1, 1, 1);
-    dim3 dimBlock(sortedBlockSize / 2, 1, 1);  // Every thread loads / sorts 2 elements.
+    uint_t sharedMemSize = min(arrayLen, MAX_SHARED_MEM_SIZE);
+    dim3 dimGrid((arrayLen - 1) / sharedMemSize + 1, 1, 1);
+    dim3 dimBlock(sharedMemSize / 2, 1, 1);
 
     startStopwatch(&timer);
-    bitonicSortKernel<<<dimGrid, dimBlock, sortedBlockSize * sizeof(*data)>>>(
-        data, dataLen, sortedBlockSize, orderAsc
+    bitonicSortKernel<<<dimGrid, dimBlock, 2 * sharedMemSize * sizeof(*d_inputKeys)>>>(
+        d_inputKeys, d_inputVals, d_outputKeys, d_outputVals, orderAsc
     );
     error = cudaDeviceSynchronize();
     checkCudaError(error);
-    //endStopwatch(timer, "Executing Bitonic sort Kernel");
+    endStopwatch(timer, "Executing Bitonic sort Kernel");
 }
 
 /*
@@ -121,7 +123,7 @@ void sortParallel(data_t *h_inputKeys, data_t *h_inputVals, data_t *h_outputKeys
 
     memoryInit(h_inputKeys, h_inputVals, &d_inputKeys, &d_inputVals, &d_outputKeys, &d_outputVals, arrayLen);
 
-    //runBitonicSortKernel(inputDataDevice, dataLen, sortedBlockSize, orderAsc);
+    runBitonicSortKernel(d_inputKeys, d_inputVals, d_outputKeys, d_outputVals, arrayLen, orderAsc);
 
     //// TODO verify, if ALL (also up) device syncs are necessary
     //for (; sortedBlockSize < dataLen; sortedBlockSize *= 2) {
