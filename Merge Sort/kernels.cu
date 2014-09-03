@@ -75,8 +75,8 @@ __global__ void bitonicSortKernel(el_t *input, el_t *output, bool orderAsc) {
 /*
 Binary search, which return rank in the opposite sub-block of specified sample.
 */
-__device__ uint_t binarySearchRank(data_t* data, uint_t sortedBlockSize, uint_t subBlockSize,
-                                   uint_t rank, uint_t sample) {
+__device__ uint_t binarySearchRank(el_t* table, uint_t sortedBlockSize, uint_t subBlockSize,
+                                   uint_t rank, el_t targetEl) {
     uint_t subBlocksPerSortedBlock = sortedBlockSize / subBlockSize;
     uint_t subBlocksPerMergedBlock = 2 * subBlocksPerSortedBlock;
 
@@ -97,9 +97,9 @@ __device__ uint_t binarySearchRank(data_t* data, uint_t sortedBlockSize, uint_t 
     if ((int_t)(indexStart - offsetBlockOpposite * sortedBlockSize) >= 0) {
         while (indexStart <= indexEnd) {
             uint_t index = (indexStart + indexEnd) / 2;
-            data_t currSample = data[index];
+            el_t currEl = table[index];
 
-            if (sample <= currSample) {
+            if (targetEl.key <= currEl.key) {
                 indexEnd = index - 1;
             } else {
                 indexStart = index + 1;
@@ -112,9 +112,9 @@ __device__ uint_t binarySearchRank(data_t* data, uint_t sortedBlockSize, uint_t 
     return 0;
 }
 
-__global__ void generateRanksKernel(data_t* data, uint_t* ranks, uint_t dataLen, uint_t sortedBlockSize,
+__global__ void generateRanksKernel(el_t* table, uint_t* ranks, uint_t dataLen, uint_t sortedBlockSize,
                                     uint_t subBlockSize) {
-    extern __shared__ sample_el_t ranksTile[];
+    extern __shared__ rank_el_t ranksTile[];
 
     uint_t subBlocksPerSortedBlock = sortedBlockSize / subBlockSize;
     uint_t subBlocksPerMergedBlock = 2 * subBlocksPerSortedBlock;
@@ -132,7 +132,7 @@ __global__ void generateRanksKernel(data_t* data, uint_t* ranks, uint_t dataLen,
     // Read the samples from global memory in to shared memory in such a way, to get a bitonic
     // sequence of samples
     if (dataIndex < dataLen) {
-        ranksTile[tileIndex].sample = data[dataIndex];
+        ranksTile[tileIndex].el = table[dataIndex];
         ranksTile[threadIdx.x].rank = tileIndex;
     }
 
@@ -144,10 +144,10 @@ __global__ void generateRanksKernel(data_t* data, uint_t* ranks, uint_t dataLen,
         }
 
         uint_t sampleIndex = (2 * threadIdx.x - (threadIdx.x & (stride - 1)));
-        sample_el_t left = ranksTile[sampleIndex];
-        sample_el_t right = ranksTile[sampleIndex + stride];
+        rank_el_t left = ranksTile[sampleIndex];
+        rank_el_t right = ranksTile[sampleIndex + stride];
 
-        if (left.sample > right.sample || left.sample == right.sample && left.rank > right.rank) {
+        if (left.el.key > right.el.key || left.el.key == right.el.key && left.rank > right.rank) {
             ranksTile[sampleIndex] = right;
             ranksTile[sampleIndex + stride] = left;
         }
@@ -155,10 +155,10 @@ __global__ void generateRanksKernel(data_t* data, uint_t* ranks, uint_t dataLen,
 
     // Calculate ranks of current and opposite sorted block in global table
     __syncthreads();
+    el_t element = ranksTile[threadIdx.x].el;
     uint_t rank = ranksTile[threadIdx.x].rank;
-    uint_t sample = ranksTile[threadIdx.x].sample;
     uint_t rankDataCurrent = (rank * subBlockSize % sortedBlockSize) + 1;
-    uint_t rankDataOpposite = binarySearchRank(data, sortedBlockSize, subBlockSize, rank, sample);
+    uint_t rankDataOpposite = binarySearchRank(table, sortedBlockSize, subBlockSize, rank, element);
 
     // Check if rank came from odd or even sorted block
     uint_t oddEvenOffset = (rank / subBlocksPerSortedBlock) % 2;
@@ -167,12 +167,12 @@ __global__ void generateRanksKernel(data_t* data, uint_t* ranks, uint_t dataLen,
     ranks[threadIdx.x + oddEvenOffset * blockDim.x] = rankDataCurrent;
     ranks[threadIdx.x + (!oddEvenOffset) * blockDim.x] = rankDataOpposite;
 
-    /*__syncthreads();
-    printf("%2d %2d: %2d %d\n", threadIdx.x, sample, ranks[threadIdx.x], oddEvenOffset);
+    __syncthreads();
+    printf("%2d %2d: %2d %d\n", threadIdx.x, element.key, ranks[threadIdx.x], oddEvenOffset);
     __syncthreads();
     printOnce("\n");
-    printf("%2d %2d: %2d %d\n", threadIdx.x, sample, ranks[threadIdx.x + blockDim.x], oddEvenOffset);
-    printOnce("\n\n");*/
+    printf("%2d %2d: %2d %d\n", threadIdx.x, element.key, ranks[threadIdx.x + blockDim.x], oddEvenOffset);
+    printOnce("\n\n");
 }
 
 __device__ int binarySearchEven(data_t* dataTile, int indexStart, int indexEnd, uint_t target) {

@@ -12,11 +12,11 @@ struct Element {
     uint32_t key;
     uint32_t val;
 };
-struct SampleElement {
-    data_t sample;
+struct RankElement {
+    struct Element el;
     uint_t rank;
 };
 typedef struct Element el_t;
-typedef struct SampleElement sample_el_t;
+typedef struct RankElement rank_el_t;
 
 #endif

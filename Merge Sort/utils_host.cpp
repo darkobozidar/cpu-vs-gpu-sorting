@@ -65,13 +65,13 @@ void compareArrays(data_t* array1, data_t* array2, uint_t arrayLen) {
 void printTable(el_t *table, uint_t startIndex, uint_t endIndex) {
     for (uint_t i = startIndex; i <= endIndex; i++) {
         char* separator = i == endIndex ? "" : ", ";
-        printf("%d%s", table[i].key, separator);
+        printf("%2d%s", table[i].key, separator);
     }
     printf("\n\n");
 
     for (uint_t i = startIndex; i <= endIndex; i++) {
         char* separator = i == endIndex ? "" : ", ";
-        printf("%d%s", table[i].val, separator);
+        printf("%2d%s", table[i].val, separator);
     }
     printf("\n\n");
 }

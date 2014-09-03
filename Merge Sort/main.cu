@@ -18,8 +18,8 @@ int main(int argc, char** argv) {
     // Rename array to table everywhere in code
     el_t *h_input, *h_output;
 
-    uint_t tableLen = 1 << 3;
-    uint_t interval = 5;
+    uint_t tableLen = 1 << 5;
+    uint_t interval = 100;
     bool orderAsc = true;  // TODO use this
     cudaError_t error;
 
