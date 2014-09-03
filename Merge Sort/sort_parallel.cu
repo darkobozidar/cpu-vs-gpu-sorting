@@ -29,22 +29,23 @@ uint_t getInitSortedBlockSize(uint_t dataElementSizeof, uint_t dataLen) {
 /*
 Initializes memory needed for parallel implementation of merge sort.
 */
-void memoryInit(data_t* inputDataHost, data_t** outputDataHost, data_t** inputDataDevice,
-                data_t** outputDataDevice, uint_t** ranksDevice, uint_t dataLen, uint_t ranksLen) {
+void memoryInit(data_t *h_inputKeys, data_t *h_inputVals, data_t **d_inputKeys, data_t **d_inputVals,
+                data_t **d_outputKeys, data_t **d_outputVals, uint_t arrayLen) {
     cudaError_t error;
 
-    /*error = cudaMalloc(&d_inputKeys, arrayLen * sizeof(*d_inputKeys));
+    error = cudaMalloc(d_inputKeys, arrayLen * sizeof(*d_inputKeys));
     checkCudaError(error);
-    error = cudaMalloc(&d_inputVals, arrayLen * sizeof(*d_inputVals));
+    error = cudaMalloc(d_inputVals, arrayLen * sizeof(*d_inputVals));
     checkCudaError(error);
-    error = cudaMalloc(&d_outputKeys, arrayLen * sizeof(*d_outputKeys));
+    error = cudaMalloc(d_outputKeys, arrayLen * sizeof(*d_outputKeys));
     checkCudaError(error);
-    error = cudaMalloc(&d_outputVals, arrayLen * sizeof(*d_outputVals));
+    error = cudaMalloc(d_outputVals, arrayLen * sizeof(*d_outputVals));
     checkCudaError(error);
-    error = cudaMalloc(&d_bufferKeys, arrayLen * sizeof(*d_bufferKeys));
+
+    error = cudaMemcpy(*d_inputKeys, h_inputKeys, arrayLen * sizeof(*d_inputKeys), cudaMemcpyHostToDevice);
     checkCudaError(error);
-    error = cudaMalloc(&d_bufferVals, arrayLen * sizeof(*d_bufferVals));
-    checkCudaError(error);*/
+    error = cudaMemcpy(*d_inputVals, h_inputVals, arrayLen * sizeof(*d_inputVals), cudaMemcpyHostToDevice);
+    checkCudaError(error);
 }
 
 /*
@@ -113,13 +114,13 @@ void runMergeKernel(data_t* inputData, data_t* outputData, uint_t* ranks, uint_t
     //endStopwatch(timer, "Executing merge kernel");
 }
 
-void sortParallel(data_t* inputDataHost, uint_t dataLen, bool orderAsc) {
-    //data_t *d_inputKeys, *d_inputVals, *d_outputKeys, *d_outputVals, *d_bufferKeys, *d_bufferVals;
+void sortParallel(data_t *h_inputKeys, data_t *h_inputVals, data_t *h_outputKeys, data_t *h_outputVals,
+                  uint_t arrayLen, bool orderAsc) {
+    data_t *d_inputKeys, *d_inputVals, *d_outputKeys, *d_outputVals;
+    cudaError_t error;
 
-    //memoryInit(inputDataHost, &outputDataHost, &inputDataDevice, &outputDataDevice,
-    //           &ranksDevice, dataLen, ranksLen);
+    memoryInit(h_inputKeys, h_inputVals, &d_inputKeys, &d_inputVals, &d_outputKeys, &d_outputVals, arrayLen);
 
-    //startStopwatch(&timer);
     //runBitonicSortKernel(inputDataDevice, dataLen, sortedBlockSize, orderAsc);
 
     //// TODO verify, if ALL (also up) device syncs are necessary
@@ -133,11 +134,11 @@ void sortParallel(data_t* inputDataHost, uint_t dataLen, bool orderAsc) {
     //    inputDataDevice = outputDataDevice;
     //    outputDataDevice = temp;
     //}
-    //endStopwatch(timer, "Executing parallel Merge Sort");
 
-    //error = cudaMemcpy(outputDataHost, inputDataDevice, dataLen * sizeof(*outputDataHost),
-    //                   cudaMemcpyDeviceToHost);
-    //checkCudaError(error);
+    error = cudaMemcpy(h_outputKeys, d_outputKeys, arrayLen * sizeof(*h_outputKeys), cudaMemcpyDeviceToHost);
+    checkCudaError(error);
+    error = cudaMemcpy(h_outputVals, d_outputVals, arrayLen * sizeof(*h_outputVals), cudaMemcpyDeviceToHost);
+    checkCudaError(error);
 
     //return outputDataHost;
 }

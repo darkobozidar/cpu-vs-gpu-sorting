@@ -37,10 +37,8 @@ int main(int argc, char** argv) {
 
     fillArrayRand(h_inputKeys, arrayLen, interval);
     fillArrayConsecutive(h_inputVals, arrayLen);
-    printArray(h_inputKeys, arrayLen);
-    printArray(h_inputVals, arrayLen);
 
-    //sortParallel(h_inputKeys, h_inputVals, h_outputKeys, h_outputVals, arrayLen, orderAsc);
+    sortParallel(h_inputKeys, h_inputVals, h_outputKeys, h_outputVals, arrayLen, orderAsc);
     ////printArray(outputDataParallel, dataLen);
 
     //outputDataCorrect = sortCorrect(inputData, dataLen);
