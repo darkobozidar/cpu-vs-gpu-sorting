@@ -3,6 +3,6 @@
 
 #include "data_types.h"
 
-data_t* sortCorrect(data_t* input, uint_t tableLen);
+el_t* sortCorrect(el_t* input, uint_t tableLen);
 
 #endif

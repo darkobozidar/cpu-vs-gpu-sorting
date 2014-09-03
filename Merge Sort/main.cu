@@ -17,9 +17,10 @@
 int main(int argc, char** argv) {
     // Rename array to table everywhere in code
     el_t *h_input, *h_output;
+    el_t *outputCorrect;
 
-    uint_t tableLen = 1 << 5;
-    uint_t interval = 100;
+    uint_t tableLen = 1 << 19;
+    uint_t interval = 1 << 16;
     bool orderAsc = true;  // TODO use this
     cudaError_t error;
 
@@ -33,10 +34,9 @@ int main(int argc, char** argv) {
     fillTable(h_input, tableLen, interval);
 
     sortParallel(h_input, h_output, tableLen, orderAsc);
-    printTable(h_output, tableLen);
 
-    //outputDataCorrect = sortCorrect(inputData, dataLen);
-    //compareArrays(outputDataParallel, outputDataCorrect, dataLen);
+    outputCorrect = sortCorrect(h_input, tableLen);
+    compareArrays(h_output, outputCorrect, tableLen);
 
     ////cudaFreeHost(inputData);
     //cudaFreeHost(outputDataParallel);

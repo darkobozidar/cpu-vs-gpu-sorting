@@ -51,10 +51,10 @@ void fillTable(el_t *table, uint_t tableLen, uint_t interval) {
     }
 }
 
-void compareArrays(data_t* array1, data_t* array2, uint_t arrayLen) {
+void compareArrays(el_t* array1, el_t* array2, uint_t arrayLen) {
     for (uint_t i = 0; i < arrayLen; i++) {
-        if (array1[i] != array2[i]) {
-            printf("Arrays are different: array1[%d] = %d, array2[%d] = %d.\n", i, array1[i], i, array2[i]);
+        if (array1[i].key != array2[i].key) {
+            printf("Arrays are different: array1[%d] = %d, array2[%d] = %d.\n", i, array1[i].key, i, array2[i].key);
             return;
         }
     }
