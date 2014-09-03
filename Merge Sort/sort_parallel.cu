@@ -33,22 +33,18 @@ void memoryInit(data_t* inputDataHost, data_t** outputDataHost, data_t** inputDa
                 data_t** outputDataDevice, uint_t** ranksDevice, uint_t dataLen, uint_t ranksLen) {
     cudaError_t error;
 
-    // Host memory
-    error = cudaHostAlloc(outputDataHost, dataLen * sizeof(**outputDataHost), cudaHostAllocDefault);
+    /*error = cudaMalloc(&d_inputKeys, arrayLen * sizeof(*d_inputKeys));
     checkCudaError(error);
-
-    // Device memory
-    error = cudaMalloc(inputDataDevice, dataLen * sizeof(**inputDataDevice));
+    error = cudaMalloc(&d_inputVals, arrayLen * sizeof(*d_inputVals));
     checkCudaError(error);
-    error = cudaMalloc(outputDataDevice, dataLen * sizeof(**outputDataDevice));
+    error = cudaMalloc(&d_outputKeys, arrayLen * sizeof(*d_outputKeys));
     checkCudaError(error);
-    error = cudaMalloc(ranksDevice, ranksLen * sizeof(**ranksDevice));
+    error = cudaMalloc(&d_outputVals, arrayLen * sizeof(*d_outputVals));
     checkCudaError(error);
-
-    // Memory copy
-    error = cudaMemcpy(*inputDataDevice, inputDataHost, dataLen * sizeof(**inputDataDevice),
-                       cudaMemcpyHostToDevice);
+    error = cudaMalloc(&d_bufferKeys, arrayLen * sizeof(*d_bufferKeys));
     checkCudaError(error);
+    error = cudaMalloc(&d_bufferVals, arrayLen * sizeof(*d_bufferVals));
+    checkCudaError(error);*/
 }
 
 /*
@@ -117,40 +113,31 @@ void runMergeKernel(data_t* inputData, data_t* outputData, uint_t* ranks, uint_t
     //endStopwatch(timer, "Executing merge kernel");
 }
 
-data_t* sortParallel(data_t* inputDataHost, uint_t dataLen, bool orderAsc) {
-    data_t* outputDataHost;
-    data_t* inputDataDevice;
-    data_t* outputDataDevice;
-    uint_t* ranksDevice;
+void sortParallel(data_t* inputDataHost, uint_t dataLen, bool orderAsc) {
+    //data_t *d_inputKeys, *d_inputVals, *d_outputKeys, *d_outputVals, *d_bufferKeys, *d_bufferVals;
 
-    uint_t sortedBlockSize = getInitSortedBlockSize(sizeof(*inputDataDevice), dataLen);
-    uint_t subBlockSize = sortedBlockSize / 2;
-    uint_t ranksLen = (dataLen / subBlockSize) * 2;
-    LARGE_INTEGER timer;
-    cudaError_t error;
+    //memoryInit(inputDataHost, &outputDataHost, &inputDataDevice, &outputDataDevice,
+    //           &ranksDevice, dataLen, ranksLen);
 
-    memoryInit(inputDataHost, &outputDataHost, &inputDataDevice, &outputDataDevice,
-               &ranksDevice, dataLen, ranksLen);
+    //startStopwatch(&timer);
+    //runBitonicSortKernel(inputDataDevice, dataLen, sortedBlockSize, orderAsc);
 
-    startStopwatch(&timer);
-    runBitonicSortKernel(inputDataDevice, dataLen, sortedBlockSize, orderAsc);
+    //// TODO verify, if ALL (also up) device syncs are necessary
+    //for (; sortedBlockSize < dataLen; sortedBlockSize *= 2) {
+    //    runGenerateRanksKernel(inputDataDevice, ranksDevice, dataLen, sortedBlockSize, subBlockSize);
 
-    // TODO verify, if ALL (also up) device syncs are necessary
-    for (; sortedBlockSize < dataLen; sortedBlockSize *= 2) {
-        runGenerateRanksKernel(inputDataDevice, ranksDevice, dataLen, sortedBlockSize, subBlockSize);
+    //    runMergeKernel(inputDataDevice, outputDataDevice, ranksDevice, dataLen, ranksLen,
+    //                   sortedBlockSize, subBlockSize);
 
-        runMergeKernel(inputDataDevice, outputDataDevice, ranksDevice, dataLen, ranksLen,
-                       sortedBlockSize, subBlockSize);
+    //    data_t* temp = inputDataDevice;
+    //    inputDataDevice = outputDataDevice;
+    //    outputDataDevice = temp;
+    //}
+    //endStopwatch(timer, "Executing parallel Merge Sort");
 
-        data_t* temp = inputDataDevice;
-        inputDataDevice = outputDataDevice;
-        outputDataDevice = temp;
-    }
-    endStopwatch(timer, "Executing parallel Merge Sort");
+    //error = cudaMemcpy(outputDataHost, inputDataDevice, dataLen * sizeof(*outputDataHost),
+    //                   cudaMemcpyDeviceToHost);
+    //checkCudaError(error);
 
-    error = cudaMemcpy(outputDataHost, inputDataDevice, dataLen * sizeof(*outputDataHost),
-                       cudaMemcpyDeviceToHost);
-    checkCudaError(error);
-
-    return outputDataHost;
+    //return outputDataHost;
 }

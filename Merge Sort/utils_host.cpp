@@ -41,9 +41,15 @@ void endStopwatch(LARGE_INTEGER start, char* comment) {
     endStopwatch(start, comment, NULL);
 }
 
-void fillArrayRand(data_t* table, uint_t tableLen) {
+void fillArrayRand(data_t* table, uint_t tableLen, uint_t interval) {
     for (uint_t i = 0; i < tableLen; i++) {
-        table[i] = rand() % 100;
+        table[i] = rand() % interval;
+    }
+}
+
+void fillArrayConsecutive(data_t* table, uint_t tableLen) {
+    for (uint_t i = 0; i < tableLen; i++) {
+        table[i] = i;
     }
 }
 

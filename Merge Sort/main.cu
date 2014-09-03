@@ -16,53 +16,40 @@
 
 int main(int argc, char** argv) {
     // Rename array to table everywhere in code
-    /*data_t inputData[32] = {
-        6, 23, 29, 35, 45, 63, 64, 97, 1, 4, 25, 34, 45, 67, 98, 99, 4, 19, 41, 58,
-        68, 80, 81, 96, 4, 13, 18, 33, 55, 66, 88, 90
-    };*/
-    /*data_t inputData[64] = {
-        60, 39, 36, 61, 40, 41, 62, 54, 42, 64, 81, 70, 55, 5, 99, 22, 49, 95, 18, 19,
-        73, 84, 90, 16, 50, 22, 1, 60, 6, 74, 58, 18, 43, 64, 18, 86, 33, 81, 92, 42,
-        14, 81, 34, 37, 43, 29, 12, 30, 81, 41, 21, 8, 82, 45, 40, 25, 96, 85, 25, 32,
-        90, 88, 20, 28
-    };*/
-    data_t* inputData;
-    data_t* outputDataParallel;
-    data_t* outputDataSequential;
-    data_t* outputDataCorrect;
+    data_t *h_inputKeys, *h_inputVals, *h_outputKeys, *h_outputVals;
 
-    uint_t dataLen = 1 << 20;
+    uint_t arrayLen = 1 << 5;
+    uint_t interval = 65536;
     bool orderAsc = true;  // TODO use this
     cudaError_t error;
 
-    LARGE_INTEGER timerStart;
-
-    // TODO remove bottom comment when tested
-    //cudaFuncCachePreferNone, cudaFuncCachePreferShared, cudaFuncCachePreferL1, cudaFuncCachePreferEqual
-    error = cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
-    checkCudaError(error);
     cudaFree(NULL);  // Initializes CUDA, because CUDA init is lazy
     srand(time(NULL));
 
-    error = cudaHostAlloc(&inputData, dataLen * sizeof(*inputData), cudaHostAllocDefault);
+    error = cudaHostAlloc(&h_inputKeys, arrayLen * sizeof(*h_inputKeys), cudaHostAllocDefault);
+    checkCudaError(error);
+    error = cudaHostAlloc(&h_inputVals, arrayLen * sizeof(*h_inputVals), cudaHostAllocDefault);
+    checkCudaError(error);
+    error = cudaHostAlloc(&h_outputKeys, arrayLen * sizeof(*h_outputKeys), cudaHostAllocDefault);
+    checkCudaError(error);
+    error = cudaHostAlloc(&h_outputVals, arrayLen * sizeof(*h_outputVals), cudaHostAllocDefault);
     checkCudaError(error);
 
-    for (int i = 0; i < 3; i++) {
-        fillArrayRand(inputData, dataLen);
-        //fillArrayValue(inputData, dataLen, 5);
-        //printArray(inputData, dataLen);
+    fillArrayRand(h_inputKeys, arrayLen, interval);
+    fillArrayConsecutive(h_inputVals, arrayLen);
+    printArray(h_inputKeys, arrayLen);
+    printArray(h_inputVals, arrayLen);
 
-        outputDataParallel = sortParallel(inputData, dataLen, orderAsc);
-        //printArray(outputDataParallel, dataLen);
+    //sortParallel(h_inputKeys, h_inputVals, h_outputKeys, h_outputVals, arrayLen, orderAsc);
+    ////printArray(outputDataParallel, dataLen);
 
-        outputDataCorrect = sortCorrect(inputData, dataLen);
-        compareArrays(outputDataParallel, outputDataCorrect, dataLen);
-    }
+    //outputDataCorrect = sortCorrect(inputData, dataLen);
+    //compareArrays(outputDataParallel, outputDataCorrect, dataLen);
 
-    //cudaFreeHost(inputData);
-    cudaFreeHost(outputDataParallel);
-    //free(outputDataSequential);
-    free(outputDataCorrect);
+    ////cudaFreeHost(inputData);
+    //cudaFreeHost(outputDataParallel);
+    ////free(outputDataSequential);
+    //free(outputDataCorrect);
 
     getchar();
     return 0;
