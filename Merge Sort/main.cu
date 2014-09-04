@@ -16,10 +16,11 @@
 
 int main(int argc, char** argv) {
     // Rename array to table everywhere in code
-    el_t *h_input, *h_output;
+    el_t *input;
+    el_t *outputParallel;
     el_t *outputCorrect;
 
-    uint_t tableLen = 1 << 19;
+    uint_t tableLen = 1 << 18;
     uint_t interval = 1 << 16;
     bool orderAsc = true;  // TODO use this
     cudaError_t error;
@@ -27,16 +28,16 @@ int main(int argc, char** argv) {
     cudaFree(NULL);  // Initializes CUDA, because CUDA init is lazy
     srand(time(NULL));
 
-    error = cudaHostAlloc(&h_input, tableLen * sizeof(*h_input), cudaHostAllocDefault);
+    error = cudaHostAlloc(&input, tableLen * sizeof(*input), cudaHostAllocDefault);
     checkCudaError(error);
-    error = cudaHostAlloc(&h_output, tableLen * sizeof(*h_output), cudaHostAllocDefault);
+    error = cudaHostAlloc(&outputParallel, tableLen * sizeof(*outputParallel), cudaHostAllocDefault);
     checkCudaError(error);
-    fillTable(h_input, tableLen, interval);
+    fillTable(input, tableLen, interval);
 
-    sortParallel(h_input, h_output, tableLen, orderAsc);
+    sortParallel(input, outputParallel, tableLen, orderAsc);
 
-    outputCorrect = sortCorrect(h_input, tableLen);
-    compareArrays(h_output, outputCorrect, tableLen);
+    outputCorrect = sortCorrect(input, tableLen);
+    compareArrays(outputParallel, outputCorrect, tableLen);
 
     ////cudaFreeHost(inputData);
     //cudaFreeHost(outputDataParallel);

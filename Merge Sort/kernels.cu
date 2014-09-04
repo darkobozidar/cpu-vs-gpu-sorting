@@ -12,9 +12,9 @@
 
 
 /*
-Compares 2 elements with compare function and exchanges them according to orderAsc.
+Compares 2 elements and exchanges them according to orderAsc.
 */
-__host__ __device__ void compareExchange(el_t *elem1, el_t *elem2, bool orderAsc) {
+__device__ void compareExchange(el_t *elem1, el_t *elem2, bool orderAsc) {
     if ((elem1->key <= elem2->key) ^ orderAsc) {
         el_t temp = *elem1;
         *elem1 = *elem2;
@@ -42,7 +42,7 @@ __device__ void printOnce(char* text) {
 Sorts sub blocks of input data with bitonic sort.
 */
 __global__ void bitonicSortKernel(el_t *input, el_t *output, bool orderAsc) {
-    extern __shared__ el_t sortTile[];
+    __shared__ el_t sortTile[SHARED_MEM_SIZE];
 
     // Every thread loads 2 elements
     uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
