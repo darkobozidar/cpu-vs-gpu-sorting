@@ -54,23 +54,20 @@ void runBitonicSortKernel(el_t *input, el_t *output, uint_t tableLen, bool order
 /*
 Generates ranks of sub-blocks that need to be merged.
 */
-void runGenerateRanksKernel(el_t *table, uint_t *ranks, uint_t tableLen, uint_t sortedBlockSize,
-                            uint_t subBlockSize) {
+void runGenerateRanksKernel(el_t *table, uint_t *ranks, uint_t tableLen, uint_t sortedBlockSize) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
-    uint_t numAllRanks = tableLen / subBlockSize;
-    uint_t threadBlockSize = min(numAllRanks, SHARED_MEM_SIZE);
-    dim3 dimGrid((numAllRanks - 1) / threadBlockSize + 1, 1, 1);
+    uint_t numAllSamples = tableLen / SUB_BLOCK_SIZE;
+    uint_t threadBlockSize = min(numAllSamples, SHARED_MEM_SIZE);
+    dim3 dimGrid((numAllSamples - 1) / threadBlockSize + 1, 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
 
     startStopwatch(&timer);
-    generateRanksKernel<<<dimGrid, dimBlock, threadBlockSize * sizeof(rank_el_t)>>>(
-        table, ranks, tableLen, sortedBlockSize, subBlockSize
-    );
-    error = cudaDeviceSynchronize();
+    generateRanksKernel<<<dimGrid, dimBlock>>>(table, ranks, tableLen, sortedBlockSize);
+    /*error = cudaDeviceSynchronize();
     checkCudaError(error);
-    //endStopwatch(timer, "Executing Generate ranks kernel");
+    endStopwatch(timer, "Executing Generate ranks kernel");*/
 }
 
 /*
@@ -98,7 +95,7 @@ void runMergeKernel(el_t *input, el_t *output, uint_t *ranks, uint_t tableLen,
 void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc) {
     el_t *d_input, *d_output, *d_buffer;
     uint_t* d_ranks;
-    uint_t ranksLen = tableLen / SHARED_MEM_SIZE * 2;
+    uint_t ranksLen = tableLen / SUB_BLOCK_SIZE * 2;
 
     LARGE_INTEGER timer;
     cudaError_t error;
@@ -113,8 +110,8 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
         d_output = d_buffer;
         d_buffer = temp;
 
-        runGenerateRanksKernel(d_buffer, d_ranks, tableLen, sortedBlockSize, SHARED_MEM_SIZE);
-        runMergeKernel(d_buffer, d_output, d_ranks, tableLen, ranksLen, sortedBlockSize, SHARED_MEM_SIZE);
+        runGenerateRanksKernel(d_buffer, d_ranks, tableLen, sortedBlockSize);
+        runMergeKernel(d_buffer, d_output, d_ranks, tableLen, ranksLen, sortedBlockSize, SUB_BLOCK_SIZE);
     }
     endStopwatch(timer, "Executing parallel merge sort.");
 

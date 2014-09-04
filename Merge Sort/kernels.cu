@@ -112,15 +112,14 @@ __device__ uint_t binarySearchRank(el_t* table, uint_t sortedBlockSize, uint_t s
     return 0;
 }
 
-__global__ void generateRanksKernel(el_t* table, uint_t* ranks, uint_t dataLen, uint_t sortedBlockSize,
-                                    uint_t subBlockSize) {
-    extern __shared__ rank_el_t ranksTile[];
+__global__ void generateRanksKernel(el_t* table, uint_t* ranks, uint_t dataLen, uint_t sortedBlockSize) {
+    __shared__ rank_el_t ranksTile[SHARED_MEM_SIZE];
 
-    uint_t subBlocksPerSortedBlock = sortedBlockSize / subBlockSize;
+    uint_t subBlocksPerSortedBlock = sortedBlockSize / SUB_BLOCK_SIZE;
     uint_t subBlocksPerMergedBlock = 2 * subBlocksPerSortedBlock;
     uint_t indexSortedBlock = threadIdx.x / subBlocksPerSortedBlock;
 
-    uint_t dataIndex = blockIdx.x * (blockDim.x * subBlockSize) + threadIdx.x * subBlockSize;
+    uint_t dataIndex = blockIdx.x * (blockDim.x * SUB_BLOCK_SIZE) + threadIdx.x * SUB_BLOCK_SIZE;
     // Offset to correct sorted block
     uint_t tileIndex = indexSortedBlock * subBlocksPerSortedBlock;
     // Offset for sub-block index inside block for ODD block
@@ -157,8 +156,8 @@ __global__ void generateRanksKernel(el_t* table, uint_t* ranks, uint_t dataLen, 
     __syncthreads();
     el_t element = ranksTile[threadIdx.x].el;
     uint_t rank = ranksTile[threadIdx.x].rank;
-    uint_t rankDataCurrent = (rank * subBlockSize % sortedBlockSize) + 1;
-    uint_t rankDataOpposite = binarySearchRank(table, sortedBlockSize, subBlockSize, rank, element);
+    uint_t rankDataCurrent = (rank * SUB_BLOCK_SIZE % sortedBlockSize) + 1;
+    uint_t rankDataOpposite = binarySearchRank(table, sortedBlockSize, SUB_BLOCK_SIZE, rank, element);
 
     // Check if rank came from odd or even sorted block
     uint_t oddEvenOffset = (rank / subBlocksPerSortedBlock) % 2;
