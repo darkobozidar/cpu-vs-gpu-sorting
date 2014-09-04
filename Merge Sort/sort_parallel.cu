@@ -45,7 +45,7 @@ void runBitonicSortKernel(el_t *input, el_t *output, uint_t tableLen, bool order
     dim3 dimBlock(threadBlockSize, 1, 1);
 
     startStopwatch(&timer);
-    bitonicSortKernel<<<dimGrid, dimBlock>>>(input, output, orderAsc);
+    mergeSortKernel<<<dimGrid, dimBlock>>>(input, output, orderAsc);
     /*error = cudaDeviceSynchronize();
     checkCudaError(error);
     endStopwatch(timer, "Executing Bitonic sort Kernel");*/

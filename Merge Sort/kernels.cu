@@ -38,38 +38,65 @@ __device__ void printOnce(char* text) {
     printOnce(text, 0);
 }
 
-/*
-Sorts sub blocks of input data with bitonic sort.
-*/
-__global__ void bitonicSortKernel(el_t *input, el_t *output, bool orderAsc) {
-    __shared__ el_t sortTile[SHARED_MEM_SIZE];
+__device__ int binarySearchEven(el_t* dataTile, int indexStart, int indexEnd, el_t target) {
+    while (indexStart <= indexEnd) {
+        int index = (indexStart + indexEnd) / 2;
 
-    // Every thread loads 2 elements
-    uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
-    sortTile[threadIdx.x] = input[index];
-    sortTile[blockDim.x + threadIdx.x] = input[blockDim.x + index];
-
-    // First log2(sortedBlockSize) - 1 phases of bitonic merge
-    for (uint_t size = 2; size < 2 * blockDim.x; size <<= 1) {
-        uint_t direction = (!orderAsc) ^ ((threadIdx.x & (size / 2)) != 0);
-
-        for (uint_t stride = size / 2; stride > 0; stride >>= 1) {
-            __syncthreads();
-            uint_t pos = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
-            compareExchange(&sortTile[pos], &sortTile[pos + stride], direction);
+        if (target.key < dataTile[index].key) {
+            indexEnd = index - 1;
+        }
+        else {
+            indexStart = index + 1;
         }
     }
 
-    // Last phase of bitonic merge
-    for (uint_t stride = blockDim.x; stride > 0; stride >>= 1) {
+    return indexStart;
+}
+
+__device__ int binarySearchOdd(el_t* dataTile, int indexStart, int indexEnd, el_t target) {
+    while (indexStart <= indexEnd) {
+        int index = (indexStart + indexEnd) / 2;
+
+        if (target.key <= dataTile[index].key) {
+            indexEnd = index - 1;
+        }
+        else {
+            indexStart = index + 1;
+        }
+    }
+
+    return indexStart;
+}
+
+/*
+Sorts sub blocks of input data with merge sort.
+*/
+__global__ void mergeSortKernel(el_t *input, el_t *output, bool orderAsc) {
+    __shared__ el_t tile[SHARED_MEM_SIZE];
+
+    // Every thread loads 2 elements
+    uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
+    tile[threadIdx.x] = input[index];
+    tile[threadIdx.x + blockDim.x] = input[index + blockDim.x];
+
+    for (uint_t stride = 1; stride < SHARED_MEM_SIZE; stride <<= 1) {
+        uint_t lPos = threadIdx.x & (stride - 1);
+        uint_t indexBase = 2 * (threadIdx.x - lPos);
+
         __syncthreads();
-        uint_t pos = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
-        compareExchange(&sortTile[pos], &sortTile[pos + stride], orderAsc);
+        el_t elA = tile[indexBase + lPos];
+        el_t elB = tile[indexBase + lPos + stride];
+        uint_t posA = binarySearchOdd(tile, indexBase + stride, indexBase + 2 * stride - 1, elA) + lPos - stride;
+        uint_t posB = binarySearchEven(tile, indexBase, indexBase + stride - 1, elB) + lPos;
+
+        __syncthreads();
+        tile[posA] = elA;
+        tile[posB] = elB;
     }
 
     __syncthreads();
-    output[index] = sortTile[threadIdx.x];
-    output[blockDim.x + index] = sortTile[blockDim.x + threadIdx.x];
+    output[index] = tile[threadIdx.x];
+    output[index + blockDim.x] = tile[threadIdx.x + blockDim.x];
 }
 
 /*
@@ -172,34 +199,6 @@ __global__ void generateRanksKernel(el_t* table, uint_t* ranks, uint_t dataLen, 
     printOnce("\n");
     printf("%2d %2d: %2d %d\n", threadIdx.x, element.key, ranks[threadIdx.x + blockDim.x], oddEvenOffset);
     printOnce("\n\n");*/
-}
-
-__device__ int binarySearchEven(el_t* dataTile, int indexStart, int indexEnd, el_t target) {
-    while (indexStart <= indexEnd) {
-        int index = (indexStart + indexEnd) / 2;
-
-        if (target.key < dataTile[index].key) {
-            indexEnd = index - 1;
-        } else {
-            indexStart = index + 1;
-        }
-    }
-
-    return indexStart;
-}
-
-__device__ int binarySearchOdd(el_t* dataTile, int indexStart, int indexEnd, el_t target) {
-    while (indexStart <= indexEnd) {
-        int index = (indexStart + indexEnd) / 2;
-
-        if (target.key <= dataTile[index].key) {
-            indexEnd = index - 1;
-        } else {
-            indexStart = index + 1;
-        }
-    }
-
-    return indexStart;
 }
 
 __global__ void mergeKernel(el_t* input, el_t* output, uint_t *ranks, uint_t tableLen,
