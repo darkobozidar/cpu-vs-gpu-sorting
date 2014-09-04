@@ -60,19 +60,29 @@ __global__ void mergeSortKernel(el_t *input, el_t *output, bool orderAsc) {
     tile[threadIdx.x] = input[index];
     tile[threadIdx.x + blockDim.x] = input[index + blockDim.x];
 
+    // Stride - length of sorted blocks
     for (uint_t stride = 1; stride < SHARED_MEM_SIZE; stride <<= 1) {
-        uint_t lPos = threadIdx.x & (stride - 1);
-        uint_t indexBase = 2 * (threadIdx.x - lPos);
+        // Offset of current sample within block
+        uint_t offsetSample = threadIdx.x & (stride - 1);
+        // Ofset to two blocks of length stride, which will be merged
+        uint_t offsetBlock = 2 * (threadIdx.x - offsetSample);
 
         __syncthreads();
-        el_t elA = tile[indexBase + lPos];
-        el_t elB = tile[indexBase + lPos + stride];
-        uint_t posA = binarySearchInclusive(tile, elA, indexBase + stride, indexBase + 2 * stride - 1, orderAsc) + lPos - stride;
-        uint_t posB = binarySearchExclusive(tile, elB, indexBase, indexBase + stride - 1, orderAsc) + lPos;
+        // Load element from even and odd block (blocks beeing merged)
+        el_t elEven = tile[offsetBlock + offsetSample];
+        el_t elOdd = tile[offsetBlock + offsetSample + stride];
+
+        // Calculate the rank of element from even block in odd block and vice versa
+        uint_t rankOdd = binarySearchInclusive(
+            tile, elEven, offsetBlock + stride, offsetBlock + 2 * stride - 1, orderAsc
+        );
+        uint_t rankEven = binarySearchExclusive(
+            tile, elOdd, offsetBlock, offsetBlock + stride - 1, orderAsc
+        );
 
         __syncthreads();
-        tile[posA] = elA;
-        tile[posB] = elB;
+        tile[offsetSample + rankOdd - stride] = elEven;
+        tile[offsetSample + rankEven] = elOdd;
     }
 
     __syncthreads();

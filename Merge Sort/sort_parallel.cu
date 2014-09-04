@@ -105,14 +105,14 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
     startStopwatch(&timer);
     runBitonicSortKernel(d_input, d_output, tableLen, orderAsc);
 
-    for (uint_t sortedBlockSize = SHARED_MEM_SIZE; sortedBlockSize < tableLen; sortedBlockSize *= 2) {
+    /*for (uint_t sortedBlockSize = SHARED_MEM_SIZE; sortedBlockSize < tableLen; sortedBlockSize *= 2) {
         el_t* temp = d_output;
         d_output = d_buffer;
         d_buffer = temp;
 
         runGenerateRanksKernel(d_buffer, d_ranks, tableLen, sortedBlockSize);
         runMergeKernel(d_buffer, d_output, d_ranks, tableLen, ranksLen, sortedBlockSize);
-    }
+    }*/
     error = cudaDeviceSynchronize();
     checkCudaError(error);
     endStopwatch(timer, "Executing parallel merge sort.");

@@ -20,8 +20,8 @@ int main(int argc, char** argv) {
     el_t *outputParallel;
     el_t *outputCorrect;
 
-    uint_t tableLen = 1 << 5;
-    uint_t interval = 10;
+    uint_t tableLen = 1 << 10;
+    uint_t interval = 5;
     bool orderAsc = true;  // TODO use this
     cudaError_t error;
 
@@ -35,7 +35,7 @@ int main(int argc, char** argv) {
     fillTable(input, tableLen, interval);
 
     sortParallel(input, outputParallel, tableLen, orderAsc);
-    printTable(outputParallel, tableLen);
+    //printTable(outputParallel, tableLen);
 
     outputCorrect = sortCorrect(input, tableLen);
     compareArrays(outputParallel, outputCorrect, tableLen);
