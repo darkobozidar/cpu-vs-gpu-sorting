@@ -32,15 +32,11 @@ void memoryDataInit(el_t *h_input, el_t **d_input, el_t **d_output, el_t **d_buf
 /*
 Initializes memory needed for merge.
 */
-void memoryMergeInit(sample_t **samplesEven, sample_t **samplesOdd, uint_t **ranksEven, uint_t **ranksOdd,
-                     uint_t tableLen) {
-    uint_t samplesLen = tableLen / SUB_BLOCK_SIZE / 2;
-    uint_t ranksLen = 2 * samplesLen;
+void memoryMergeInit(sample_t **samples, uint_t **ranksEven, uint_t **ranksOdd,
+                     uint_t samplesLen, uint_t ranksLen) {
     cudaError_t error;
 
-    error = cudaMalloc(samplesEven, samplesLen * sizeof(**samplesEven));
-    checkCudaError(error);
-    error = cudaMalloc(samplesOdd, samplesLen * sizeof(**samplesOdd));
+    error = cudaMalloc(samples, samplesLen * sizeof(**samples));
     checkCudaError(error);
     error = cudaMalloc(ranksEven, samplesLen * sizeof(**ranksEven));
     checkCudaError(error);
@@ -65,6 +61,22 @@ void runMergeSortKernel(el_t *input, el_t *output, uint_t tableLen, bool orderAs
     /*error = cudaDeviceSynchronize();
     checkCudaError(error);
     endStopwatch(timer, "Executing Bitonic sort Kernel")*/;
+}
+
+void runExtractSamplesKernel(el_t *table, sample_t *samples, uint_t tableLen, uint_t sortedBlockSize) {
+    cudaError_t error;
+    LARGE_INTEGER timer;
+
+    uint_t numAllSamples = tableLen / SUB_BLOCK_SIZE;
+    uint_t threadBlockSize = min(numAllSamples, SHARED_MEM_SIZE);
+    dim3 dimGrid(2, 1, 1);
+    dim3 dimBlock(4, 1, 1);
+
+    startStopwatch(&timer);
+    extractSamplesKernel << <dimGrid, dimBlock >> >(table, samples, sortedBlockSize);
+    /*error = cudaDeviceSynchronize();
+    checkCudaError(error);
+    endStopwatch(timer, "Executing kernel for sample extraction");*/
 }
 
 /*
@@ -110,18 +122,21 @@ void runMergeKernel(el_t *input, el_t *output, uint_t *ranks, uint_t tableLen,
 
 void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc) {
     el_t *d_input, *d_output, *d_buffer;
-    sample_t *d_samplesEven, *d_samplesOdd;
+    sample_t *d_samples;
     uint_t *d_ranksEven, *d_ranksOdd;
-    uint_t ranksLen = tableLen / SUB_BLOCK_SIZE * 2;
+    uint_t samplesLen = tableLen / SUB_BLOCK_SIZE;
+    uint_t ranksLen = 2 * samplesLen;
 
     LARGE_INTEGER timer;
     cudaError_t error;
 
     memoryDataInit(h_input, &d_input, &d_output, &d_buffer, tableLen);
-    memoryMergeInit(&d_samplesEven, &d_samplesOdd, &d_ranksEven, &d_ranksOdd, tableLen);
+    memoryMergeInit(&d_samples, &d_ranksEven, &d_ranksOdd, samplesLen, ranksLen);
 
     startStopwatch(&timer);
     runMergeSortKernel(d_input, d_output, tableLen, orderAsc);
+
+    runExtractSamplesKernel(d_output, d_samples, tableLen, SHARED_MEM_SIZE);
 
     /*for (uint_t sortedBlockSize = SHARED_MEM_SIZE; sortedBlockSize < tableLen; sortedBlockSize *= 2) {
         el_t* temp = d_output;

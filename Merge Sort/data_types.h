@@ -9,11 +9,11 @@ typedef int32_t int_t;
 
 // TODO comment
 struct Element {
-    uint32_t key;
-    uint32_t val;
+    uint_t key;
+    uint_t val;
 };
 struct Sample {
-    uint32_t key;  // Has to be the same type as Element key
+    uint_t key;  // Has to be the same type as Element key
     uint_t rank;
 };
 typedef struct Element el_t;

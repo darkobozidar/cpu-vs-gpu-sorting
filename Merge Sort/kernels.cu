@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <math.h>
+#include <climits>
 
 #include <cuda.h>
 #include "cuda_runtime.h"
@@ -130,8 +131,81 @@ __device__ uint_t binarySearchRank(el_t* table, uint_t sortedBlockSize, uint_t s
     return 0;
 }
 
-__global__ void extractSamplesKernel(el_t* table, el_t* samplesEven, el_t* samplesOdd, uint_t sortedBlockSize) {
+/*
+Binary search, which returns an index of last element LOWER than target.
+Start and end indexes can't be unsigned, because end index can become negative.
+*/
+__device__ int binIn(el_t* dataTile, uint_t target, int_t indexStart, int_t indexEnd,
+    bool orderAsc) {
 
+    while (indexStart <= indexEnd) {
+        int index = ((indexStart + indexEnd) / 2) & ((SUB_BLOCK_SIZE - 1) ^ ULONG_MAX);
+
+        if ((target < dataTile[index].key) ^ (!orderAsc)) {
+            indexEnd = index - SUB_BLOCK_SIZE;
+        }
+        else {
+            indexStart = index + SUB_BLOCK_SIZE;
+        }
+    }
+
+    return indexStart;
+}
+
+/*
+Binary search, which returns an index of last element LOWER OR EQUAL than target.
+Start and end indexes can't be unsigned, because end index can become negative.
+*/
+__device__ int binEx(el_t* dataTile, uint_t target, int_t indexStart, int_t indexEnd,
+    bool orderAsc) {
+
+    while (indexStart <= indexEnd) {
+        int index = ((indexStart + indexEnd) / 2) & ((SUB_BLOCK_SIZE - 1) ^ ULONG_MAX);
+
+        if ((target <= dataTile[index].key) ^ (!orderAsc)) {
+            indexEnd = index - SUB_BLOCK_SIZE;
+        }
+        else {
+            indexStart = index + SUB_BLOCK_SIZE;
+        }
+    }
+
+    return indexStart;
+}
+
+/*
+Extracts samples from table in such a way, that they can be merged with bitonic merge.
+Even samples are read in same order as they are in table, odd samples are read in reverse order.
+*/
+__global__ void extractSamplesKernel(el_t *table, sample_t *samples, uint_t sortedBlockSize) {
+    uint_t dataIndex = blockIdx.x * (blockDim.x * SUB_BLOCK_SIZE) + threadIdx.x * SUB_BLOCK_SIZE;
+    uint_t sampleIndex = blockIdx.x * blockDim.x + threadIdx.x;
+
+    uint_t subBlocksPerSortedBlock = sortedBlockSize / SUB_BLOCK_SIZE;
+    uint_t subBlocksPerMergedBlock = 2 * subBlocksPerSortedBlock;
+    uint_t indexBlockCurr = sampleIndex / subBlocksPerSortedBlock;
+    uint_t indexBlockOpposite = indexBlockCurr ^ 1;
+    sample_t sample;
+    uint_t rank;
+
+    sample.key = table[dataIndex].key;
+    sample.rank = sampleIndex % subBlocksPerMergedBlock;
+
+    if (indexBlockCurr % 2 == 0) {
+        rank = binEx(
+            table, table[dataIndex].key, indexBlockOpposite * sortedBlockSize,
+            indexBlockOpposite * sortedBlockSize + sortedBlockSize - SUB_BLOCK_SIZE, 1
+        );
+        rank = (rank - sortedBlockSize) / SUB_BLOCK_SIZE;
+    } else {
+        rank = binIn(
+            table, table[dataIndex].key, indexBlockOpposite * sortedBlockSize,
+            indexBlockOpposite * sortedBlockSize + sortedBlockSize - SUB_BLOCK_SIZE, 1
+        );
+        rank /= SUB_BLOCK_SIZE;
+    }
+
+    samples[sampleIndex % subBlocksPerSortedBlock + rank] = sample;
 }
 
 __global__ void generateRanksKernel(el_t* table, uint_t* ranks, uint_t dataLen, uint_t sortedBlockSize) {
