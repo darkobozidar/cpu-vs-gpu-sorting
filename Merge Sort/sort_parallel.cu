@@ -13,10 +13,9 @@
 
 
 /*
-Initializes memory needed for parallel implementation of merge sort.
+Initializes memory needed for storing data being sorted.
 */
-void memoryInit(el_t *h_input, el_t **d_input, el_t **d_output, el_t **d_buffer, uint_t **d_ranks,
-                uint_t tableLen, uint_t ranksLen) {
+void memoryDataInit(el_t *h_input, el_t **d_input, el_t **d_output, el_t **d_buffer, uint_t tableLen) {
     cudaError_t error;
 
     error = cudaMalloc(d_input, tableLen * sizeof(**d_input));
@@ -25,10 +24,27 @@ void memoryInit(el_t *h_input, el_t **d_input, el_t **d_output, el_t **d_buffer,
     checkCudaError(error);
     error = cudaMalloc(d_buffer, tableLen * sizeof(**d_buffer));
     checkCudaError(error);
-    error = cudaMalloc(d_ranks, ranksLen * sizeof(**d_ranks));
-    checkCudaError(error);
 
     error = cudaMemcpy(*d_input, h_input, tableLen * sizeof(**d_input), cudaMemcpyHostToDevice);
+    checkCudaError(error);
+}
+
+/*
+Initializes memory needed for merge.
+*/
+void memoryMergeInit(sample_t **samplesEven, sample_t **samplesOdd, uint_t **ranksEven, uint_t **ranksOdd,
+                     uint_t tableLen) {
+    uint_t samplesLen = tableLen / SUB_BLOCK_SIZE / 2;
+    uint_t ranksLen = 2 * samplesLen;
+    cudaError_t error;
+
+    error = cudaMalloc(samplesEven, samplesLen * sizeof(**samplesEven));
+    checkCudaError(error);
+    error = cudaMalloc(samplesOdd, samplesLen * sizeof(**samplesOdd));
+    checkCudaError(error);
+    error = cudaMalloc(ranksEven, samplesLen * sizeof(**ranksEven));
+    checkCudaError(error);
+    error = cudaMalloc(ranksOdd, samplesLen * sizeof(**ranksOdd));
     checkCudaError(error);
 }
 
@@ -94,25 +110,27 @@ void runMergeKernel(el_t *input, el_t *output, uint_t *ranks, uint_t tableLen,
 
 void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc) {
     el_t *d_input, *d_output, *d_buffer;
-    uint_t* d_ranks;
+    sample_t *d_samplesEven, *d_samplesOdd;
+    uint_t *d_ranksEven, *d_ranksOdd;
     uint_t ranksLen = tableLen / SUB_BLOCK_SIZE * 2;
 
     LARGE_INTEGER timer;
     cudaError_t error;
 
-    memoryInit(h_input, &d_input, &d_output, &d_buffer, &d_ranks, tableLen, ranksLen);
+    memoryDataInit(h_input, &d_input, &d_output, &d_buffer, tableLen);
+    memoryMergeInit(&d_samplesEven, &d_samplesOdd, &d_ranksEven, &d_ranksOdd, tableLen);
 
     startStopwatch(&timer);
     runMergeSortKernel(d_input, d_output, tableLen, orderAsc);
 
-    for (uint_t sortedBlockSize = SHARED_MEM_SIZE; sortedBlockSize < tableLen; sortedBlockSize *= 2) {
+    /*for (uint_t sortedBlockSize = SHARED_MEM_SIZE; sortedBlockSize < tableLen; sortedBlockSize *= 2) {
         el_t* temp = d_output;
         d_output = d_buffer;
         d_buffer = temp;
 
         runGenerateRanksKernel(d_buffer, d_ranks, tableLen, sortedBlockSize);
         runMergeKernel(d_buffer, d_output, d_ranks, tableLen, ranksLen, sortedBlockSize);
-    }
+    }*/
     error = cudaDeviceSynchronize();
     checkCudaError(error);
     endStopwatch(timer, "Executing parallel merge sort.");

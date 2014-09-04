@@ -12,11 +12,11 @@ struct Element {
     uint32_t key;
     uint32_t val;
 };
-struct RankElement {
-    struct Element el;
+struct Sample {
+    uint32_t key;  // Has to be the same type as Element key
     uint_t rank;
 };
 typedef struct Element el_t;
-typedef struct RankElement rank_el_t;
+typedef struct Sample sample_t;
 
 #endif
