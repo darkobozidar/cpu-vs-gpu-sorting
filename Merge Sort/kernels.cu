@@ -12,55 +12,17 @@
 
 
 /*
-Compares 2 elements and exchanges them according to orderAsc.
+Binary search, which returns an index of last element LOWER than target.
+Start and end indexes can't be unsigned, because end index can become negative.
 */
-__device__ void compareExchange(el_t *elem1, el_t *elem2, bool orderAsc) {
-    if ((elem1->key <= elem2->key) ^ orderAsc) {
-        el_t temp = *elem1;
-        *elem1 = *elem2;
-        *elem2 = temp;
-    }
-}
-
-/*
-For debugging purposes only specified thread prints to console.
-*/
-__device__ void printOnce(char* text, uint_t threadIndex) {
-    if (threadIdx.x == threadIndex) {
-        printf(text);
-    }
-}
-
-/*
-For debugging purposes only thread 0 prints to console.
-*/
-__device__ void printOnce(char* text) {
-    printOnce(text, 0);
-}
-
-__device__ int binarySearchEven(el_t* dataTile, int indexStart, int indexEnd, el_t target) {
+__device__ int binarySearchExclusive(el_t* dataTile, el_t target, int_t indexStart, int_t indexEnd,
+                                     bool orderAsc) {
     while (indexStart <= indexEnd) {
         int index = (indexStart + indexEnd) / 2;
 
-        if (target.key < dataTile[index].key) {
+        if ((target.key < dataTile[index].key) ^ (!orderAsc)) {
             indexEnd = index - 1;
-        }
-        else {
-            indexStart = index + 1;
-        }
-    }
-
-    return indexStart;
-}
-
-__device__ int binarySearchOdd(el_t* dataTile, int indexStart, int indexEnd, el_t target) {
-    while (indexStart <= indexEnd) {
-        int index = (indexStart + indexEnd) / 2;
-
-        if (target.key <= dataTile[index].key) {
-            indexEnd = index - 1;
-        }
-        else {
+        } else {
             indexStart = index + 1;
         }
     }
@@ -69,7 +31,26 @@ __device__ int binarySearchOdd(el_t* dataTile, int indexStart, int indexEnd, el_
 }
 
 /*
-Sorts sub blocks of input data with merge sort.
+Binary search, which returns an index of last element LOWER OR EQUAL than target.
+Start and end indexes can't be unsigned, because end index can become negative.
+*/
+__device__ int binarySearchInclusive(el_t* dataTile, el_t target, int_t indexStart, int_t indexEnd,
+                                     bool orderAsc) {
+    while (indexStart <= indexEnd) {
+        int index = (indexStart + indexEnd) / 2;
+
+        if ((target.key <= dataTile[index].key) ^ (!orderAsc)) {
+            indexEnd = index - 1;
+        } else {
+            indexStart = index + 1;
+        }
+    }
+
+    return indexStart;
+}
+
+/*
+Sorts sub blocks of input data with merge sort. Sort is stable.
 */
 __global__ void mergeSortKernel(el_t *input, el_t *output, bool orderAsc) {
     __shared__ el_t tile[SHARED_MEM_SIZE];
@@ -86,8 +67,8 @@ __global__ void mergeSortKernel(el_t *input, el_t *output, bool orderAsc) {
         __syncthreads();
         el_t elA = tile[indexBase + lPos];
         el_t elB = tile[indexBase + lPos + stride];
-        uint_t posA = binarySearchOdd(tile, indexBase + stride, indexBase + 2 * stride - 1, elA) + lPos - stride;
-        uint_t posB = binarySearchEven(tile, indexBase, indexBase + stride - 1, elB) + lPos;
+        uint_t posA = binarySearchInclusive(tile, elA, indexBase + stride, indexBase + 2 * stride - 1, orderAsc) + lPos - stride;
+        uint_t posB = binarySearchExclusive(tile, elB, indexBase, indexBase + stride - 1, orderAsc) + lPos;
 
         __syncthreads();
         tile[posA] = elA;
@@ -244,15 +225,15 @@ __global__ void mergeKernel(el_t* input, el_t* output, uint_t *ranks, uint_t tab
     __syncthreads();
     // Search for ranks in ODD sub-block for all elements in EVEN sub-block
     if (threadIdx.x < numElementsEven) {
-        uint_t rankOdd = binarySearchOdd(dataTile, subBlockSize, subBlockSize + numElementsOdd - 1,
-                                         dataTile[threadIdx.x]);
+        uint_t rankOdd = binarySearchInclusive(dataTile, dataTile[threadIdx.x], subBlockSize,
+                                               subBlockSize + numElementsOdd - 1, 1);
         rankOdd = rankOdd - subBlockSize + indexStartOdd;
         output[offsetEven + rankOdd] = dataTile[threadIdx.x];
     }
     // Search for ranks in EVEN sub-block for all elements in ODD sub-block
     if (threadIdx.x < numElementsOdd) {
-        uint_t rankEven = binarySearchEven(dataTile, 0, numElementsEven - 1,
-                                           dataTile[subBlockSize + threadIdx.x]);
+        uint_t rankEven = binarySearchExclusive(dataTile, dataTile[subBlockSize + threadIdx.x],
+                                                0, numElementsEven - 1, 1);
         rankEven += indexStartEven;
         output[offsetOdd + rankEven] = dataTile[subBlockSize + threadIdx.x];
     }
