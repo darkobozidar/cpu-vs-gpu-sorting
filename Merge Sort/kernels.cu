@@ -92,46 +92,6 @@ __global__ void mergeSortKernel(el_t *input, el_t *output, bool orderAsc) {
 }
 
 /*
-Binary search, which return rank in the opposite sub-block of specified sample.
-*/
-__device__ uint_t binarySearchRank(el_t* table, uint_t sortedBlockSize, uint_t subBlockSize,
-                                   uint_t rank, el_t targetEl) {
-    uint_t subBlocksPerSortedBlock = sortedBlockSize / subBlockSize;
-    uint_t subBlocksPerMergedBlock = 2 * subBlocksPerSortedBlock;
-
-    // Offset to current merged group of sorted blocks...
-    uint_t offsetBlockOpposite = (rank / subBlocksPerMergedBlock) * 2;
-    // ... + offset to odd / even block
-    offsetBlockOpposite += !((rank % subBlocksPerMergedBlock) / subBlocksPerSortedBlock);
-    // Calculate the rank in opposite block
-    uint_t offsetSubBlockOpposite = threadIdx.x % subBlocksPerMergedBlock - rank % subBlocksPerSortedBlock - 1;
-
-    uint_t indexStart = offsetBlockOpposite * sortedBlockSize + offsetSubBlockOpposite * subBlockSize + 1;
-    uint_t indexEnd = indexStart + subBlockSize - 2;
-
-    uint_t iStart = indexStart;
-    uint_t iEnd = indexEnd;
-
-    // Has to be explicitly converted to int, because it can be negative
-    if ((int_t)(indexStart - offsetBlockOpposite * sortedBlockSize) >= 0) {
-        while (indexStart <= indexEnd) {
-            uint_t index = (indexStart + indexEnd) / 2;
-            el_t currEl = table[index];
-
-            if (targetEl.key <= currEl.key) {
-                indexEnd = index - 1;
-            } else {
-                indexStart = index + 1;
-            }
-        }
-
-        return indexStart - offsetBlockOpposite * sortedBlockSize;
-    }
-
-    return 0;
-}
-
-/*
 Binary search, which returns an index of last element LOWER than target.
 Start and end indexes can't be unsigned, because end index can become negative.
 */
@@ -177,7 +137,7 @@ __device__ int binEx(el_t* dataTile, uint_t target, int_t indexStart, int_t inde
 Extracts samples from table in such a way, that they can be merged with bitonic merge.
 Even samples are read in same order as they are in table, odd samples are read in reverse order.
 */
-__global__ void extractSamplesKernel(el_t *table, sample_t *samples, uint_t sortedBlockSize) {
+__global__ void generateSamplesKernel(el_t *table, sample_t *samples, uint_t sortedBlockSize) {
     uint_t dataIndex = blockIdx.x * (blockDim.x * SUB_BLOCK_SIZE) + threadIdx.x * SUB_BLOCK_SIZE;
     uint_t sampleIndex = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -208,52 +168,64 @@ __global__ void extractSamplesKernel(el_t *table, sample_t *samples, uint_t sort
     samples[sampleIndex % subBlocksPerSortedBlock + rank] = sample;
 }
 
-__global__ void generateRanksKernel(el_t* table, uint_t* ranks, uint_t dataLen, uint_t sortedBlockSize) {
-    //__shared__ rank_el_t ranksTile[SHARED_MEM_SIZE];
+/*
+Binary search, which return rank in the opposite sub-block of specified sample.
+*/
+__device__ uint_t binarySearchRank(el_t* table, uint_t sortedBlockSize, uint_t subBlockSize,
+    uint_t rank, uint_t target) {
+    uint_t subBlocksPerSortedBlock = sortedBlockSize / subBlockSize;
+    uint_t subBlocksPerMergedBlock = 2 * subBlocksPerSortedBlock;
 
-    //uint_t subBlocksPerSortedBlock = sortedBlockSize / SUB_BLOCK_SIZE;
-    //uint_t subBlocksPerMergedBlock = 2 * subBlocksPerSortedBlock;
-    //uint_t indexSortedBlock = threadIdx.x / subBlocksPerSortedBlock;
+    // Offset to current merged group of sorted blocks...
+    uint_t offsetBlockOpposite = (rank / subBlocksPerMergedBlock) * 2;
+    // ... + offset to odd / even block
+    offsetBlockOpposite += !((rank % subBlocksPerMergedBlock) / subBlocksPerSortedBlock);
+    // Calculate the rank in opposite block
+    uint_t offsetSubBlockOpposite = threadIdx.x % subBlocksPerMergedBlock - rank % subBlocksPerSortedBlock - 1;
 
-    //uint_t dataIndex = blockIdx.x * (blockDim.x * SUB_BLOCK_SIZE) + threadIdx.x * SUB_BLOCK_SIZE;
-    //// Offset to correct sorted block
-    //uint_t tileIndex = indexSortedBlock * subBlocksPerSortedBlock;
-    //// Offset for sub-block index inside block for ODD block
-    //tileIndex += ((indexSortedBlock % 2 == 0) * threadIdx.x) % subBlocksPerSortedBlock;
-    //// Offset for sub-block index inside block for EVEN block (index has to be reversed)
-    //tileIndex += ((indexSortedBlock % 2 == 1) * (subBlocksPerSortedBlock - (threadIdx.x + 1)))
-    //              % subBlocksPerSortedBlock;
+    uint_t indexStart = offsetBlockOpposite * sortedBlockSize + offsetSubBlockOpposite * subBlockSize + 1;
+    uint_t indexEnd = indexStart + subBlockSize - 2;
 
-    //// Read the samples from global memory in to shared memory in such a way, to get a bitonic
-    //// sequence of samples
-    //if (dataIndex < dataLen) {
-    //    ranksTile[tileIndex].el = table[dataIndex];
-    //    ranksTile[threadIdx.x].rank = tileIndex;
-    //}
+    uint_t iStart = indexStart;
+    uint_t iEnd = indexEnd;
 
-    //for (uint_t stride = subBlocksPerSortedBlock; stride > 0; stride /= 2) {
-    //    __syncthreads();
-    //    // Only half of the threads have to perform bitonic merge
-    //    if (threadIdx.x >= blockDim.x / 2) {
-    //        continue;
-    //    }
+    // Has to be explicitly converted to int, because it can be negative
+    if ((int_t)(indexStart - offsetBlockOpposite * sortedBlockSize) >= 0) {
+        while (indexStart <= indexEnd) {
+            uint_t index = (indexStart + indexEnd) / 2;
+            el_t currEl = table[index];
 
-    //    uint_t sampleIndex = (2 * threadIdx.x - (threadIdx.x & (stride - 1)));
-    //    rank_el_t left = ranksTile[sampleIndex];
-    //    rank_el_t right = ranksTile[sampleIndex + stride];
+            if (target <= currEl.key) {
+                indexEnd = index - 1;
+            }
+            else {
+                indexStart = index + 1;
+            }
+        }
 
-    //    if (left.el.key > right.el.key || left.el.key == right.el.key && left.rank > right.rank) {
-    //        ranksTile[sampleIndex] = right;
-    //        ranksTile[sampleIndex + stride] = left;
-    //    }
-    //}
+        return indexStart - offsetBlockOpposite * sortedBlockSize;
+    }
 
-    //// Calculate ranks of current and opposite sorted block in global table
-    //__syncthreads();
-    //el_t element = ranksTile[threadIdx.x].el;
-    //uint_t rank = ranksTile[threadIdx.x].rank;
-    //uint_t rankDataCurrent = (rank * SUB_BLOCK_SIZE % sortedBlockSize) + 1;
-    //uint_t rankDataOpposite = binarySearchRank(table, sortedBlockSize, SUB_BLOCK_SIZE, rank, element);
+    return 0;
+}
+
+__global__ void generateRanksKernel(el_t* table, sample_t *samples, uint_t *ranksEven, uint_t *ranksOdd,
+                                    uint_t tableLen, uint_t sortedBlockSize) {
+    uint_t index = blockIdx.x * blockDim.x + threadIdx.x;
+
+    uint_t subBlocksPerSortedBlock = sortedBlockSize / SUB_BLOCK_SIZE;
+    uint_t subBlocksPerMergedBlock = 2 * subBlocksPerSortedBlock;
+    uint_t indexSortedBlock = threadIdx.x / subBlocksPerSortedBlock;
+
+    // Calculate ranks of current and opposite sorted block in global table
+    __syncthreads();
+    sample_t sample = samples[index];
+    uint_t key = samples[index].key;
+    uint_t rank = samples[threadIdx.x].rank;
+    uint_t rankDataCurrent = (rank * SUB_BLOCK_SIZE % sortedBlockSize) + 1;
+    uint_t rankDataOpposite = binarySearchRank(table, sortedBlockSize, SUB_BLOCK_SIZE, rank, key);
+
+    printf("%2d %2d %2d\n", sample.key, rankDataCurrent, rankDataOpposite);
 
     //// Check if rank came from odd or even sorted block
     //uint_t oddEvenOffset = (rank / subBlocksPerSortedBlock) % 2;

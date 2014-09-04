@@ -63,26 +63,7 @@ void runMergeSortKernel(el_t *input, el_t *output, uint_t tableLen, bool orderAs
     endStopwatch(timer, "Executing Bitonic sort Kernel")*/;
 }
 
-void runExtractSamplesKernel(el_t *table, sample_t *samples, uint_t tableLen, uint_t sortedBlockSize) {
-    cudaError_t error;
-    LARGE_INTEGER timer;
-
-    uint_t numAllSamples = tableLen / SUB_BLOCK_SIZE;
-    uint_t threadBlockSize = min(numAllSamples, SHARED_MEM_SIZE);
-    dim3 dimGrid(2, 1, 1);
-    dim3 dimBlock(4, 1, 1);
-
-    startStopwatch(&timer);
-    extractSamplesKernel << <dimGrid, dimBlock >> >(table, samples, sortedBlockSize);
-    /*error = cudaDeviceSynchronize();
-    checkCudaError(error);
-    endStopwatch(timer, "Executing kernel for sample extraction");*/
-}
-
-/*
-Generates ranks of sub-blocks that need to be merged.
-*/
-void runGenerateRanksKernel(el_t *table, uint_t *ranks, uint_t tableLen, uint_t sortedBlockSize) {
+void runGenerateSamplesKernel(el_t *table, sample_t *samples, uint_t tableLen, uint_t sortedBlockSize) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
@@ -92,7 +73,29 @@ void runGenerateRanksKernel(el_t *table, uint_t *ranks, uint_t tableLen, uint_t 
     dim3 dimBlock(threadBlockSize, 1, 1);
 
     startStopwatch(&timer);
-    generateRanksKernel<<<dimGrid, dimBlock>>>(table, ranks, tableLen, sortedBlockSize);
+    generateSamplesKernel<<<dimGrid, dimBlock>>>(table, samples, sortedBlockSize);
+    /*error = cudaDeviceSynchronize();
+    checkCudaError(error);
+    endStopwatch(timer, "Executing kernel for sample extraction");*/
+}
+
+/*
+Generates ranks of sub-blocks that need to be merged.
+*/
+void runGenerateRanksKernel(el_t *table, sample_t *samples, uint_t *ranksEven, uint_t *ranksOdd,
+                            uint_t tableLen, uint_t sortedBlockSize) {
+    cudaError_t error;
+    LARGE_INTEGER timer;
+
+    uint_t numAllSamples = tableLen / SUB_BLOCK_SIZE;
+    uint_t threadBlockSize = min(numAllSamples, SHARED_MEM_SIZE);
+    dim3 dimGrid((numAllSamples - 1) / threadBlockSize + 1, 1, 1);
+    dim3 dimBlock(threadBlockSize, 1, 1);
+
+    startStopwatch(&timer);
+    generateRanksKernel<<<dimGrid, dimBlock>>>(
+        table, samples, ranksEven, ranksOdd, tableLen, sortedBlockSize
+    );
     /*error = cudaDeviceSynchronize();
     checkCudaError(error);
     endStopwatch(timer, "Executing Generate ranks kernel");*/
@@ -136,7 +139,8 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
     startStopwatch(&timer);
     runMergeSortKernel(d_input, d_output, tableLen, orderAsc);
 
-    runExtractSamplesKernel(d_output, d_samples, tableLen, SHARED_MEM_SIZE);
+    runGenerateSamplesKernel(d_output, d_samples, tableLen, SHARED_MEM_SIZE);
+    runGenerateRanksKernel(d_buffer, d_samples, d_ranksEven, d_ranksOdd, tableLen, SHARED_MEM_SIZE);
 
     /*for (uint_t sortedBlockSize = SHARED_MEM_SIZE; sortedBlockSize < tableLen; sortedBlockSize *= 2) {
         el_t* temp = d_output;
