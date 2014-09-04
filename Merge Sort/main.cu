@@ -20,8 +20,8 @@ int main(int argc, char** argv) {
     el_t *outputParallel;
     el_t *outputCorrect;
 
-    uint_t tableLen = 1 << 10;
-    uint_t interval = 5;
+    uint_t tableLen = 1 << 18;
+    uint_t interval = 1 << 16;
     bool orderAsc = true;  // TODO use this
     cudaError_t error;
 

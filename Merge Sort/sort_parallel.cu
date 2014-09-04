@@ -33,14 +33,14 @@ void memoryInit(el_t *h_input, el_t **d_input, el_t **d_output, el_t **d_buffer,
 }
 
 /*
-Sorts data blocks of size sortedBlockSize with bitonic sort.
+Sorts data blocks of size sortedBlockSize with merge sort.
 */
-void runBitonicSortKernel(el_t *input, el_t *output, uint_t tableLen, bool orderAsc) {
+void runMergeSortKernel(el_t *input, el_t *output, uint_t tableLen, bool orderAsc) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
     // Every thread loads and sorts 2 elements
-    uint_t threadBlockSize = min(tableLen, SHARED_MEM_SIZE) / 2;
+    uint_t threadBlockSize = SHARED_MEM_SIZE / 2;
     dim3 dimGrid((tableLen - 1) / (threadBlockSize * 2) + 1, 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
 
@@ -48,7 +48,7 @@ void runBitonicSortKernel(el_t *input, el_t *output, uint_t tableLen, bool order
     mergeSortKernel<<<dimGrid, dimBlock>>>(input, output, orderAsc);
     /*error = cudaDeviceSynchronize();
     checkCudaError(error);
-    endStopwatch(timer, "Executing Bitonic sort Kernel");*/
+    endStopwatch(timer, "Executing Bitonic sort Kernel")*/;
 }
 
 /*
@@ -103,16 +103,16 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
     memoryInit(h_input, &d_input, &d_output, &d_buffer, &d_ranks, tableLen, ranksLen);
 
     startStopwatch(&timer);
-    runBitonicSortKernel(d_input, d_output, tableLen, orderAsc);
+    runMergeSortKernel(d_input, d_output, tableLen, orderAsc);
 
-    /*for (uint_t sortedBlockSize = SHARED_MEM_SIZE; sortedBlockSize < tableLen; sortedBlockSize *= 2) {
+    for (uint_t sortedBlockSize = SHARED_MEM_SIZE; sortedBlockSize < tableLen; sortedBlockSize *= 2) {
         el_t* temp = d_output;
         d_output = d_buffer;
         d_buffer = temp;
 
         runGenerateRanksKernel(d_buffer, d_ranks, tableLen, sortedBlockSize);
         runMergeKernel(d_buffer, d_output, d_ranks, tableLen, ranksLen, sortedBlockSize);
-    }*/
+    }
     error = cudaDeviceSynchronize();
     checkCudaError(error);
     endStopwatch(timer, "Executing parallel merge sort.");
