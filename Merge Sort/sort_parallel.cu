@@ -74,22 +74,22 @@ void runGenerateRanksKernel(el_t *table, uint_t *ranks, uint_t tableLen, uint_t 
 Executes merge kernel, which merges all consecutive sorted blocks in data.
 */
 void runMergeKernel(el_t *input, el_t *output, uint_t *ranks, uint_t tableLen,
-                    uint_t ranksLen, uint_t sortedBlockSize, uint_t tabSubBlockSize) {
+                    uint_t ranksLen, uint_t sortedBlockSize) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
-    uint_t subBlocksPerMergedBlock = sortedBlockSize / tabSubBlockSize * 2;
+    uint_t subBlocksPerMergedBlock = sortedBlockSize / SUB_BLOCK_SIZE * 2;
     uint_t numMergedBlocks = tableLen / (sortedBlockSize * 2);
     dim3 dimGrid(subBlocksPerMergedBlock + 1, numMergedBlocks, 1);
-    dim3 dimBlock(tabSubBlockSize, 1, 1);
+    dim3 dimBlock(SUB_BLOCK_SIZE, 1, 1);
 
     startStopwatch(&timer);
-    mergeKernel << <dimGrid, dimBlock, SHARED_MEM_SIZE * sizeof(*input) * 2 >> >(
-        input, output, ranks, tableLen, ranksLen, sortedBlockSize, tabSubBlockSize
+    mergeKernel << <dimGrid, dimBlock>> >(
+        input, output, ranks, tableLen, ranksLen, sortedBlockSize, SUB_BLOCK_SIZE
     );
-    error = cudaDeviceSynchronize();
+    /*error = cudaDeviceSynchronize();
     checkCudaError(error);
-    //endStopwatch(timer, "Executing merge kernel");
+    endStopwatch(timer, "Executing merge kernel");*/
 }
 
 void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc) {
@@ -111,8 +111,10 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
         d_buffer = temp;
 
         runGenerateRanksKernel(d_buffer, d_ranks, tableLen, sortedBlockSize);
-        runMergeKernel(d_buffer, d_output, d_ranks, tableLen, ranksLen, sortedBlockSize, SUB_BLOCK_SIZE);
+        runMergeKernel(d_buffer, d_output, d_ranks, tableLen, ranksLen, sortedBlockSize);
     }
+    error = cudaDeviceSynchronize();
+    checkCudaError(error);
     endStopwatch(timer, "Executing parallel merge sort.");
 
     error = cudaMemcpy(h_output, d_output, tableLen * sizeof(*h_output), cudaMemcpyDeviceToHost);

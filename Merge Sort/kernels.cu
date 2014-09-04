@@ -204,7 +204,7 @@ __device__ int binarySearchOdd(el_t* dataTile, int indexStart, int indexEnd, el_
 
 __global__ void mergeKernel(el_t* input, el_t* output, uint_t *ranks, uint_t tableLen,
                             uint_t ranksLen, uint_t sortedBlockSize, uint_t subBlockSize) {
-    extern __shared__ el_t dataTile[];
+    __shared__ el_t dataTile[2 * SUB_BLOCK_SIZE];
     uint_t indexRank = blockIdx.y * (sortedBlockSize / subBlockSize * 2) + blockIdx.x;
     uint_t indexSortedBlock = blockIdx.y * 2 * sortedBlockSize;
     uint_t indexStartEven, indexStartOdd, indexEndEven, indexEndOdd;
