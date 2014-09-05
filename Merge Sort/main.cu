@@ -16,16 +16,16 @@
 
 int main(int argc, char** argv) {
     // Rename array to table everywhere in code
-    //el_t *input;
-    el_t input[32] = {
-        6, 0, 23, 1, 29, 2, 35, 3, 45, 4, 63, 5, 64, 6, 97, 7, 1, 8, 4, 9, 25, 10, 34, 11,
-        45, 12, 67, 13, 98, 14, 99, 15, 4, 16, 19, 17, 41, 18, 58, 19, 68, 20, 80, 21, 81,
-        22, 96, 23, 4, 24, 13, 25, 18, 26, 33, 27, 55, 29, 66, 29, 88, 30, 90, 32
-    };
+    el_t *input;
+    /*el_t input[32] = {
+        7, 0, 19, 1, 20, 2, 31, 3, 48, 4, 49, 5, 54, 6, 68, 7, 2, 8, 14, 9, 41, 10, 46,
+        11, 60, 12, 62, 13, 63, 14, 96, 15, 12, 16, 17, 17, 37, 18, 40, 19, 64, 20, 66,
+        21, 88, 22, 97, 23, 24, 24, 26, 25, 37, 26, 75, 27, 76, 28, 76, 29, 76, 30, 85, 31
+    };*/
     el_t *outputParallel;
     el_t *outputCorrect;
 
-    uint_t tableLen = 1 << 5;
+    uint_t tableLen = 1 << 18;
     uint_t interval = 1 << 16;
     bool orderAsc = true;  // TODO use this
     cudaError_t error;
@@ -33,11 +33,11 @@ int main(int argc, char** argv) {
     cudaFree(NULL);  // Initializes CUDA, because CUDA init is lazy
     srand(time(NULL));
 
-    //error = cudaHostAlloc(&input, tableLen * sizeof(*input), cudaHostAllocDefault);
-    //checkCudaError(error);
+    error = cudaHostAlloc(&input, tableLen * sizeof(*input), cudaHostAllocDefault);
+    checkCudaError(error);
     error = cudaHostAlloc(&outputParallel, tableLen * sizeof(*outputParallel), cudaHostAllocDefault);
     checkCudaError(error);
-    //fillTable(input, tableLen, interval);
+    fillTable(input, tableLen, interval);
     //printTable(input, tableLen);
 
     sortParallel(input, outputParallel, tableLen, orderAsc);

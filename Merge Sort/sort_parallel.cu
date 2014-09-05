@@ -118,9 +118,9 @@ void runMergeKernel(el_t *input, el_t *output, uint_t *ranksEven, uint_t *ranksO
     mergeKernel << <dimGrid, dimBlock>> >(
         input, output, ranksEven, ranksOdd, tableLen, sortedBlockSize, SUB_BLOCK_SIZE
     );
-    error = cudaDeviceSynchronize();
+    /*error = cudaDeviceSynchronize();
     checkCudaError(error);
-    endStopwatch(timer, "Executing merge kernel");
+    endStopwatch(timer, "Executing merge kernel");*/
 }
 
 void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc) {
@@ -128,7 +128,7 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
     sample_t *d_samples;
     uint_t *d_ranksEven, *d_ranksOdd;
     uint_t samplesLen = tableLen / SUB_BLOCK_SIZE;
-    uint_t ranksLen = 2 * samplesLen;
+    uint_t ranksLen = samplesLen;
 
     LARGE_INTEGER timer;
     cudaError_t error;
