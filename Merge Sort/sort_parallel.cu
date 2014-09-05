@@ -83,7 +83,7 @@ void runGenerateSamplesKernel(el_t *table, el_t *samples, uint_t tableLen, uint_
 }
 
 /*
-Generates ranks of sub-blocks that need to be merged.
+Generates ranks/limits of sub-blocks that need to be merged.
 */
 void runGenerateRanksKernel(el_t *table, el_t *samples, uint_t *ranksEven, uint_t *ranksOdd,
                             uint_t tableLen, uint_t sortedBlockSize, bool orderAsc) {
@@ -119,7 +119,7 @@ void runMergeKernel(el_t *input, el_t *output, uint_t *ranksEven, uint_t *ranksO
 
     startStopwatch(&timer);
     mergeKernel << <dimGrid, dimBlock>> >(
-        input, output, ranksEven, ranksOdd, tableLen, sortedBlockSize, SUB_BLOCK_SIZE
+        input, output, ranksEven, ranksOdd, tableLen, sortedBlockSize
     );
     /*error = cudaDeviceSynchronize();
     checkCudaError(error);
@@ -136,6 +136,7 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
     cudaError_t error;
 
     memoryDataInit(h_input, &d_input, &d_output, &d_buffer, tableLen);
+    // TODO if statement not to init
     memoryMergeInit(&d_samples, &d_ranksEven, &d_ranksOdd, samplesLen);
 
     startStopwatch(&timer);
