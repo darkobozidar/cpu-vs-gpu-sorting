@@ -17,14 +17,15 @@ Binary search, which returns an index of last element LOWER than target.
 Start and end indexes can't be unsigned, because end index can become negative.
 */
 __device__ int binarySearchExclusive(el_t* dataTile, el_t target, int_t indexStart, int_t indexEnd,
-                                     bool orderAsc) {
+                                     uint_t stride, bool orderAsc) {
     while (indexStart <= indexEnd) {
-        int index = (indexStart + indexEnd) / 2;
+        // Floor to multiplier of stride - needed for strides > 1
+        int index = ((indexStart + indexEnd) / 2) & ((stride - 1) ^ ULONG_MAX);
 
         if ((target.key < dataTile[index].key) ^ (!orderAsc)) {
-            indexEnd = index - 1;
+            indexEnd = index - stride;
         } else {
-            indexStart = index + 1;
+            indexStart = index + stride;
         }
     }
 
@@ -36,14 +37,15 @@ Binary search, which returns an index of last element LOWER OR EQUAL than target
 Start and end indexes can't be unsigned, because end index can become negative.
 */
 __device__ int binarySearchInclusive(el_t* dataTile, el_t target, int_t indexStart, int_t indexEnd,
-                                     bool orderAsc) {
+                                     uint_t stride, bool orderAsc) {
     while (indexStart <= indexEnd) {
-        int index = (indexStart + indexEnd) / 2;
+        // Floor to multiplier of stride - needed for strides > 1
+        int index = ((indexStart + indexEnd) / 2) & ((stride - 1) ^ ULONG_MAX);
 
         if ((target.key <= dataTile[index].key) ^ (!orderAsc)) {
-            indexEnd = index - 1;
+            indexEnd = index - stride;
         } else {
-            indexStart = index + 1;
+            indexStart = index + stride;
         }
     }
 
@@ -75,10 +77,10 @@ __global__ void mergeSortKernel(el_t *input, el_t *output, bool orderAsc) {
 
         // Calculate the rank of element from even block in odd block and vice versa
         uint_t rankOdd = binarySearchInclusive(
-            tile, elEven, offsetBlock + stride, offsetBlock + 2 * stride - 1, orderAsc
+            tile, elEven, offsetBlock + stride, offsetBlock + 2 * stride - 1, 1, orderAsc
         );
         uint_t rankEven = binarySearchExclusive(
-            tile, elOdd, offsetBlock, offsetBlock + stride - 1, orderAsc
+            tile, elOdd, offsetBlock, offsetBlock + stride - 1, 1, orderAsc
         );
 
         __syncthreads();
@@ -310,14 +312,14 @@ __global__ void mergeKernel(el_t* input, el_t* output, uint_t *ranksEven, uint_t
     // Search for ranks in ODD sub-block for all elements in EVEN sub-block
     if (threadIdx.x < numElementsEven) {
         uint_t rankOdd = binarySearchInclusive(dataTile, dataTile[threadIdx.x], subBlockSize,
-                                               subBlockSize + numElementsOdd - 1, 1);
+                                               subBlockSize + numElementsOdd - 1, 1, 1);
         rankOdd = rankOdd - subBlockSize + indexStartOdd;
         output[offsetEven + rankOdd] = dataTile[threadIdx.x];
     }
     // Search for ranks in EVEN sub-block for all elements in ODD sub-block
     if (threadIdx.x < numElementsOdd) {
         uint_t rankEven = binarySearchExclusive(dataTile, dataTile[subBlockSize + threadIdx.x],
-                                                0, numElementsEven - 1, 1);
+                                                0, numElementsEven - 1, 1, 1);
         rankEven += indexStartEven;
         output[offsetOdd + rankEven] = dataTile[subBlockSize + threadIdx.x];
     }

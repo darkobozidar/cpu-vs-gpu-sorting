@@ -15,19 +15,13 @@
 
 
 int main(int argc, char** argv) {
-    // Rename array to table everywhere in code
     el_t *input;
-    /*el_t input[32] = {
-        7, 0, 19, 1, 20, 2, 31, 3, 48, 4, 49, 5, 54, 6, 68, 7, 2, 8, 14, 9, 41, 10, 46,
-        11, 60, 12, 62, 13, 63, 14, 96, 15, 12, 16, 17, 17, 37, 18, 40, 19, 64, 20, 66,
-        21, 88, 22, 97, 23, 24, 24, 26, 25, 37, 26, 75, 27, 76, 28, 76, 29, 76, 30, 85, 31
-    };*/
     el_t *outputParallel;
     el_t *outputCorrect;
 
-    uint_t tableLen = 1 << 18;
-    uint_t interval = 1 << 16;
-    bool orderAsc = true;  // TODO use this
+    uint_t tableLen = 1 << 5;
+    uint_t interval = 2;
+    bool orderAsc = true;
     cudaError_t error;
 
     cudaFree(NULL);  // Initializes CUDA, because CUDA init is lazy
@@ -41,7 +35,7 @@ int main(int argc, char** argv) {
     //printTable(input, tableLen);
 
     sortParallel(input, outputParallel, tableLen, orderAsc);
-    //printTable(outputParallel, tableLen);
+    printTable(outputParallel, tableLen);
 
     printf("\n");
     outputCorrect = sortCorrect(input, tableLen);

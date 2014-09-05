@@ -30,7 +30,7 @@ void memoryDataInit(el_t *h_input, el_t **d_input, el_t **d_output, el_t **d_buf
 }
 
 /*
-Initializes memory needed for merge.
+Initializes memory needed for generating sub-block limits.
 */
 void memoryMergeInit(sample_t **samples, uint_t **ranksEven, uint_t **ranksOdd,
                      uint_t samplesLen, uint_t ranksLen) {
@@ -45,7 +45,7 @@ void memoryMergeInit(sample_t **samples, uint_t **ranksEven, uint_t **ranksOdd,
 }
 
 /*
-Sorts data blocks of size sortedBlockSize with merge sort.
+Sorts sub-blocks of data with merge sort.
 */
 void runMergeSortKernel(el_t *input, el_t *output, uint_t tableLen, bool orderAsc) {
     cudaError_t error;
@@ -60,7 +60,7 @@ void runMergeSortKernel(el_t *input, el_t *output, uint_t tableLen, bool orderAs
     mergeSortKernel<<<dimGrid, dimBlock>>>(input, output, orderAsc);
     /*error = cudaDeviceSynchronize();
     checkCudaError(error);
-    endStopwatch(timer, "Executing Bitonic sort Kernel");*/
+    endStopwatch(timer, "Executing Merge sort Kernel");*/
 }
 
 void runGenerateSamplesKernel(el_t *table, sample_t *samples, uint_t tableLen, uint_t sortedBlockSize) {
