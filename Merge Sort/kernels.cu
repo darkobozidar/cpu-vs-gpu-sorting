@@ -218,7 +218,7 @@ __global__ void generateRanksKernel(el_t* table, sample_t *samples, uint_t *rank
     __syncthreads();
     sample_t sample = samples[index];
     uint_t key = samples[index].key;
-    uint_t rank = samples[threadIdx.x].rank;
+    uint_t rank = samples[index].rank;
     uint_t rankDataCurrent = (rank * SUB_BLOCK_SIZE % sortedBlockSize) + 1;
     uint_t rankDataOpposite = binarySearchRank(table, sortedBlockSize, SUB_BLOCK_SIZE, rank, key);
 
@@ -243,59 +243,71 @@ __global__ void generateRanksKernel(el_t* table, sample_t *samples, uint_t *rank
     }*/
 }
 
-__global__ void mergeKernel(el_t* input, el_t* output, uint_t *ranks, uint_t tableLen,
-                            uint_t ranksLen, uint_t sortedBlockSize, uint_t subBlockSize) {
-    //__shared__ el_t dataTile[2 * SUB_BLOCK_SIZE];
-    //uint_t indexRank = blockIdx.y * (sortedBlockSize / subBlockSize * 2) + blockIdx.x;
-    //uint_t indexSortedBlock = blockIdx.y * 2 * sortedBlockSize;
-    //uint_t indexStartEven, indexStartOdd, indexEndEven, indexEndOdd;
-    //uint_t offsetEven, offsetOdd;
-    //uint_t numElementsEven, numElementsOdd;
+__global__ void mergeKernel(el_t* input, el_t* output, uint_t *ranksEven, uint_t *ranksOdd, uint_t tableLen,
+                            uint_t sortedBlockSize, uint_t subBlockSize) {
+    __shared__ el_t dataTile[2 * SUB_BLOCK_SIZE];
+    uint_t indexRank = blockIdx.y * (sortedBlockSize / subBlockSize * 2) + blockIdx.x;
+    uint_t indexSortedBlock = blockIdx.y * 2 * sortedBlockSize;
+    uint_t indexStartEven, indexStartOdd, indexEndEven, indexEndOdd;
+    uint_t offsetEven, offsetOdd;
+    uint_t numElementsEven, numElementsOdd;
 
-    //// Read the START index for even and odd sub-blocks
-    //if (blockIdx.x > 0) {
-    //    indexStartEven = ranks[indexRank - 1];
-    //    indexStartOdd = ranks[(indexRank - 1) + ranksLen / 2];
-    //} else {
-    //    indexStartEven = 0;
-    //    indexStartOdd = 0;
-    //}
-    //// Read the END index for even and odd sub-blocks
-    //if (blockIdx.x < gridDim.x - 1) {
-    //    indexEndEven = ranks[indexRank];
-    //    indexEndOdd = ranks[indexRank + ranksLen / 2];
-    //} else {
-    //    indexEndEven = sortedBlockSize;
-    //    indexEndOdd = sortedBlockSize;
-    //}
+    /*if (blockIdx.x == 0 && blockIdx.y == 0 && threadIdx.x == 0) {
+        for (int i = 0; i < 8; i++) {
+            printf("%2d, ", ranksEven[i]);
+        }
+        printf("\n\n");
 
-    //numElementsEven = indexEndEven - indexStartEven;
-    //numElementsOdd = indexEndOdd - indexStartOdd;
+        for (int i = 0; i < 8; i++) {
+            printf("%2d, ", ranksOdd[i]);
+        }
+        printf("\n\n");
+    }*/
 
-    //// Read data for sub-block in EVEN sorted block
-    //if (threadIdx.x < numElementsEven) {
-    //    offsetEven = indexSortedBlock + indexStartEven + threadIdx.x;
-    //    dataTile[threadIdx.x] = input[offsetEven];
-    //}
-    //// Read data for sub-block in ODD sorted block
-    //if (threadIdx.x < numElementsOdd) {
-    //    offsetOdd = indexSortedBlock + indexStartOdd + threadIdx.x;
-    //    dataTile[subBlockSize + threadIdx.x] = input[offsetOdd + sortedBlockSize];
-    //}
+    // Read the START index for even and odd sub-blocks
+    if (blockIdx.x > 0) {
+        indexStartEven = ranksEven[indexRank - 1];
+        indexStartOdd = ranksOdd[indexRank - 1];
+    } else {
+        indexStartEven = 0;
+        indexStartOdd = 0;
+    }
+    // Read the END index for even and odd sub-blocks
+    if (blockIdx.x < gridDim.x - 1) {
+        indexEndEven = ranksEven[indexRank];
+        indexEndOdd = ranksOdd[indexRank];
+    } else {
+        indexEndEven = sortedBlockSize;
+        indexEndOdd = sortedBlockSize;
+    }
 
-    //__syncthreads();
-    //// Search for ranks in ODD sub-block for all elements in EVEN sub-block
-    //if (threadIdx.x < numElementsEven) {
-    //    uint_t rankOdd = binarySearchInclusive(dataTile, dataTile[threadIdx.x], subBlockSize,
-    //                                           subBlockSize + numElementsOdd - 1, 1);
-    //    rankOdd = rankOdd - subBlockSize + indexStartOdd;
-    //    output[offsetEven + rankOdd] = dataTile[threadIdx.x];
-    //}
-    //// Search for ranks in EVEN sub-block for all elements in ODD sub-block
-    //if (threadIdx.x < numElementsOdd) {
-    //    uint_t rankEven = binarySearchExclusive(dataTile, dataTile[subBlockSize + threadIdx.x],
-    //                                            0, numElementsEven - 1, 1);
-    //    rankEven += indexStartEven;
-    //    output[offsetOdd + rankEven] = dataTile[subBlockSize + threadIdx.x];
-    //}
+    numElementsEven = indexEndEven - indexStartEven;
+    numElementsOdd = indexEndOdd - indexStartOdd;
+
+    // Read data for sub-block in EVEN sorted block
+    if (threadIdx.x < numElementsEven) {
+        offsetEven = indexSortedBlock + indexStartEven + threadIdx.x;
+        dataTile[threadIdx.x] = input[offsetEven];
+    }
+    // Read data for sub-block in ODD sorted block
+    if (threadIdx.x < numElementsOdd) {
+        offsetOdd = indexSortedBlock + indexStartOdd + threadIdx.x;
+        dataTile[subBlockSize + threadIdx.x] = input[offsetOdd + sortedBlockSize];
+    }
+
+    __syncthreads();
+    // Search for ranks in ODD sub-block for all elements in EVEN sub-block
+    if (threadIdx.x < numElementsEven) {
+        uint_t rankOdd = binarySearchInclusive(dataTile, dataTile[threadIdx.x], subBlockSize,
+                                               subBlockSize + numElementsOdd - 1, 1);
+        rankOdd = rankOdd - subBlockSize + indexStartOdd;
+        output[offsetEven + rankOdd] = dataTile[threadIdx.x];
+    }
+    // Search for ranks in EVEN sub-block for all elements in ODD sub-block
+    if (threadIdx.x < numElementsOdd) {
+        uint_t rankEven = binarySearchExclusive(dataTile, dataTile[subBlockSize + threadIdx.x],
+                                                0, numElementsEven - 1, 1);
+        rankEven += indexStartEven;
+        output[offsetOdd + rankEven] = dataTile[subBlockSize + threadIdx.x];
+    }
 }
