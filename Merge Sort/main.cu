@@ -19,8 +19,8 @@ int main(int argc, char** argv) {
     el_t *outputParallel;
     el_t *outputCorrect;
 
-    uint_t tableLen = 1 << 5;
-    uint_t interval = 2;
+    uint_t tableLen = 1 << 18;
+    uint_t interval = 1 << 16;
     bool orderAsc = true;
     cudaError_t error;
 
@@ -35,7 +35,7 @@ int main(int argc, char** argv) {
     //printTable(input, tableLen);
 
     sortParallel(input, outputParallel, tableLen, orderAsc);
-    printTable(outputParallel, tableLen);
+    //printTable(outputParallel, tableLen);
 
     printf("\n");
     outputCorrect = sortCorrect(input, tableLen);

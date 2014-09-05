@@ -7,16 +7,11 @@ typedef int data_t;
 typedef uint32_t uint_t;
 typedef int32_t int_t;
 
-// TODO comment
+// Key value pair used for sorting
 struct Element {
     uint_t key;
     uint_t val;
 };
-struct Sample {
-    uint_t key;  // Has to be the same type as Element key
-    uint_t rank;
-};
 typedef struct Element el_t;
-typedef struct Sample sample_t;
 
 #endif
