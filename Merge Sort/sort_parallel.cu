@@ -140,7 +140,7 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
     runMergeSortKernel(d_input, d_output, tableLen, orderAsc);
 
     runGenerateSamplesKernel(d_output, d_samples, tableLen, SHARED_MEM_SIZE);
-    runGenerateRanksKernel(d_buffer, d_samples, d_ranksEven, d_ranksOdd, tableLen, SHARED_MEM_SIZE);
+    runGenerateRanksKernel(d_output, d_samples, d_ranksEven, d_ranksOdd, tableLen, SHARED_MEM_SIZE);
 
     /*for (uint_t sortedBlockSize = SHARED_MEM_SIZE; sortedBlockSize < tableLen; sortedBlockSize *= 2) {
         el_t* temp = d_output;

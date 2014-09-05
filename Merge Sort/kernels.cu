@@ -186,9 +186,6 @@ __device__ uint_t binarySearchRank(el_t* table, uint_t sortedBlockSize, uint_t s
     uint_t indexStart = offsetBlockOpposite * sortedBlockSize + offsetSubBlockOpposite * subBlockSize + 1;
     uint_t indexEnd = indexStart + subBlockSize - 2;
 
-    uint_t iStart = indexStart;
-    uint_t iEnd = indexEnd;
-
     // Has to be explicitly converted to int, because it can be negative
     if ((int_t)(indexStart - offsetBlockOpposite * sortedBlockSize) >= 0) {
         while (indexStart <= indexEnd) {
@@ -210,7 +207,7 @@ __device__ uint_t binarySearchRank(el_t* table, uint_t sortedBlockSize, uint_t s
 }
 
 __global__ void generateRanksKernel(el_t* table, sample_t *samples, uint_t *ranksEven, uint_t *ranksOdd,
-                                    uint_t tableLen, uint_t sortedBlockSize) {
+    uint_t tableLen, uint_t sortedBlockSize) {
     uint_t index = blockIdx.x * blockDim.x + threadIdx.x;
 
     uint_t subBlocksPerSortedBlock = sortedBlockSize / SUB_BLOCK_SIZE;
@@ -225,21 +222,25 @@ __global__ void generateRanksKernel(el_t* table, sample_t *samples, uint_t *rank
     uint_t rankDataCurrent = (rank * SUB_BLOCK_SIZE % sortedBlockSize) + 1;
     uint_t rankDataOpposite = binarySearchRank(table, sortedBlockSize, SUB_BLOCK_SIZE, rank, key);
 
-    printf("%2d %2d %2d\n", sample.key, rankDataCurrent, rankDataOpposite);
+    if ((rank / subBlocksPerSortedBlock) % 2 == 0) {
+        ranksEven[blockIdx.x * blockDim.x + threadIdx.x] = rankDataCurrent;
+        ranksOdd[blockIdx.x * blockDim.x + threadIdx.x] = rankDataOpposite;
+    }
+    else {
+        ranksEven[blockIdx.x * blockDim.x + threadIdx.x] = rankDataOpposite;
+        ranksOdd[blockIdx.x * blockDim.x + threadIdx.x] = rankDataCurrent;
+    }
 
-    //// Check if rank came from odd or even sorted block
-    //uint_t oddEvenOffset = (rank / subBlocksPerSortedBlock) % 2;
-    //// Write ranks, which came from EVEN sorted blocks in FIRST half of table of ranks and
-    //// write ranks, which came from ODD sorted blocks to SECOND half of ranks table
-    //ranks[threadIdx.x + oddEvenOffset * blockDim.x] = rankDataCurrent;
-    //ranks[threadIdx.x + (!oddEvenOffset) * blockDim.x] = rankDataOpposite;
-
-    ///*__syncthreads();
-    //printf("%2d %2d: %2d %d\n", threadIdx.x, element.key, ranks[threadIdx.x], oddEvenOffset);
-    //__syncthreads();
-    //printOnce("\n");
-    //printf("%2d %2d: %2d %d\n", threadIdx.x, element.key, ranks[threadIdx.x + blockDim.x], oddEvenOffset);
-    //printOnce("\n\n");*/
+    /*__syncthreads();
+    printf("%2d %2d: %2d\n", threadIdx.x, key, ranksEven[blockIdx.x * blockDim.x + threadIdx.x]);
+    __syncthreads();
+    if (blockIdx.x == 0 && threadIdx.x == 0) {
+    printf("\n");
+    }
+    printf("%2d %2d: %2d\n", threadIdx.x, key, ranksOdd[blockIdx.x * blockDim.x + threadIdx.x]);
+    if (blockIdx.x == 0 && threadIdx.x == 0) {
+    printf("\n\n");
+    }*/
 }
 
 __global__ void mergeKernel(el_t* input, el_t* output, uint_t *ranks, uint_t tableLen,
