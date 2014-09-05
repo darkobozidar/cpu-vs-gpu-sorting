@@ -86,7 +86,7 @@ void runGenerateSamplesKernel(el_t *table, el_t *samples, uint_t tableLen, uint_
 Generates ranks of sub-blocks that need to be merged.
 */
 void runGenerateRanksKernel(el_t *table, el_t *samples, uint_t *ranksEven, uint_t *ranksOdd,
-                            uint_t tableLen, uint_t sortedBlockSize) {
+                            uint_t tableLen, uint_t sortedBlockSize, bool orderAsc) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
@@ -97,7 +97,7 @@ void runGenerateRanksKernel(el_t *table, el_t *samples, uint_t *ranksEven, uint_
 
     startStopwatch(&timer);
     generateRanksKernel<<<dimGrid, dimBlock>>>(
-        table, samples, ranksEven, ranksOdd, tableLen, sortedBlockSize
+        table, samples, ranksEven, ranksOdd, sortedBlockSize, orderAsc
     );
     /*error = cudaDeviceSynchronize();
     checkCudaError(error);
@@ -147,7 +147,8 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
         d_buffer = temp;
 
         runGenerateSamplesKernel(d_buffer, d_samples, tableLen, sortedBlockSize, orderAsc);
-        runGenerateRanksKernel(d_buffer, d_samples, d_ranksEven, d_ranksOdd, tableLen, sortedBlockSize);
+        runGenerateRanksKernel(d_buffer, d_samples, d_ranksEven, d_ranksOdd, tableLen,
+                               sortedBlockSize, orderAsc);
         runMergeKernel(d_buffer, d_output, d_ranksEven, d_ranksOdd, tableLen, sortedBlockSize);
     }
     error = cudaDeviceSynchronize();
