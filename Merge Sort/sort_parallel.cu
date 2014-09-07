@@ -118,7 +118,7 @@ void runMergeKernel(el_t *input, el_t *output, uint_t *ranksEven, uint_t *ranksO
     dim3 dimBlock(SUB_BLOCK_SIZE, 1, 1);
 
     startStopwatch(&timer);
-    mergeKernel << <dimGrid, dimBlock>> >(
+    mergeKernel<<<dimGrid, dimBlock>>>(
         input, output, ranksEven, ranksOdd, tableLen, sortedBlockSize
     );
     /*error = cudaDeviceSynchronize();

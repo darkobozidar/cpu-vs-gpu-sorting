@@ -162,7 +162,7 @@ __global__ void generateRanksKernel(el_t* table, el_t *samples, uint_t *ranksEve
 
     // Has to be explicitly converted to int, because it can be negative
     if ((int_t)(indexStart - offsetBlockOpposite * sortedBlockSize) >= 0) {
-        rankDataOpposite = binarySearchInclusive(
+        rankDataOpposite = binarySearchExclusive(
             table, sample, indexStart, indexEnd, 1, orderAsc
         );
         rankDataOpposite -= offsetBlockOpposite * sortedBlockSize;
