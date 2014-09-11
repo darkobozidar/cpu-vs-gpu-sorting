@@ -1,5 +1,3 @@
-Debug/*
-Merge Sort/Debug/*
 *.opensdf
 *.sdf
 *.sln
@@ -7,3 +5,13 @@ Merge Sort/Debug/*
 *.vcxproj
 *.filters
 *.pdb
+*.log
+*.lastbuildstate
+*.tlog
+*.cache
+*.deps
+*.obj
+*.idb
+*.dll
+*.exe
+*.ilk
