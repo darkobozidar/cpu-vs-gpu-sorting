@@ -20,7 +20,7 @@ int main(int argc, char** argv) {
     el_t *outputCorrect;
 
     uint_t tableLen = 1 << 11;
-    uint_t interval = 100;
+    uint_t interval = 1 << 16;
     bool orderAsc = true;
     cudaError_t error;
 

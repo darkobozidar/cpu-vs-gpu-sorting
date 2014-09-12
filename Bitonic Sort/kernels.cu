@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #include <cuda.h>
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
@@ -28,21 +30,14 @@ __global__ void bitonicSortKernel(el_t *table, bool orderAsc) {
     sortTile[blockDim.x + threadIdx.x] = table[blockDim.x + index];
 
     // First log2(sortedBlockSize) - 1 phases of bitonic merge
-    for (uint_t size = 2; size < 2 * blockDim.x; size <<= 1) {
-        uint_t direction = (!orderAsc) ^ ((threadIdx.x & (size / 2)) != 0);
-
+    for (uint_t size = 2; size <= 2 * blockDim.x; size <<= 1) {
         for (uint_t stride = size / 2; stride > 0; stride >>= 1) {
             __syncthreads();
-            uint_t pos = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
-            compareExchange(&sortTile[pos], &sortTile[pos + stride], direction);
+            // In first step of every phase END index has to be reversed
+            uint_t start = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
+            uint_t end = start + (stride != size / 2 ? stride : 2 * stride - 2 * (threadIdx.x % stride) - 1);
+            compareExchange(&sortTile[start], &sortTile[end], orderAsc);
         }
-    }
-
-    // Last phase of bitonic merge
-    for (uint_t stride = blockDim.x; stride > 0; stride >>= 1) {
-        __syncthreads();
-        uint_t pos = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
-        compareExchange(&sortTile[pos], &sortTile[pos + stride], orderAsc);
     }
 
     __syncthreads();
