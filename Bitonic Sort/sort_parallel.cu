@@ -59,7 +59,7 @@ void runMultiStepKernel(el_t *table, uint_t tableLen, uint_t phase, uint_t step,
     multiStepKernel<<<dimGrid, dimBlock>>>(table, phase, step, degree, orderAsc);
     error = cudaDeviceSynchronize();
     checkCudaError(error);
-    endStopwatch(timer, "Executing multistep kernel");
+    /*endStopwatch(timer, "Executing multistep kernel");*/
 }
 
 void runPrintTableKernel(el_t *table, uint_t tableLen) {
@@ -91,13 +91,14 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
 
         for (; step >= phasesSharedMem + 2; step -= 2) {
             runMultiStepKernel(d_table, tableLen, phase, step, 2, orderAsc);
+            /*printf("After 2-multistep\n");
+            runPrintTableKernel(d_table, tableLen);*/
         }
         for (; step >= phasesSharedMem + 1; step -= 1) {
             runMultiStepKernel(d_table, tableLen, phase, step, 1, orderAsc);
+            /*printf("After 1-multistep\n");
+            runPrintTableKernel(d_table, tableLen);*/
         }
-
-        /*printf("After multistep\n");
-        runPrintTableKernel(d_table, tableLen);*/
 
         // Here only last phase is needed
         runBitoicSortKernel(d_table, tableLen, subBlockSize, phase, orderAsc);

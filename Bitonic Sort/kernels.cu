@@ -59,16 +59,20 @@ __global__ void bitonicSortKernel(el_t *table, uint_t phase, bool orderAsc) {
 __global__ void multiStepKernel(el_t *table, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
     el_t tile[4];
     uint_t tileHalfSize = 1 << (degree - 1);
-    uint_t blockStride = (1 << (phase - 1));
+    uint_t stridePhase = (1 << (phase - 1));
+    uint_t strideStep = (1 << (step - 1));
+    uint_t threadsPerSubBlock = strideStep / tileHalfSize;
     uint_t indexThread = blockIdx.x * blockDim.x + threadIdx.x;
-    uint_t indexTable = indexThread + (indexThread & ((blockStride - 1) ^ LONG_MAX));
-    uint_t direction = orderAsc ^ ((indexThread / blockStride) % 2);
+    uint_t indexTable = (indexThread / threadsPerSubBlock * 2 * strideStep) + (indexThread % threadsPerSubBlock);
+    uint_t direction = orderAsc ^ ((indexThread / (stridePhase / tileHalfSize)) % 2);
 
     for (uint_t i = 0; i < tileHalfSize; i++) {
         uint_t start = indexTable + i * (1 << (phase - degree));
-        uint_t end = start + blockStride;
+        uint_t end = start + strideStep;
 
-        /*printf("%2d %2d %2d %2d\n", threadIdx.x, start, end, stride);*/
+        /*if (phase == 4) {
+            printf("%2d %2d %2d %2d\n", threadIdx.x, start, end, direction);
+        }*/
 
         tile[i] = table[start];
         tile[i + tileHalfSize] = table[end];
@@ -102,7 +106,7 @@ __global__ void multiStepKernel(el_t *table, uint_t phase, uint_t step, uint_t d
 
     for (int i = 0; i < tileHalfSize; i++) {
         uint_t start = indexTable + i * (1 << (phase - degree));
-        uint_t end = start + blockStride;
+        uint_t end = start + strideStep;
 
         table[start] = tile[i];
         table[end] = tile[i + tileHalfSize];
