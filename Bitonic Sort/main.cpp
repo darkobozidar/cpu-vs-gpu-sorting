@@ -15,27 +15,28 @@
 
 
 int main(int argc, char** argv) {
-    el_t *input;
+    //el_t *input;
+    el_t input[8] = {2, 0, 22, 1, 24, 2, 92, 3, 46, 4, 29, 5, 78, 6, 12, 7};
     el_t *outputParallel;
     el_t *outputCorrect;
 
-    uint_t tableLen = 1 << 11;
-    uint_t interval = 1 << 16;
+    uint_t tableLen = 1 << 3;
+    uint_t interval = 100;
     bool orderAsc = true;
     cudaError_t error;
 
     cudaFree(NULL);  // Initializes CUDA, because CUDA init is lazy
     srand(time(NULL));
 
-    error = cudaHostAlloc(&input, tableLen * sizeof(*input), cudaHostAllocDefault);
-    checkCudaError(error);
+    /*error = cudaHostAlloc(&input, tableLen * sizeof(*input), cudaHostAllocDefault);
+    checkCudaError(error);*/
     error = cudaHostAlloc(&outputParallel, tableLen * sizeof(*outputParallel), cudaHostAllocDefault);
     checkCudaError(error);
-    fillTable(input, tableLen, interval);
-    //printTable(input, tableLen);
+    //fillTable(input, tableLen, interval);
+    printTable(input, tableLen);
 
     sortParallel(input, outputParallel, tableLen, orderAsc);
-    //printTable(outputParallel, tableLen);
+    printTable(outputParallel, tableLen);
 
     printf("\n");
     outputCorrect = sortCorrect(input, tableLen);
