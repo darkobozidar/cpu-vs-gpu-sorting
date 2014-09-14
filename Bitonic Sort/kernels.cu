@@ -5,6 +5,7 @@
 #include "device_launch_parameters.h"
 
 #include "data_types.h"
+#include "constants.h"
 
 
 /*
@@ -54,7 +55,7 @@ __global__ void bitonicSortKernel(el_t *table, bool orderAsc) {
 }
 
 __global__ void multiStepKernel(el_t *table, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
-    el_t tile[4];
+    el_t tile[1 << MAX_MULTI_STEP];
     uint_t tileHalfSize = 1 << (degree - 1);
     uint_t stridePhase = (1 << (phase - 1));
     uint_t strideStep = (1 << (step - 1));

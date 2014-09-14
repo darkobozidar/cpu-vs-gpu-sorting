@@ -50,7 +50,7 @@ void runMultiStepKernel(el_t *table, uint_t tableLen, uint_t phase, uint_t step,
     LARGE_INTEGER timer;
 
     uint_t partitionSize = tableLen / (1 << degree);
-    uint_t maxThreadBlockSize = getMaxThreadsPerBlock();
+    uint_t maxThreadBlockSize = MAX_THREADS_PER_MULTISTEP;
     uint_t threadBlockSize = min(partitionSize, maxThreadBlockSize);
     dim3 dimGrid(partitionSize / threadBlockSize, 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
