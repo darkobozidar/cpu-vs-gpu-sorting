@@ -28,22 +28,19 @@ __global__ void printTableKernel(el_t *table, uint_t tableLen) {
 /*
 Sorts sub-blocks of input data with bitonic sort.
 */
-__global__ void bitonicSortKernel(el_t *table, uint_t phase, bool orderAsc) {
+__global__ void bitonicSortKernel(el_t *table, bool orderAsc) {
     extern __shared__ el_t sortTile[];
-    uint_t threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
-    uint_t threadsPerSubBlock = 1 << (phase - 1);
-    bool subBlockDirection = (threadIndex / threadsPerSubBlock) % 2;
+    bool blockDirection = orderAsc ^ (blockIdx.x & 1);
 
     // Every thread loads 2 elements
     uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
     sortTile[threadIdx.x] = table[index];
     sortTile[blockDim.x + threadIdx.x] = table[blockDim.x + index];
 
-    // First log2(sortedBlockSize) - 1 phases of bitonic merge
-    for (uint_t size = 2; size <= 2 * blockDim.x; size <<= 1) {
-        uint_t direction = orderAsc ^ ((threadIdx.x & (size / 2)) != 0) ^ subBlockDirection;
+    for (uint_t subBlockSize = 1; subBlockSize <= blockDim.x; subBlockSize <<= 1) {
+        bool direction = blockDirection ^ ((threadIdx.x & subBlockSize) != 0);
 
-        for (uint_t stride = size / 2; stride > 0; stride >>= 1) {
+        for (uint_t stride = subBlockSize; stride > 0; stride >>= 1) {
             __syncthreads();
             // In first step of every phase END index has to be reversed
             uint_t start = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
@@ -111,4 +108,32 @@ __global__ void multiStepKernel(el_t *table, uint_t phase, uint_t step, uint_t d
         table[start] = tile[i];
         table[end] = tile[i + tileHalfSize];
     }
+}
+
+/*
+Sorts sub-blocks of input data with bitonic sort.
+*/
+__global__ void bitonicMergeKernel(el_t *table, uint_t phase, bool orderAsc) {
+    extern __shared__ el_t mergeTile[];
+    uint_t threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
+    uint_t threadsPerSubBlock = 1 << (phase - 1);
+    uint_t size = 1 << phase;
+    bool subBlockDirection = (threadIndex / threadsPerSubBlock) % 2;
+
+    // Every thread loads 2 elements
+    uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
+    mergeTile[threadIdx.x] = table[index];
+    mergeTile[blockDim.x + threadIdx.x] = table[blockDim.x + index];
+
+    uint_t direction = orderAsc ^ ((threadIdx.x & (size / 2)) != 0) ^ subBlockDirection;
+    for (uint_t stride = size / 2; stride > 0; stride >>= 1) {
+        __syncthreads();
+        // In first step of every phase END index has to be reversed
+        uint_t start = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
+        compareExchange(&mergeTile[start], &mergeTile[start + stride], direction);
+    }
+
+    __syncthreads();
+    table[index] = mergeTile[threadIdx.x];
+    table[blockDim.x + index] = mergeTile[blockDim.x + threadIdx.x];
 }

@@ -28,7 +28,7 @@ void memoryDataInit(el_t *h_table, el_t **d_table, uint_t tableLen) {
 /*
 Sorts sub-blocks of input data with bitonic sort.
 */
-void runBitoicSortKernel(el_t *table, uint_t tableLen, uint_t subBlockSize, uint_t phase, bool orderAsc) {
+void runBitoicSortKernel(el_t *table, uint_t tableLen, uint_t subBlockSize, bool orderAsc) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
@@ -38,7 +38,7 @@ void runBitoicSortKernel(el_t *table, uint_t tableLen, uint_t subBlockSize, uint
 
     startStopwatch(&timer);
     bitonicSortKernel<<<dimGrid, dimBlock, subBlockSize * sizeof(*table)>>>(
-        table, phase, orderAsc
+        table, orderAsc
     );
     error = cudaDeviceSynchronize();
     checkCudaError(error);
@@ -62,6 +62,23 @@ void runMultiStepKernel(el_t *table, uint_t tableLen, uint_t phase, uint_t step,
     /*endStopwatch(timer, "Executing multistep kernel");*/
 }
 
+void runBitoicMergeKernel(el_t *table, uint_t tableLen, uint_t subBlockSize, uint_t phase, bool orderAsc) {
+    cudaError_t error;
+    LARGE_INTEGER timer;
+
+    // Every thread loads and sorts 2 elements
+    dim3 dimGrid(tableLen / subBlockSize, 1, 1);
+    dim3 dimBlock(subBlockSize / 2, 1, 1);
+
+    startStopwatch(&timer);
+    bitonicMergeKernel<<<dimGrid, dimBlock, subBlockSize * sizeof(*table)>>>(
+        table, phase, orderAsc
+    );
+    error = cudaDeviceSynchronize();
+    checkCudaError(error);
+    //endStopwatch(timer, "Executing bitonic sort kernel");
+}
+
 void runPrintTableKernel(el_t *table, uint_t tableLen) {
     printTableKernel<<<1, 1>>>(table, tableLen);
     cudaError_t error = cudaDeviceSynchronize();
@@ -81,10 +98,10 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
     memoryDataInit(h_input, &d_table, tableLen);
 
     startStopwatch(&timer);
-    runBitoicSortKernel(d_table, tableLen, subBlockSize, phasesSharedMem, orderAsc);
+    runBitoicSortKernel(d_table, tableLen, subBlockSize, orderAsc);
 
-    /*printf("After bitonic sort\n");
-    runPrintTableKernel(d_table, tableLen);*/
+    printf("After bitonic sort\n");
+    runPrintTableKernel(d_table, tableLen);
 
     for (uint_t phase = phasesSharedMem + 1; phase <= phasesAll; phase++) {
         int_t step = phase;
@@ -105,7 +122,7 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
         }
 
         // Here only last phase is needed
-        runBitoicSortKernel(d_table, tableLen, subBlockSize, phase, orderAsc);
+        runBitoicMergeKernel(d_table, tableLen, subBlockSize, phase, orderAsc);
 
         /*if (phase == 5) {
             printf("After bitonic merge\n");
