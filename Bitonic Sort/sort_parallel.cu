@@ -88,7 +88,7 @@ void runPrintTableKernel(el_t *table, uint_t tableLen) {
 void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc) {
     el_t *d_table;
     // Every thread loads and sorts 2 elements in first bitonic sort kernel
-    uint_t subBlockSize = 2;  // min(tableLen, 2 * getMaxThreadsPerBlock());
+    uint_t subBlockSize = min(tableLen, 2 * getMaxThreadsPerBlock());
     int_t phasesAll = log2((double)tableLen);
     int_t phasesSharedMem = log2((double)subBlockSize);
 
@@ -100,8 +100,8 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
     startStopwatch(&timer);
     runBitoicSortKernel(d_table, tableLen, subBlockSize, orderAsc);
 
-    printf("After bitonic sort\n");
-    runPrintTableKernel(d_table, tableLen);
+    /*printf("After bitonic sort\n");
+    runPrintTableKernel(d_table, tableLen);*/
 
     for (uint_t phase = phasesSharedMem + 1; phase <= phasesAll; phase++) {
         int_t step = phase;
@@ -115,7 +115,7 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
         }
         for (; step >= phasesSharedMem + 1; step -= 1) {
             runMultiStepKernel(d_table, tableLen, phase, step, 1, orderAsc);
-            /*if (phase == 5) {
+            /*if (phase == 2) {
                 printf("After 1-multistep\n");
                 runPrintTableKernel(d_table, tableLen);
             }*/
@@ -124,7 +124,7 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
         // Here only last phase is needed
         runBitoicMergeKernel(d_table, tableLen, subBlockSize, phase, orderAsc);
 
-        /*if (phase == 5) {
+        /*if (phase == 2) {
             printf("After bitonic merge\n");
             runPrintTableKernel(d_table, tableLen);
         }*/

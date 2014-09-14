@@ -117,7 +117,6 @@ __global__ void bitonicMergeKernel(el_t *table, uint_t phase, bool orderAsc) {
     extern __shared__ el_t mergeTile[];
     uint_t threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
     uint_t threadsPerSubBlock = 1 << (phase - 1);
-    uint_t size = 1 << phase;
     bool subBlockDirection = (threadIndex / threadsPerSubBlock) % 2;
 
     // Every thread loads 2 elements
@@ -125,8 +124,8 @@ __global__ void bitonicMergeKernel(el_t *table, uint_t phase, bool orderAsc) {
     mergeTile[threadIdx.x] = table[index];
     mergeTile[blockDim.x + threadIdx.x] = table[blockDim.x + index];
 
-    uint_t direction = orderAsc ^ ((threadIdx.x & (size / 2)) != 0) ^ subBlockDirection;
-    for (uint_t stride = size / 2; stride > 0; stride >>= 1) {
+    uint_t direction = orderAsc ^ ((threadIdx.x & blockDim.x) != 0) ^ subBlockDirection;
+    for (uint_t stride = blockDim.x; stride > 0; stride >>= 1) {
         __syncthreads();
         // In first step of every phase END index has to be reversed
         uint_t start = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
