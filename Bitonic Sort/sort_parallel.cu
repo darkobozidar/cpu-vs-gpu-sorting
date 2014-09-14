@@ -91,20 +91,26 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
 
         for (; step >= phasesSharedMem + 2; step -= 2) {
             runMultiStepKernel(d_table, tableLen, phase, step, 2, orderAsc);
-            /*printf("After 2-multistep\n");
-            runPrintTableKernel(d_table, tableLen);*/
+            /*if (phase == 5) {
+                printf("After 2-multistep\n");
+                runPrintTableKernel(d_table, tableLen);
+            }*/
         }
         for (; step >= phasesSharedMem + 1; step -= 1) {
             runMultiStepKernel(d_table, tableLen, phase, step, 1, orderAsc);
-            /*printf("After 1-multistep\n");
-            runPrintTableKernel(d_table, tableLen);*/
+            /*if (phase == 5) {
+                printf("After 1-multistep\n");
+                runPrintTableKernel(d_table, tableLen);
+            }*/
         }
 
         // Here only last phase is needed
         runBitoicSortKernel(d_table, tableLen, subBlockSize, phase, orderAsc);
 
-        /*printf("After bitonic merge\n");
-        runPrintTableKernel(d_table, tableLen);*/
+        /*if (phase == 5) {
+            printf("After bitonic merge\n");
+            runPrintTableKernel(d_table, tableLen);
+        }*/
     }
 
     error = cudaDeviceSynchronize();

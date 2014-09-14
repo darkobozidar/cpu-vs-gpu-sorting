@@ -67,10 +67,10 @@ __global__ void multiStepKernel(el_t *table, uint_t phase, uint_t step, uint_t d
     uint_t direction = orderAsc ^ ((indexThread / (stridePhase / tileHalfSize)) % 2);
 
     for (uint_t i = 0; i < tileHalfSize; i++) {
-        uint_t start = indexTable + i * (1 << (phase - degree));
+        uint_t start = indexTable + i * (1 << (step - degree));
         uint_t end = start + strideStep;
 
-        /*if (phase == 4) {
+        /*if (phase == 5 && step == 3) {
             printf("%2d %2d %2d %2d\n", threadIdx.x, start, end, direction);
         }*/
 
@@ -105,7 +105,7 @@ __global__ void multiStepKernel(el_t *table, uint_t phase, uint_t step, uint_t d
     }*/
 
     for (int i = 0; i < tileHalfSize; i++) {
-        uint_t start = indexTable + i * (1 << (phase - degree));
+        uint_t start = indexTable + i * (1 << (step - degree));
         uint_t end = start + strideStep;
 
         table[start] = tile[i];
