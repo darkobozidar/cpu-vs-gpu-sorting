@@ -40,8 +40,8 @@ void runBitoicSortKernel(el_t *table, uint_t tableLen, uint_t subBlockSize, bool
     bitonicSortKernel<<<dimGrid, dimBlock, subBlockSize * sizeof(*table)>>>(
         table, orderAsc
     );
-    error = cudaDeviceSynchronize();
-    checkCudaError(error);
+    /*error = cudaDeviceSynchronize();
+    checkCudaError(error);*/
     //endStopwatch(timer, "Executing bitonic sort kernel");
 }
 
@@ -57,8 +57,8 @@ void runMultiStepKernel(el_t *table, uint_t tableLen, uint_t phase, uint_t step,
 
     startStopwatch(&timer);
     multiStepKernel<<<dimGrid, dimBlock>>>(table, phase, step, degree, orderAsc);
-    error = cudaDeviceSynchronize();
-    checkCudaError(error);
+    /*error = cudaDeviceSynchronize();
+    checkCudaError(error);*/
     /*endStopwatch(timer, "Executing multistep kernel");*/
 }
 
@@ -74,8 +74,8 @@ void runBitoicMergeKernel(el_t *table, uint_t tableLen, uint_t subBlockSize, uin
     bitonicMergeKernel<<<dimGrid, dimBlock, subBlockSize * sizeof(*table)>>>(
         table, phase, orderAsc
     );
-    error = cudaDeviceSynchronize();
-    checkCudaError(error);
+    /*error = cudaDeviceSynchronize();
+    checkCudaError(error);*/
     //endStopwatch(timer, "Executing bitonic sort kernel");
 }
 
@@ -95,6 +95,8 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
     LARGE_INTEGER timer;
     cudaError_t error;
 
+    // In multistep kernel no shared memory is used, that's why preference can be set for L1
+    cudaFuncSetCacheConfig(multiStepKernel, cudaFuncCachePreferL1);
     memoryDataInit(h_input, &d_table, tableLen);
 
     startStopwatch(&timer);
@@ -105,7 +107,6 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
 
     for (uint_t phase = phasesSharedMem + 1; phase <= phasesAll; phase++) {
         int_t step = phase;
-
 
         for (uint_t degree = MAX_MULTI_STEP; degree > 0; degree--) {
             for (; step >= phasesSharedMem + degree; step -= degree) {
