@@ -45,18 +45,15 @@ void runBitoicSortKernel(el_t *table, uint_t tableLen, uint_t subBlockSize, bool
     //endStopwatch(timer, "Executing bitonic sort kernel");
 }
 
-void runMultiStepKernel(el_t *table, uint_t tableLen, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
+void runBitonicMergeGlobalKernel(el_t *table, uint_t tableLen, uint_t phase, uint_t step, bool orderAsc) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
-    uint_t partitionSize = tableLen / (1 << degree);
-    uint_t maxThreadBlockSize = MAX_THREADS_PER_MULTISTEP;
-    uint_t threadBlockSize = min(partitionSize, maxThreadBlockSize);
-    dim3 dimGrid(partitionSize / threadBlockSize, 1, 1);
-    dim3 dimBlock(threadBlockSize, 1, 1);
+    dim3 dimGrid(tableLen / (THREADS_PER_GLOBAL_MERGE * 2), 1, 1);
+    dim3 dimBlock(THREADS_PER_GLOBAL_MERGE, 1, 1);
 
     startStopwatch(&timer);
-    multiStepKernel<<<dimGrid, dimBlock>>>(table, phase, step, degree, orderAsc);
+    bitonicMergeGlobalKernel<<<dimGrid, dimBlock>>>(table, phase, step, orderAsc);
     /*error = cudaDeviceSynchronize();
     checkCudaError(error);*/
     /*endStopwatch(timer, "Executing multistep kernel");*/
@@ -88,15 +85,15 @@ void runPrintTableKernel(el_t *table, uint_t tableLen) {
 void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc) {
     el_t *d_table;
     // Every thread loads and sorts 2 elements in first bitonic sort kernel
-    uint_t subBlockSize = min(tableLen, 2 * getMaxThreadsPerBlock());
+    uint_t subBlockSize = min(tableLen, 2 * THREADS_PER_LOCAL_MERGE);
     int_t phasesAll = log2((double)tableLen);
     int_t phasesSharedMem = log2((double)subBlockSize);
 
     LARGE_INTEGER timer;
     cudaError_t error;
 
-    // In multistep kernel no shared memory is used, that's why preference can be set for L1
-    cudaFuncSetCacheConfig(multiStepKernel, cudaFuncCachePreferL1);
+    // In bitonic global merge kernel no shared memory is used -> preference can be set for L1
+    cudaFuncSetCacheConfig(bitonicMergeGlobalKernel, cudaFuncCachePreferL1);
     memoryDataInit(h_input, &d_table, tableLen);
 
     startStopwatch(&timer);
@@ -106,19 +103,9 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
     runPrintTableKernel(d_table, tableLen);*/
 
     for (uint_t phase = phasesSharedMem + 1; phase <= phasesAll; phase++) {
-        int_t step = phase;
-
-        for (uint_t degree = MAX_MULTI_STEP; degree > 0; degree--) {
-            for (; step >= phasesSharedMem + degree; step -= degree) {
-                runMultiStepKernel(d_table, tableLen, phase, step, degree, orderAsc);
-                /*if (phase == 5) {
-                printf("After 2-multistep\n");
-                runPrintTableKernel(d_table, tableLen);
-                }*/
-            }
+        for (int step = phase; step > phasesSharedMem; step--) {
+            runBitonicMergeGlobalKernel(d_table, tableLen, phase, step, orderAsc);
         }
-
-        // Here only last phase is needed
         runBitoicMergeKernel(d_table, tableLen, subBlockSize, phase, orderAsc);
 
         /*if (phase == 2) {

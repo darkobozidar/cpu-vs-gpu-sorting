@@ -54,54 +54,19 @@ __global__ void bitonicSortKernel(el_t *table, bool orderAsc) {
     table[blockDim.x + index] = sortTile[blockDim.x + threadIdx.x];
 }
 
-__global__ void multiStepKernel(el_t *table, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
-    el_t tile[1 << MAX_MULTI_STEP];  // TODO write separated kernel for this
-    uint_t tileHalfSize = 1 << (degree - 1);
+__global__ void bitonicMergeGlobalKernel(el_t *table, uint_t phase, uint_t step, bool orderAsc) {
     uint_t strideGlobal = 1 << (step - 1);
-    uint_t threadsPerSubBlock = 1 << (step - degree);
     uint_t indexThread = blockIdx.x * blockDim.x + threadIdx.x;
-    uint_t indexTable = (indexThread >> (step - degree) << step) + indexThread % threadsPerSubBlock;
-    bool direction = orderAsc ^ ((indexThread >> (phase - degree)) & 1);
+    uint_t indexTable = 2 * indexThread - (indexThread & (strideGlobal - 1));
+    bool direction = orderAsc ^ ((indexThread >> (phase - 1)) & 1);
 
-    for (uint_t i = 0; i < tileHalfSize; i++) {
-        uint_t start = indexTable + i * threadsPerSubBlock;
+    el_t el1 = table[indexTable];
+    el_t el2 = table[indexTable + strideGlobal];
 
-        /*if (phase == 5 && step == 3) {
-        printf("%2d %2d %2d %2d\n", threadIdx.x, start, end, direction);
-        }*/
+    compareExchange(&el1, &el2, direction);
 
-        tile[i] = table[start];
-        tile[i + tileHalfSize] = table[start + strideGlobal];
-    }
-
-    /*printf("%2d %2d %2d %2d\n", tile[0].key, tile[1].key, tile[2].key, tile[3].key);*/
-
-    // Syncthreads is not needed, because every thread proceses an separated subsection of partition
-    for (uint_t strideLocal = tileHalfSize; strideLocal > 0; strideLocal >>= 1) {
-        for (uint_t i = 0; i < tileHalfSize; i++) {
-            uint_t start = 2 * i - (i & (strideLocal - 1));
-
-            /*printf("%2d %2d %2d %2d\n", threadIdx.x, tile[start].key, tile[end].key, direction);*/
-            compareExchange(&tile[start], &tile[start + strideLocal], direction);
-            /*printf("%2d %2d %2d %2d\n", threadIdx.x, tile[start].key, tile[end].key, direction);*/
-        }
-    }
-
-    /*__syncthreads();
-    if (threadIdx.x == 0) {
-        printf("\n\n");
-    }
-    printf("%2d %2d %2d %2d\n", tile[0].key, tile[1].key, tile[2].key, tile[3].key);*/
-
-    /*if (threadIdx.x == 0) {
-        printf("%2d %2d %2d %2d\n", tile[0].key, tile[1].key, tile[2].key, tile[3].key);
-    }*/
-
-    for (int i = 0; i < tileHalfSize; i++) {
-        uint_t start = indexTable + i * threadsPerSubBlock;
-        table[start] = tile[i];
-        table[start + strideGlobal] = tile[i + tileHalfSize];
-    }
+    table[indexTable] = el1;
+    table[indexTable + strideGlobal] = el2;
 }
 
 /*
