@@ -60,7 +60,7 @@ __global__ void multiStepKernel(el_t *table, uint_t phase, uint_t step, uint_t d
     extern __shared__ el_t tile[];
     uint_t strideGlobal = 1 << (step - 1);
     uint_t threadsPerSubBlock = 1 << (step - degree);
-    uint_t indexThread = blockIdx.x * blockDim.x + threadIdx.x;
+    uint_t indexThread = blockIdx.x * blockDim.x + blockIdx.y * gridDim.x * blockDim.x + threadIdx.x;
     uint_t indexTable = ((indexThread * threadsPerSubBlock) % strideGlobal) + ((indexThread >> (degree - 1)) % threadsPerSubBlock);
     indexTable += indexThread >> (step - 1) << step;
     uint_t bla = (threadIdx.x >> (degree - 1) << (degree)) + (threadIdx.x % (1 << (degree - 1)));

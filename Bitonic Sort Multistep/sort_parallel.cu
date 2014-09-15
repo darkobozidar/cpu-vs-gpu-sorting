@@ -49,8 +49,10 @@ void runMultiStepKernel(el_t *table, uint_t tableLen, uint_t phase, uint_t step,
     cudaError_t error;
     LARGE_INTEGER timer;
 
+    // TODO comment
     uint_t threadBlockSize = min(tableLen / 2, MAX_THREADS_PER_MULTISTEP);
-    dim3 dimGrid(tableLen / (2 * threadBlockSize), 1, 1);
+    uint_t glidSize = tableLen / (128 * threadBlockSize);
+    dim3 dimGrid(glidSize, 64, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
 
     startStopwatch(&timer);
