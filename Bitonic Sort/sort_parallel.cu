@@ -28,11 +28,12 @@ void memoryDataInit(el_t *h_table, el_t **d_table, uint_t tableLen) {
 /*
 Sorts sub-blocks of input data with bitonic sort.
 */
-void runBitoicSortKernel(el_t *table, uint_t tableLen, uint_t subBlockSize, bool orderAsc) {
+void runBitoicSortKernel(el_t *table, uint_t tableLen, uint_t phasesSharedMem, bool orderAsc) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
     // Every thread loads and sorts 2 elements
+    uint_t subBlockSize = (1 << phasesSharedMem);
     dim3 dimGrid(tableLen / subBlockSize, 1, 1);
     dim3 dimBlock(subBlockSize / 2, 1, 1);
 
@@ -41,8 +42,8 @@ void runBitoicSortKernel(el_t *table, uint_t tableLen, uint_t subBlockSize, bool
         table, orderAsc
     );
     /*error = cudaDeviceSynchronize();
-    checkCudaError(error);*/
-    //endStopwatch(timer, "Executing bitonic sort kernel");
+    checkCudaError(error);
+    endStopwatch(timer, "Executing bitonic sort kernel");*/
 }
 
 void runBitonicMergeGlobalKernel(el_t *table, uint_t tableLen, uint_t phase, uint_t step, bool orderAsc) {
@@ -55,63 +56,51 @@ void runBitonicMergeGlobalKernel(el_t *table, uint_t tableLen, uint_t phase, uin
     startStopwatch(&timer);
     bitonicMergeGlobalKernel<<<dimGrid, dimBlock>>>(table, phase, step, orderAsc);
     /*error = cudaDeviceSynchronize();
-    checkCudaError(error);*/
-    /*endStopwatch(timer, "Executing multistep kernel");*/
+    checkCudaError(error);
+    endStopwatch(timer, "Executing bitonic merge global kernel");*/
 }
 
-void runBitoicMergeKernel(el_t *table, uint_t tableLen, uint_t subBlockSize, uint_t phase, bool orderAsc) {
+void runBitoicMergeKernel(el_t *table, uint_t tableLen, uint_t phasesSharedMem, uint_t phase, bool orderAsc) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
     // Every thread loads and sorts 2 elements
+    uint_t subBlockSize = (1 << phasesSharedMem);
     dim3 dimGrid(tableLen / subBlockSize, 1, 1);
     dim3 dimBlock(subBlockSize / 2, 1, 1);
 
     startStopwatch(&timer);
-    bitonicMergeKernel<<<dimGrid, dimBlock, subBlockSize * sizeof(*table)>>>(
+    bitonicMergeLocalKernel<<<dimGrid, dimBlock, subBlockSize * sizeof(*table)>>>(
         table, phase, orderAsc
     );
     /*error = cudaDeviceSynchronize();
-    checkCudaError(error);*/
-    //endStopwatch(timer, "Executing bitonic sort kernel");
-}
-
-void runPrintTableKernel(el_t *table, uint_t tableLen) {
-    printTableKernel<<<1, 1>>>(table, tableLen);
-    cudaError_t error = cudaDeviceSynchronize();
     checkCudaError(error);
+    endStopwatch(timer, "Executing bitonic merge local kernel");*/
 }
 
 void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc) {
     el_t *d_table;
-    // Every thread loads and sorts 2 elements in first bitonic sort kernel
-    uint_t subBlockSize = min(tableLen, 2 * THREADS_PER_LOCAL_MERGE);
+    // Number of phases, which can be executed in shared memory (stride is lower than
+    // shared memory size)
+    int_t phasesSharedMem = log2((double)min(tableLen, 2 * THREADS_PER_LOCAL_MERGE));
     int_t phasesAll = log2((double)tableLen);
-    int_t phasesSharedMem = log2((double)subBlockSize);
 
     LARGE_INTEGER timer;
     cudaError_t error;
 
-    // In bitonic global merge kernel no shared memory is used -> preference can be set for L1
+    // Global bitonic merge doesn't use shared memory -> preference can be set for L1
     cudaFuncSetCacheConfig(bitonicMergeGlobalKernel, cudaFuncCachePreferL1);
     memoryDataInit(h_input, &d_table, tableLen);
 
     startStopwatch(&timer);
-    runBitoicSortKernel(d_table, tableLen, subBlockSize, orderAsc);
-
-    /*printf("After bitonic sort\n");
-    runPrintTableKernel(d_table, tableLen);*/
+    runBitoicSortKernel(d_table, tableLen, phasesSharedMem, orderAsc);
 
     for (uint_t phase = phasesSharedMem + 1; phase <= phasesAll; phase++) {
         for (int step = phase; step > phasesSharedMem; step--) {
             runBitonicMergeGlobalKernel(d_table, tableLen, phase, step, orderAsc);
         }
-        runBitoicMergeKernel(d_table, tableLen, subBlockSize, phase, orderAsc);
 
-        /*if (phase == 2) {
-            printf("After bitonic merge\n");
-            runPrintTableKernel(d_table, tableLen);
-        }*/
+        runBitoicMergeKernel(d_table, tableLen, phasesSharedMem, phase, orderAsc);
     }
 
     error = cudaDeviceSynchronize();

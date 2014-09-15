@@ -16,14 +16,10 @@
 
 int main(int argc, char** argv) {
     el_t *input;
-    /*el_t input[16] = {
-        80, 0, 17, 1, 29, 2, 10, 3, 87, 4, 21, 5, 14, 6, 35, 7, 99,
-        8, 40, 9, 84, 10, 63, 11, 79, 12, 61, 13, 8, 14, 23, 15
-    };*/
     el_t *outputParallel;
     el_t *outputCorrect;
 
-    uint_t tableLen = 1 << 18;
+    uint_t tableLen = 1 << 25;
     uint_t interval = 1 << 16;
     bool orderAsc = true;
     cudaError_t error;
