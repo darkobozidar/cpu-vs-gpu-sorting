@@ -87,6 +87,7 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
     cudaError_t error;
 
     // Global bitonic merge doesn't use shared memory -> preference can be set for L1
+    cudaDeviceSetCacheConfig(cudaFuncCachePreferEqual);
     cudaFuncSetCacheConfig(bitonicMergeGlobalKernel, cudaFuncCachePreferL1);
     memoryDataInit(h_input, &d_table, tableLen);
 

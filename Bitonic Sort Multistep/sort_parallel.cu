@@ -57,9 +57,8 @@ void runMultiStepKernel(el_t *table, uint_t tableLen, uint_t phase, uint_t step,
     multiStepKernel<<<dimGrid, dimBlock, 2 * MAX_THREADS_PER_MULTISTEP * sizeof(*table)>>>(
         table, phase, step, degree, orderAsc
     );
-    error = cudaDeviceSynchronize();
-    checkCudaError(error);
-    printf("\n");
+    /*error = cudaDeviceSynchronize();
+    checkCudaError(error);*/
     /*endStopwatch(timer, "Executing multistep kernel");*/
 }
 
@@ -89,15 +88,14 @@ void runPrintTableKernel(el_t *table, uint_t tableLen) {
 void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc) {
     el_t *d_table;
     // Every thread loads and sorts 2 elements in first bitonic sort kernel
-    uint_t subBlockSize = 2;  //  min(tableLen, 2 * getMaxThreadsPerBlock());
+    uint_t subBlockSize = min(tableLen, 2 * THREADS_PER_MERGE);
     int_t phasesAll = log2((double)tableLen);
     int_t phasesSharedMem = log2((double)subBlockSize);
 
     LARGE_INTEGER timer;
     cudaError_t error;
 
-    // In multistep kernel no shared memory is used, that's why preference can be set for L1
-    cudaFuncSetCacheConfig(multiStepKernel, cudaFuncCachePreferL1);
+    cudaDeviceSetCacheConfig(cudaFuncCachePreferEqual);
     memoryDataInit(h_input, &d_table, tableLen);
 
     startStopwatch(&timer);
