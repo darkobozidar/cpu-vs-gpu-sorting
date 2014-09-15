@@ -49,9 +49,7 @@ void runMultiStepKernel(el_t *table, uint_t tableLen, uint_t phase, uint_t step,
     cudaError_t error;
     LARGE_INTEGER timer;
 
-    uint_t partitionSize = tableLen / (1 << degree);
-    uint_t maxThreadBlockSize = MAX_THREADS_PER_MULTISTEP;
-    uint_t threadBlockSize = min(partitionSize, maxThreadBlockSize);
+    uint_t threadBlockSize = min(tableLen / 2, MAX_THREADS_PER_MULTISTEP);
     dim3 dimGrid(tableLen / (2 * threadBlockSize), 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
 
@@ -113,12 +111,11 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
 
         for (uint_t degree = MAX_MULTI_STEP; degree > 0; degree--) {
             for (; step >= phasesSharedMem + degree; step -= degree) {
-                printf("Degree: %d\n", degree);
                 runMultiStepKernel(d_table, tableLen, phase, step, degree, orderAsc);
-                /*if (phase == 5) {
-                printf("After 2-multistep\n");
-                runPrintTableKernel(d_table, tableLen);
-                }*/
+                if (phase == 3) {
+                    printf("After %d-multistep\n", degree);
+                    runPrintTableKernel(d_table, tableLen);
+                }
             }
         }
 

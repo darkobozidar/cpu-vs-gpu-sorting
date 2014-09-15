@@ -65,7 +65,20 @@ __global__ void multiStepKernel(el_t *table, uint_t phase, uint_t step, uint_t d
     indexTable += indexThread >> (step - 1) << step;
     bool direction = orderAsc ^ ((indexThread >> (phase - degree)) & 1);
 
-    printf("(%d, %d) => %2d\n", blockIdx.x, threadIdx.x, indexTable);
+    tile[2 * threadIdx.x] = table[indexTable];
+    tile[2 * threadIdx.x + 1] = table[indexTable + strideGlobal];
+
+    printf("%d %d\n", indexThread, direction);
+
+    for (uint_t stride = 1 << (degree - 1); stride > 0; stride >>= 1) {
+        __syncthreads();
+        uint_t start = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
+        compareExchange(&tile[start], &tile[start + stride], direction);
+    }
+
+    __syncthreads();
+    table[indexTable] = tile[2 * threadIdx.x];
+    table[indexTable + strideGlobal] = tile[2 * threadIdx.x + 1];
 }
 
 /*
