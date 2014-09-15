@@ -112,10 +112,10 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
         for (uint_t degree = MAX_MULTI_STEP; degree > 0; degree--) {
             for (; step >= phasesSharedMem + degree; step -= degree) {
                 runMultiStepKernel(d_table, tableLen, phase, step, degree, orderAsc);
-                if (phase == 3) {
+                /*if (phase == 3) {
                     printf("After %d-multistep\n", degree);
                     runPrintTableKernel(d_table, tableLen);
-                }
+                }*/
             }
         }
 

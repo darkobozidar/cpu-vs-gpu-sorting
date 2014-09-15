@@ -63,12 +63,15 @@ __global__ void multiStepKernel(el_t *table, uint_t phase, uint_t step, uint_t d
     uint_t indexThread = blockIdx.x * blockDim.x + threadIdx.x;
     uint_t indexTable = ((indexThread * threadsPerSubBlock) % strideGlobal) + ((indexThread >> (degree - 1)) % threadsPerSubBlock);
     indexTable += indexThread >> (step - 1) << step;
-    bool direction = orderAsc ^ ((indexThread >> (phase - degree)) & 1);
+    uint_t bla = (threadIdx.x >> (degree - 1) << (degree)) + (threadIdx.x % (1 << (degree - 1)));
+    bool direction = orderAsc ^ ((indexThread >> (phase - 1)) & 1);
 
-    tile[2 * threadIdx.x] = table[indexTable];
-    tile[2 * threadIdx.x + 1] = table[indexTable + strideGlobal];
+    /*if (phase == 3) {
+        printf("%d %d\n", bla, bla + (1 << (degree - 1)));
+    }*/
 
-    printf("%d %d\n", indexThread, direction);
+    tile[bla] = table[indexTable];
+    tile[bla + (1 << (degree - 1))] = table[indexTable + strideGlobal];
 
     for (uint_t stride = 1 << (degree - 1); stride > 0; stride >>= 1) {
         __syncthreads();
@@ -77,8 +80,8 @@ __global__ void multiStepKernel(el_t *table, uint_t phase, uint_t step, uint_t d
     }
 
     __syncthreads();
-    table[indexTable] = tile[2 * threadIdx.x];
-    table[indexTable + strideGlobal] = tile[2 * threadIdx.x + 1];
+    table[indexTable] = tile[bla];
+    table[indexTable + strideGlobal] = tile[bla + (1 << (degree - 1))];
 }
 
 /*
