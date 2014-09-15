@@ -52,13 +52,16 @@ void runMultiStepKernel(el_t *table, uint_t tableLen, uint_t phase, uint_t step,
     uint_t partitionSize = tableLen / (1 << degree);
     uint_t maxThreadBlockSize = MAX_THREADS_PER_MULTISTEP;
     uint_t threadBlockSize = min(partitionSize, maxThreadBlockSize);
-    dim3 dimGrid(partitionSize / threadBlockSize, 1, 1);
+    dim3 dimGrid(tableLen / (2 * threadBlockSize), 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
 
     startStopwatch(&timer);
-    multiStepKernel<<<dimGrid, dimBlock>>>(table, phase, step, degree, orderAsc);
-    /*error = cudaDeviceSynchronize();
-    checkCudaError(error);*/
+    multiStepKernel<<<dimGrid, dimBlock, 2 * MAX_THREADS_PER_MULTISTEP * sizeof(*table)>>>(
+        table, phase, step, degree, orderAsc
+    );
+    error = cudaDeviceSynchronize();
+    checkCudaError(error);
+    printf("\n");
     /*endStopwatch(timer, "Executing multistep kernel");*/
 }
 
@@ -88,7 +91,7 @@ void runPrintTableKernel(el_t *table, uint_t tableLen) {
 void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc) {
     el_t *d_table;
     // Every thread loads and sorts 2 elements in first bitonic sort kernel
-    uint_t subBlockSize = min(tableLen, 2 * getMaxThreadsPerBlock());
+    uint_t subBlockSize = 2;  //  min(tableLen, 2 * getMaxThreadsPerBlock());
     int_t phasesAll = log2((double)tableLen);
     int_t phasesSharedMem = log2((double)subBlockSize);
 
@@ -110,6 +113,7 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
 
         for (uint_t degree = MAX_MULTI_STEP; degree > 0; degree--) {
             for (; step >= phasesSharedMem + degree; step -= degree) {
+                printf("Degree: %d\n", degree);
                 runMultiStepKernel(d_table, tableLen, phase, step, degree, orderAsc);
                 /*if (phase == 5) {
                 printf("After 2-multistep\n");
