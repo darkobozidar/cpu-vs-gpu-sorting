@@ -1,0 +1,7 @@
+#ifndef CONSTANTS_H
+#define CONSTANTS_H
+
+#define MAX_THREADS_PER_MULTISTEP 256
+#define MAX_MULTI_STEP 5
+
+#endif
