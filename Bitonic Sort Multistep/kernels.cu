@@ -56,7 +56,37 @@ __global__ void bitonicSortKernel(el_t *table, bool orderAsc) {
     table[blockDim.x + index] = sortTile[blockDim.x + threadIdx.x];
 }
 
-__global__ void multiStepKernel(el_t *table, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
+__global__ void multiStepRegistersKernel(el_t *table, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
+    el_t tile[1 << MAX_MULTI_STEP];
+    uint_t tileHalfSize = 1 << (degree - 1);
+    uint_t strideGlobal = 1 << (step - 1);
+    uint_t threadsPerSubBlock = 1 << (step - degree);
+    uint_t indexThread = blockIdx.x * blockDim.x + threadIdx.x;
+    uint_t indexTable = (indexThread >> (step - degree) << step) + indexThread % threadsPerSubBlock;
+    bool direction = orderAsc ^ ((indexThread >> (phase - degree)) & 1);
+
+    for (uint_t i = 0; i < tileHalfSize; i++) {
+        uint_t start = indexTable + i * threadsPerSubBlock;
+        tile[i] = table[start];
+        tile[i + tileHalfSize] = table[start + strideGlobal];
+    }
+
+    // Syncthreads is not needed, because every thread proceses an separated subsection of partition
+    for (uint_t strideLocal = tileHalfSize; strideLocal > 0; strideLocal >>= 1) {
+        for (uint_t i = 0; i < tileHalfSize; i++) {
+            uint_t start = 2 * i - (i & (strideLocal - 1));
+            compareExchange(&tile[start], &tile[start + strideLocal], direction);
+        }
+    }
+
+    for (int i = 0; i < tileHalfSize; i++) {
+        uint_t start = indexTable + i * threadsPerSubBlock;
+        table[start] = tile[i];
+        table[start + strideGlobal] = tile[i + tileHalfSize];
+    }
+}
+
+__global__ void multiStepSharedMemKernel(el_t *table, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
     extern __shared__ el_t tile[];
     uint_t strideGlobal = 1 << (step - 1);
     uint_t threadsPerSubBlock = 1 << (step - degree);

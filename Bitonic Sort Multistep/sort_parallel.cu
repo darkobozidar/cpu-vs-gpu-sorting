@@ -45,7 +45,26 @@ void runBitoicSortKernel(el_t *table, uint_t tableLen, uint_t subBlockSize, bool
     //endStopwatch(timer, "Executing bitonic sort kernel");
 }
 
-void runMultiStepKernel(el_t *table, uint_t tableLen, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
+void runMultiStepRegistersKernel(el_t *table, uint_t tableLen, uint_t phase, uint_t step, uint_t degree,
+                                 bool orderAsc) {
+    cudaError_t error;
+    LARGE_INTEGER timer;
+
+    uint_t partitionSize = tableLen / (1 << degree);
+    uint_t maxThreadBlockSize = MAX_THREADS_PER_MULTISTEP;
+    uint_t threadBlockSize = min(partitionSize, maxThreadBlockSize);
+    dim3 dimGrid(partitionSize / threadBlockSize, 1, 1);
+    dim3 dimBlock(threadBlockSize, 1, 1);
+
+    startStopwatch(&timer);
+    multiStepRegistersKernel<<<dimGrid, dimBlock>>>(table, phase, step, degree, orderAsc);
+    /*error = cudaDeviceSynchronize();
+    checkCudaError(error);*/
+    /*endStopwatch(timer, "Executing multistep kernel");*/
+}
+
+void runMultiStepSharedMemKernel(el_t *table, uint_t tableLen, uint_t phase, uint_t step, uint_t degree,
+                                 bool orderAsc) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
@@ -56,7 +75,7 @@ void runMultiStepKernel(el_t *table, uint_t tableLen, uint_t phase, uint_t step,
     dim3 dimBlock(threadBlockSize, 1, 1);
 
     startStopwatch(&timer);
-    multiStepKernel<<<dimGrid, dimBlock, 2 * MAX_THREADS_PER_MULTISTEP * sizeof(*table)>>>(
+    multiStepSharedMemKernel<<<dimGrid, dimBlock, 2 * MAX_THREADS_PER_MULTISTEP * sizeof(*table)>>>(
         table, phase, step, degree, orderAsc
     );
     /*error = cudaDeviceSynchronize();
@@ -103,29 +122,20 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
     startStopwatch(&timer);
     runBitoicSortKernel(d_table, tableLen, subBlockSize, orderAsc);
 
-    /*printf("After bitonic sort\n");
-    runPrintTableKernel(d_table, tableLen);*/
-
     for (uint_t phase = phasesSharedMem + 1; phase <= phasesAll; phase++) {
         int_t step = phase;
 
         for (uint_t degree = MAX_MULTI_STEP; degree > 0; degree--) {
             for (; step >= phasesSharedMem + degree; step -= degree) {
-                runMultiStepKernel(d_table, tableLen, phase, step, degree, orderAsc);
-                /*if (phase == 3) {
-                    printf("After %d-multistep\n", degree);
-                    runPrintTableKernel(d_table, tableLen);
-                }*/
+                if (USE_REGISTERS_MULTISTEP) {
+                    runMultiStepRegistersKernel(d_table, tableLen, phase, step, degree, orderAsc);
+                } else {
+                    runMultiStepSharedMemKernel(d_table, tableLen, phase, step, degree, orderAsc);
+                }
             }
         }
 
-        // Here only last phase is needed
         runBitoicMergeKernel(d_table, tableLen, subBlockSize, phase, orderAsc);
-
-        /*if (phase == 2) {
-            printf("After bitonic merge\n");
-            runPrintTableKernel(d_table, tableLen);
-        }*/
     }
 
     error = cudaDeviceSynchronize();
