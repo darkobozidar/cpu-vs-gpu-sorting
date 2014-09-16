@@ -41,10 +41,13 @@ void runBitoicSortKernel(el_t *table, uint_t tableLen, uint_t subBlockSize, bool
         table, orderAsc
     );
     /*error = cudaDeviceSynchronize();
-    checkCudaError(error);*/
-    //endStopwatch(timer, "Executing bitonic sort kernel");
+    checkCudaError(error);
+    endStopwatch(timer, "Executing bitonic sort kernel");*/
 }
 
+/*
+Runs multistep kernel, which uses registers.
+*/
 void runMultiStepRegistersKernel(el_t *table, uint_t tableLen, uint_t phase, uint_t step, uint_t degree,
                                  bool orderAsc) {
     cudaError_t error;
@@ -59,19 +62,25 @@ void runMultiStepRegistersKernel(el_t *table, uint_t tableLen, uint_t phase, uin
     startStopwatch(&timer);
     multiStepRegistersKernel<<<dimGrid, dimBlock>>>(table, phase, step, degree, orderAsc);
     /*error = cudaDeviceSynchronize();
-    checkCudaError(error);*/
-    /*endStopwatch(timer, "Executing multistep kernel");*/
+    checkCudaError(error);
+    endStopwatch(timer, "Executing multistep kernel using registers");*/
 }
 
+/*
+Runs multistep kernel, which uses shared memory.
+*/
 void runMultiStepSharedMemKernel(el_t *table, uint_t tableLen, uint_t phase, uint_t step, uint_t degree,
                                  bool orderAsc) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
-    // TODO comment
+    // Every thread loads 2 elements.
     uint_t threadBlockSize = min(tableLen / 2, MAX_THREADS_PER_MULTISTEP);
-    uint_t glidSize = tableLen / (128 * threadBlockSize);
-    dim3 dimGrid(glidSize, 64, 1);
+    // Max number of blocks on one axis (X, Y or Z) is 65536. In very long arrays the number of needed
+    // blocks to run kernel is greater than 65536, that's why load needs to be transfered to Y axis.
+    uint_t gridSizeY = nextPowerOf2(sqrt((double)threadBlockSize));
+    uint_t glidSizeX = tableLen / (gridSizeY * 2 * threadBlockSize);
+    dim3 dimGrid(glidSizeX, gridSizeY, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
 
     startStopwatch(&timer);
@@ -79,8 +88,8 @@ void runMultiStepSharedMemKernel(el_t *table, uint_t tableLen, uint_t phase, uin
         table, phase, step, degree, orderAsc
     );
     /*error = cudaDeviceSynchronize();
-    checkCudaError(error);*/
-    /*endStopwatch(timer, "Executing multistep kernel");*/
+    checkCudaError(error);
+    endStopwatch(timer, "Executing multistep kernel using shared memory");*/
 }
 
 void runBitoicMergeKernel(el_t *table, uint_t tableLen, uint_t subBlockSize, uint_t phase, bool orderAsc) {
@@ -96,8 +105,8 @@ void runBitoicMergeKernel(el_t *table, uint_t tableLen, uint_t subBlockSize, uin
         table, phase, orderAsc
     );
     /*error = cudaDeviceSynchronize();
-    checkCudaError(error);*/
-    //endStopwatch(timer, "Executing bitonic sort kernel");
+    checkCudaError(error);
+    endStopwatch(timer, "Executing bitonic sort kernel");*/
 }
 
 void runPrintTableKernel(el_t *table, uint_t tableLen) {
@@ -125,6 +134,7 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
     for (uint_t phase = phasesSharedMem + 1; phase <= phasesAll; phase++) {
         int_t step = phase;
 
+        // Multisteps
         for (uint_t degree = MAX_MULTI_STEP; degree > 0; degree--) {
             for (; step >= phasesSharedMem + degree; step -= degree) {
                 if (USE_REGISTERS_MULTISTEP) {
@@ -144,4 +154,6 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
 
     error = cudaMemcpy(h_output, d_table, tableLen * sizeof(*h_output), cudaMemcpyDeviceToHost);
     checkCudaError(error);
+
+    cudaFree(d_table);
 }

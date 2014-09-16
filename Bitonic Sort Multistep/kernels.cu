@@ -56,6 +56,10 @@ __global__ void bitonicSortKernel(el_t *table, bool orderAsc) {
     table[blockDim.x + index] = sortTile[blockDim.x + threadIdx.x];
 }
 
+/*
+Multistep kernel using registers. Every thread loads and sorts all elements for it's corresponding
+subsection of partition (one thread loads and sorts >= 2 elements).
+*/
 __global__ void multiStepRegistersKernel(el_t *table, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
     el_t tile[1 << MAX_MULTI_STEP];
     uint_t tileHalfSize = 1 << (degree - 1);
@@ -65,6 +69,7 @@ __global__ void multiStepRegistersKernel(el_t *table, uint_t phase, uint_t step,
     uint_t indexTable = (indexThread >> (step - degree) << step) + indexThread % threadsPerSubBlock;
     bool direction = orderAsc ^ ((indexThread >> (phase - degree)) & 1);
 
+    // Each thread loads elements for it's corresponding subsection of partition
     for (uint_t i = 0; i < tileHalfSize; i++) {
         uint_t start = indexTable + i * threadsPerSubBlock;
         tile[i] = table[start];
@@ -86,6 +91,10 @@ __global__ void multiStepRegistersKernel(el_t *table, uint_t phase, uint_t step,
     }
 }
 
+/*
+Multistep kernel using registers. Every thread loads only 2 elements. Than all threads
+execute bitonic merge.
+*/
 __global__ void multiStepSharedMemKernel(el_t *table, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
     extern __shared__ el_t tile[];
     uint_t strideGlobal = 1 << (step - 1);
@@ -96,13 +105,10 @@ __global__ void multiStepSharedMemKernel(el_t *table, uint_t phase, uint_t step,
     uint_t bla = (threadIdx.x >> (degree - 1) << (degree)) + (threadIdx.x % (1 << (degree - 1)));
     bool direction = orderAsc ^ ((indexThread >> (phase - 1)) & 1);
 
-    /*if (phase == 3) {
-        printf("%d %d\n", bla, bla + (1 << (degree - 1)));
-    }*/
-
     tile[bla] = table[indexTable];
     tile[bla + (1 << (degree - 1))] = table[indexTable + strideGlobal];
 
+    // All threads execute bitonic merge in shared memory (syncthreads needed).
     for (uint_t stride = 1 << (degree - 1); stride > 0; stride >>= 1) {
         __syncthreads();
         uint_t start = 2 * threadIdx.x - (threadIdx.x & (stride - 1));

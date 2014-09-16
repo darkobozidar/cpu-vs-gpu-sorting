@@ -45,10 +45,9 @@ int main(int argc, char** argv) {
     outputCorrect = sortCorrect(input, tableLen);
     compareArrays(outputParallel, outputCorrect, tableLen);
 
-    ////cudaFreeHost(inputData);
-    //cudaFreeHost(outputDataParallel);
-    ////free(outputDataSequential);
-    //free(outputDataCorrect);
+    cudaFreeHost(input);
+    cudaFreeHost(outputParallel );
+    free(outputCorrect);
 
     getchar();
     return 0;
