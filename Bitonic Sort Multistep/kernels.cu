@@ -8,6 +8,10 @@
 #include "constants.h"
 
 
+/****************************
+UTILS
+*****************************/
+
 __device__ void compareExchange2(el_t *elem1, el_t *elem2, bool orderAsc) {
     if (((int_t)(elem1->key - elem2->key) <= 0) ^ orderAsc) {
         el_t temp = *elem1;
@@ -51,51 +55,57 @@ __device__ void compareExchange16(el_t *el1, el_t *el2, el_t *el3, el_t *el4, el
     compareExchange8(el2, el10, el4, el12, el6, el14, el8, el16, direction);
 }
 
-__device__ void load2(el_t *table, el_t *el1, el_t *el2, uint_t stride) {
+__device__ void load2(el_t *table, uint_t stride, el_t *el1, el_t *el2) {
     *el1 = table[0];
     *el2 = table[stride];
 }
 
-__device__ void store2(el_t *table, el_t el1, el_t el2, uint_t stride) {
+__device__ void store2(el_t *table, uint_t stride, el_t el1, el_t el2) {
     table[0] = el1;
     table[stride] = el2;
 }
 
-__device__ void load4(el_t *table, el_t *el1, el_t *el2, el_t *el3, el_t *el4, uint_t stride, uint_t x) {
-    load2(table, el1, el2, stride);
-    load2(table + x, el3, el4, stride);
+__device__ void load4(el_t *table, uint_t tableOffset, uint_t stride, el_t *el1, el_t *el2,
+                      el_t *el3, el_t *el4) {
+    load2(table, stride, el1, el2);
+    load2(table + tableOffset, stride, el3, el4);
 }
 
-__device__ void store4(el_t *table, el_t el1, el_t el2, el_t el3, el_t el4, uint_t stride, uint_t x) {
-    store2(table, el1, el2, stride);
-    store2(table + x, el3, el4, stride);
+__device__ void store4(el_t *table, uint_t tableOffset, uint_t stride, el_t el1, el_t el2,
+                      el_t el3, el_t el4) {
+    store2(table, stride, el1, el2);
+    store2(table + tableOffset, stride, el3, el4);
 }
 
-__device__ void load8(el_t *table, el_t *el1, el_t *el2, el_t *el3, el_t *el4, el_t *el5, el_t *el6, el_t *el7,
-                      el_t *el8, uint_t stride, uint_t x) {
-    load4(table, el1, el2, el3, el4, stride, x);
-    load4(table + 2 * x, el5, el6, el7, el8, stride, x);
+__device__ void load8(el_t *table, uint_t tableOffset, uint_t stride, el_t *el1, el_t *el2, el_t *el3,
+                      el_t *el4, el_t *el5, el_t *el6, el_t *el7, el_t *el8) {
+    load4(table, tableOffset, stride, el1, el2, el3, el4);
+    load4(table + 2 * tableOffset, tableOffset, stride, el5, el6, el7, el8);
 }
 
-__device__ void store8(el_t *table, el_t el1, el_t el2, el_t el3, el_t el4, el_t el5, el_t el6, el_t el7,
-                       el_t el8, uint_t stride, uint_t x) {
-    store4(table, el1, el2, el3, el4, stride, x);
-    store4(table + 2 * x, el5, el6, el7, el8, stride, x);
+__device__ void store8(el_t *table, uint_t tableOffset, uint_t stride, el_t el1, el_t el2, el_t el3,
+                       el_t el4, el_t el5, el_t el6, el_t el7, el_t el8) {
+    store4(table, tableOffset, stride, el1, el2, el3, el4);
+    store4(table + 2 * tableOffset, tableOffset, stride, el5, el6, el7, el8);
 }
 
-__device__ void load16(el_t *table, el_t *el1, el_t *el2, el_t *el3, el_t *el4, el_t *el5, el_t *el6, el_t *el7,
-                       el_t *el8, el_t *el9, el_t *el10, el_t *el11, el_t *el12, el_t *el13, el_t *el14,
-                       el_t *el15, el_t *el16, uint_t stride, uint_t x) {
-    load8(table, el1, el2, el3, el4, el5, el6, el7, el8, stride, x);
-    load8(table + 4 * x, el9, el10, el11, el12, el13, el14, el15, el16, stride, x);
+__device__ void load16(el_t *table, uint_t tableOffset, uint_t stride, el_t *el1, el_t *el2, el_t *el3,
+                       el_t *el4, el_t *el5, el_t *el6, el_t *el7, el_t *el8, el_t *el9, el_t *el10,
+                       el_t *el11, el_t *el12, el_t *el13, el_t *el14, el_t *el15, el_t *el16) {
+    load8(table, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7, el8);
+    load8(table + 4 * tableOffset, tableOffset, stride, el9, el10, el11, el12, el13, el14, el15, el16);
 }
 
-__device__ void store16(el_t *table, el_t el1, el_t el2, el_t el3, el_t el4, el_t el5, el_t el6, el_t el7,
-                        el_t el8, el_t el9, el_t el10, el_t el11, el_t el12, el_t el13, el_t el14,
-                        el_t el15, el_t el16, uint_t stride, uint_t x) {
-    store8(table, el1, el2, el3, el4, el5, el6, el7, el8, stride, x);
-    store8(table + 4 * x, el9, el10, el11, el12, el13, el14, el15, el16, stride, x);
+__device__ void store16(el_t *table, uint_t tableOffset, uint_t stride, el_t el1, el_t el2, el_t el3,
+                        el_t el4, el_t el5, el_t el6, el_t el7, el_t el8, el_t el9, el_t el10,
+                        el_t el11, el_t el12, el_t el13, el_t el14, el_t el15, el_t el16) {
+    store8(table, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7, el8);
+    store8(table + 4 * tableOffset, tableOffset, stride, el9, el10, el11, el12, el13, el14, el15, el16);
 }
+
+/****************************
+KERNELS
+*****************************/
 
 /*
 Sorts sub-blocks of input data with bitonic sort.
@@ -135,9 +145,9 @@ __global__ void multiStep1Kernel(el_t *table, uint_t phase, uint_t step, uint_t 
     bool direction = orderAsc ^ ((indexThread >> (phase - degree)) & 1);
     el_t el1, el2;
 
-    load2(table + indexTable, &el1, &el2, stride);
+    load2(table + indexTable, stride, &el1, &el2);
     compareExchange2(&el1, &el2, direction);
-    store2(table + indexTable, el1, el2, stride);
+    store2(table + indexTable, stride, el1, el2);
 }
 
 __global__ void multiStep2Kernel(el_t *table, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
@@ -148,9 +158,9 @@ __global__ void multiStep2Kernel(el_t *table, uint_t phase, uint_t step, uint_t 
     bool direction = orderAsc ^ ((indexThread >> (phase - degree)) & 1);
     el_t el1, el2, el3, el4;
 
-    load4(table + indexTable1, &el1, &el2, &el3, &el4, stride, threadsPerSubBlock);
+    load4(table + indexTable1, threadsPerSubBlock, stride, &el1, &el2, &el3, &el4);
     compareExchange4(&el1, &el2, &el3, &el4, direction);
-    store4(table + indexTable1, el1, el2, el3, el4, stride, threadsPerSubBlock);
+    store4(table + indexTable1, threadsPerSubBlock, stride, el1, el2, el3, el4);
 }
 
 __global__ void multiStep3Kernel(el_t *table, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
@@ -161,9 +171,9 @@ __global__ void multiStep3Kernel(el_t *table, uint_t phase, uint_t step, uint_t 
     bool direction = orderAsc ^ ((indexThread >> (phase - degree)) & 1);
     el_t el1, el2, el3, el4, el5, el6, el7, el8;
 
-    load8(table + indexTable1, &el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8, stride, threadsPerSubBlock);
+    load8(table + indexTable1, threadsPerSubBlock, stride, &el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8);
     compareExchange8(&el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8, direction);
-    store8(table + indexTable1, el1, el2, el3, el4, el5, el6, el7, el8, stride, threadsPerSubBlock);
+    store8(table + indexTable1, threadsPerSubBlock, stride, el1, el2, el3, el4, el5, el6, el7, el8);
 }
 
 __global__ void multiStep4Kernel(el_t *table, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
@@ -174,12 +184,18 @@ __global__ void multiStep4Kernel(el_t *table, uint_t phase, uint_t step, uint_t 
     bool direction = orderAsc ^ ((indexThread >> (phase - degree)) & 1);
     el_t el1, el2, el3, el4, el5, el6, el7, el8, el9, el10, el11, el12, el13, el14, el15, el16;
 
-    load16(table + indexTable1, &el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8, &el9, &el10, &el11,
-        &el12, &el13, &el14, &el15, &el16, stride, threadsPerSubBlock);
-    compareExchange16(&el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8, &el9, &el10, &el11, &el12, &el13,
-        &el14, &el15, &el16, direction);
-    store16(table + indexTable1, el1, el2, el3, el4, el5, el6, el7, el8, el9, el10, el11, el12, el13,
-        el14, el15, el16, stride, threadsPerSubBlock);
+    load16(
+        table + indexTable1, threadsPerSubBlock, stride, &el1, &el2, &el3, &el4, &el5, &el6, &el7,
+        &el8, &el9, &el10, &el11, &el12, &el13, &el14, &el15, &el16
+    );
+    compareExchange16(
+        &el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8, &el9, &el10, &el11, &el12, &el13,
+        &el14, &el15, &el16, direction
+    );
+    store16(
+        table + indexTable1, threadsPerSubBlock, stride, el1, el2, el3, el4, el5, el6, el7,
+        el8, el9, el10, el11, el12, el13, el14, el15, el16
+    );
 }
 
 /*
