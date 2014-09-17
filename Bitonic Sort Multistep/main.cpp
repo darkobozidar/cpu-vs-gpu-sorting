@@ -37,7 +37,7 @@ int main(int argc, char** argv) {
     sortParallel(input, outputParallel, tableLen, orderAsc);
     //printTable(outputParallel, tableLen);
 
-    //printf("\n");
+    printf("\n");
     outputCorrect = sortCorrect(input, tableLen);
     compareArrays(outputParallel, outputCorrect, tableLen);
 

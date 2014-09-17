@@ -101,6 +101,7 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
     int_t phasesBitonicMerge = log2((double)THREADS_PER_MERGE);
 
     LARGE_INTEGER timer;
+    double time;
     cudaError_t error;
 
     memoryDataInit(h_input, &d_table, tableLen);
@@ -123,7 +124,8 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
 
     error = cudaDeviceSynchronize();
     checkCudaError(error);
-    endStopwatch(timer, "Executing parallel bitonic sort.");
+    time = endStopwatch(timer, "Executing parallel bitonic sort.");
+    printf("Operations: %.2f M/s\n", tableLen / 1000 / time);
 
     error = cudaMemcpy(h_output, d_table, tableLen * sizeof(*h_output), cudaMemcpyDeviceToHost);
     checkCudaError(error);
