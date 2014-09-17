@@ -103,6 +103,16 @@ __device__ void store16(el_t *table, uint_t tableOffset, uint_t stride, el_t el1
     store8(table + 4 * tableOffset, tableOffset, stride, el9, el10, el11, el12, el13, el14, el15, el16);
 }
 
+__device__ void getMultiStepParams(uint_t phase, uint_t step, uint_t degree, uint_t &stride,
+                                   uint_t &threadsPerSubBlock, uint_t &indexTable, bool &direction) {
+    uint_t indexThread = blockIdx.x * blockDim.x + threadIdx.x;
+
+    stride = 1 << (step - 1);
+    threadsPerSubBlock = 1 << (step - degree);
+    indexTable = (indexThread >> (step - degree) << step) + indexThread % threadsPerSubBlock;
+    direction = (indexThread >> (phase - degree)) & 1;
+}
+
 /****************************
 KERNELS
 *****************************/
@@ -138,68 +148,68 @@ __global__ void bitonicSortKernel(el_t *table, bool orderAsc) {
 }
 
 __global__ void multiStep1Kernel(el_t *table, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
-    uint_t stride = 1 << (step - 1);
-    uint_t threadsPerSubBlock = 1 << (step - degree);
-    uint_t indexThread = blockIdx.x * blockDim.x + threadIdx.x;
-    uint_t indexTable = (indexThread >> (step - degree) << step) + indexThread % threadsPerSubBlock;
-    bool direction = orderAsc ^ ((indexThread >> (phase - degree)) & 1);
+    uint_t stride, tableOffset, indexTable;
+    bool direction;
     el_t el1, el2;
 
-    load2(table + indexTable, stride, &el1, &el2);
-    compareExchange2(&el1, &el2, direction);
-    store2(table + indexTable, stride, el1, el2);
+    getMultiStepParams(phase, step, 1, stride, tableOffset, indexTable, direction);
+    table += indexTable;
+
+    load2(table, stride, &el1, &el2);
+    compareExchange2(&el1, &el2, direction ^ orderAsc);
+    store2(table, stride, el1, el2);
 }
 
 __global__ void multiStep2Kernel(el_t *table, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
-    uint_t stride = 1 << (step - 1);
-    uint_t threadsPerSubBlock = 1 << (step - degree);
-    uint_t indexThread = blockIdx.x * blockDim.x + threadIdx.x;
-    uint_t indexTable1 = (indexThread >> (step - degree) << step) + indexThread % threadsPerSubBlock;
-    bool direction = orderAsc ^ ((indexThread >> (phase - degree)) & 1);
+    uint_t stride, tableOffset, indexTable;
+    bool direction;
     el_t el1, el2, el3, el4;
 
-    load4(table + indexTable1, threadsPerSubBlock, stride, &el1, &el2, &el3, &el4);
-    compareExchange4(&el1, &el2, &el3, &el4, direction);
-    store4(table + indexTable1, threadsPerSubBlock, stride, el1, el2, el3, el4);
+    getMultiStepParams(phase, step, 2, stride, tableOffset, indexTable, direction);
+    table += indexTable;
+
+    load4(table, tableOffset, stride, &el1, &el2, &el3, &el4);
+    compareExchange4(&el1, &el2, &el3, &el4, direction ^ orderAsc);
+    store4(table, tableOffset, stride, el1, el2, el3, el4);
 }
 
 __global__ void multiStep3Kernel(el_t *table, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
-    uint_t stride = 1 << (step - 1);
-    uint_t threadsPerSubBlock = 1 << (step - degree);
-    uint_t indexThread = blockIdx.x * blockDim.x + threadIdx.x;
-    uint_t indexTable1 = (indexThread >> (step - degree) << step) + indexThread % threadsPerSubBlock;
-    bool direction = orderAsc ^ ((indexThread >> (phase - degree)) & 1);
+    uint_t stride, tableOffset, indexTable;
+    bool direction;
     el_t el1, el2, el3, el4, el5, el6, el7, el8;
 
-    load8(table + indexTable1, threadsPerSubBlock, stride, &el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8);
-    compareExchange8(&el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8, direction);
-    store8(table + indexTable1, threadsPerSubBlock, stride, el1, el2, el3, el4, el5, el6, el7, el8);
+    getMultiStepParams(phase, step, 3, stride, tableOffset, indexTable, direction);
+    table += indexTable;
+
+    load8(table, tableOffset, stride, &el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8);
+    compareExchange8(&el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8, direction ^ orderAsc);
+    store8(table, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7, el8);
 }
 
 __global__ void multiStep4Kernel(el_t *table, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
-    uint_t stride = 1 << (step - 1);
-    uint_t threadsPerSubBlock = 1 << (step - degree);
-    uint_t indexThread = blockIdx.x * blockDim.x + threadIdx.x;
-    uint_t indexTable1 = (indexThread >> (step - degree) << step) + indexThread % threadsPerSubBlock;
-    bool direction = orderAsc ^ ((indexThread >> (phase - degree)) & 1);
+    uint_t stride, tableOffset, indexTable;
+    bool direction;
     el_t el1, el2, el3, el4, el5, el6, el7, el8, el9, el10, el11, el12, el13, el14, el15, el16;
 
+    getMultiStepParams(phase, step, 4, stride, tableOffset, indexTable, direction);
+    table += indexTable;
+
     load16(
-        table + indexTable1, threadsPerSubBlock, stride, &el1, &el2, &el3, &el4, &el5, &el6, &el7,
+        table, tableOffset, stride, &el1, &el2, &el3, &el4, &el5, &el6, &el7,
         &el8, &el9, &el10, &el11, &el12, &el13, &el14, &el15, &el16
     );
     compareExchange16(
         &el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8, &el9, &el10, &el11, &el12, &el13,
-        &el14, &el15, &el16, direction
+        &el14, &el15, &el16, direction ^ orderAsc
     );
     store16(
-        table + indexTable1, threadsPerSubBlock, stride, el1, el2, el3, el4, el5, el6, el7,
+        table, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7,
         el8, el9, el10, el11, el12, el13, el14, el15, el16
     );
 }
 
 /*
-Global bitonic merge for sections, where stride IS LOWER OR EQUAL than max shared memory.
+Global bitonic merge for sections, where stride IS GREATER OR EQUAL than max shared memory.
 */
 __global__ void bitonicMergeKernel(el_t *table, uint_t phase, bool orderAsc) {
     extern __shared__ el_t mergeTile[];
