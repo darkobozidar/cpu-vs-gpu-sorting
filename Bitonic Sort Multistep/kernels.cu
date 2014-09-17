@@ -103,6 +103,13 @@ __device__ void store16(el_t *table, uint_t tableOffset, uint_t stride, el_t el1
     store8(table + 4 * tableOffset, tableOffset, stride, el9, el10, el11, el12, el13, el14, el15, el16);
 }
 
+/*
+Generates parameters needed for multistep.
+> stride - (gap) between two elements beeing compared
+> threadsPerSubBlocks - how many threads apper per sub-block in current step
+> indexTable - start index, at which thread should start fetching elements
+> direction - in which direction should elements be sorted
+*/
 __device__ void getMultiStepParams(uint_t phase, uint_t step, uint_t degree, uint_t &stride,
                                    uint_t &threadsPerSubBlock, uint_t &indexTable, bool &direction) {
     uint_t indexThread = blockIdx.x * blockDim.x + threadIdx.x;
@@ -147,7 +154,7 @@ __global__ void bitonicSortKernel(el_t *table, bool orderAsc) {
     table[blockDim.x + index] = sortTile[blockDim.x + threadIdx.x];
 }
 
-__global__ void multiStep1Kernel(el_t *table, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
+__global__ void multiStep1Kernel(el_t *table, uint_t phase, uint_t step, bool orderAsc) {
     uint_t stride, tableOffset, indexTable;
     bool direction;
     el_t el1, el2;
@@ -160,7 +167,7 @@ __global__ void multiStep1Kernel(el_t *table, uint_t phase, uint_t step, uint_t 
     store2(table, stride, el1, el2);
 }
 
-__global__ void multiStep2Kernel(el_t *table, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
+__global__ void multiStep2Kernel(el_t *table, uint_t phase, uint_t step, bool orderAsc) {
     uint_t stride, tableOffset, indexTable;
     bool direction;
     el_t el1, el2, el3, el4;
@@ -173,7 +180,7 @@ __global__ void multiStep2Kernel(el_t *table, uint_t phase, uint_t step, uint_t 
     store4(table, tableOffset, stride, el1, el2, el3, el4);
 }
 
-__global__ void multiStep3Kernel(el_t *table, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
+__global__ void multiStep3Kernel(el_t *table, uint_t phase, uint_t step, bool orderAsc) {
     uint_t stride, tableOffset, indexTable;
     bool direction;
     el_t el1, el2, el3, el4, el5, el6, el7, el8;
@@ -186,7 +193,7 @@ __global__ void multiStep3Kernel(el_t *table, uint_t phase, uint_t step, uint_t 
     store8(table, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7, el8);
 }
 
-__global__ void multiStep4Kernel(el_t *table, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
+__global__ void multiStep4Kernel(el_t *table, uint_t phase, uint_t step, bool orderAsc) {
     uint_t stride, tableOffset, indexTable;
     bool direction;
     el_t el1, el2, el3, el4, el5, el6, el7, el8, el9, el10, el11, el12, el13, el14, el15, el16;
