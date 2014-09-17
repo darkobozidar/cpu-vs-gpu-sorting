@@ -8,22 +8,93 @@
 #include "constants.h"
 
 
-/*
-Compares 2 elements and exchanges them according to orderAsc.
-*/
-__device__ void compareExchange(el_t *elem1, el_t *elem2, bool orderAsc) {
-    if ((elem1->key <= elem2->key) ^ orderAsc) {
+__device__ void compareExchange2(el_t *elem1, el_t *elem2, bool orderAsc) {
+    if (((int_t)(elem1->key - elem2->key) <= 0) ^ orderAsc) {
         el_t temp = *elem1;
         *elem1 = *elem2;
         *elem2 = temp;
     }
 }
 
-__global__ void printTableKernel(el_t *table, uint_t tableLen) {
-    for (uint_t i = 0; i < tableLen; i++) {
-        printf("%2d ", table[i]);
-    }
-    printf("\n\n");
+__device__ void compareExchange4(el_t *el1, el_t *el2, el_t *el3, el_t *el4, bool direction) {
+    compareExchange2(el1, el2, direction);
+    compareExchange2(el3, el4, direction);
+
+    compareExchange2(el1, el3, direction);
+    compareExchange2(el2, el4, direction);
+}
+
+__device__ void compareExchange8(el_t *el1, el_t *el2, el_t *el3, el_t *el4, el_t *el5, el_t *el6,
+                                 el_t *el7, el_t *el8, bool direction) {
+    compareExchange2(el1, el2, direction);
+    compareExchange2(el3, el4, direction);
+    compareExchange2(el5, el6, direction);
+    compareExchange2(el7, el8, direction);
+
+    compareExchange4(el1, el5, el3, el7, direction);
+    compareExchange4(el2, el6, el4, el8, direction);
+}
+
+__device__ void compareExchange16(el_t *el1, el_t *el2, el_t *el3, el_t *el4, el_t *el5, el_t *el6, el_t *el7,
+                                  el_t *el8, el_t *el9, el_t *el10, el_t *el11, el_t *el12, el_t *el13,
+                                  el_t *el14, el_t *el15, el_t *el16, bool direction) {
+    compareExchange2(el1, el2, direction);
+    compareExchange2(el3, el4, direction);
+    compareExchange2(el5, el6, direction);
+    compareExchange2(el7, el8, direction);
+    compareExchange2(el9, el10, direction);
+    compareExchange2(el11, el12, direction);
+    compareExchange2(el13, el14, direction);
+    compareExchange2(el15, el16, direction);
+
+    compareExchange8(el1, el9, el3, el11, el5, el13, el7, el15, direction);
+    compareExchange8(el2, el10, el4, el12, el6, el14, el8, el16, direction);
+}
+
+__device__ void load2(el_t *table, el_t *el1, el_t *el2, uint_t stride) {
+    *el1 = table[0];
+    *el2 = table[stride];
+}
+
+__device__ void store2(el_t *table, el_t el1, el_t el2, uint_t stride) {
+    table[0] = el1;
+    table[stride] = el2;
+}
+
+__device__ void load4(el_t *table, el_t *el1, el_t *el2, el_t *el3, el_t *el4, uint_t stride, uint_t x) {
+    load2(table, el1, el2, stride);
+    load2(table + x, el3, el4, stride);
+}
+
+__device__ void store4(el_t *table, el_t el1, el_t el2, el_t el3, el_t el4, uint_t stride, uint_t x) {
+    store2(table, el1, el2, stride);
+    store2(table + x, el3, el4, stride);
+}
+
+__device__ void load8(el_t *table, el_t *el1, el_t *el2, el_t *el3, el_t *el4, el_t *el5, el_t *el6, el_t *el7,
+                      el_t *el8, uint_t stride, uint_t x) {
+    load4(table, el1, el2, el3, el4, stride, x);
+    load4(table + 2 * x, el5, el6, el7, el8, stride, x);
+}
+
+__device__ void store8(el_t *table, el_t el1, el_t el2, el_t el3, el_t el4, el_t el5, el_t el6, el_t el7,
+                       el_t el8, uint_t stride, uint_t x) {
+    store4(table, el1, el2, el3, el4, stride, x);
+    store4(table + 2 * x, el5, el6, el7, el8, stride, x);
+}
+
+__device__ void load16(el_t *table, el_t *el1, el_t *el2, el_t *el3, el_t *el4, el_t *el5, el_t *el6, el_t *el7,
+                       el_t *el8, el_t *el9, el_t *el10, el_t *el11, el_t *el12, el_t *el13, el_t *el14,
+                       el_t *el15, el_t *el16, uint_t stride, uint_t x) {
+    load8(table, el1, el2, el3, el4, el5, el6, el7, el8, stride, x);
+    load8(table + 4 * x, el9, el10, el11, el12, el13, el14, el15, el16, stride, x);
+}
+
+__device__ void store16(el_t *table, el_t el1, el_t el2, el_t el3, el_t el4, el_t el5, el_t el6, el_t el7,
+                        el_t el8, el_t el9, el_t el10, el_t el11, el_t el12, el_t el13, el_t el14,
+                        el_t el15, el_t el16, uint_t stride, uint_t x) {
+    store8(table, el1, el2, el3, el4, el5, el6, el7, el8, stride, x);
+    store8(table + 4 * x, el9, el10, el11, el12, el13, el14, el15, el16, stride, x);
 }
 
 /*
@@ -47,7 +118,7 @@ __global__ void bitonicSortKernel(el_t *table, bool orderAsc) {
         for (uint_t stride = subBlockSize; stride > 0; stride >>= 1) {
             __syncthreads();
             uint_t start = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
-            compareExchange(&sortTile[start], &sortTile[start + stride], direction);
+            compareExchange2(&sortTile[start], &sortTile[start + stride], direction);
         }
     }
 
@@ -56,68 +127,59 @@ __global__ void bitonicSortKernel(el_t *table, bool orderAsc) {
     table[blockDim.x + index] = sortTile[blockDim.x + threadIdx.x];
 }
 
-/*
-Multistep kernel using registers. Every thread loads and sorts all elements for it's corresponding
-subsection of partition (one thread loads and sorts >= 2 elements).
-*/
-__global__ void multiStepRegistersKernel(el_t *table, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
-    el_t tile[1 << MAX_MULTI_STEP];
-    uint_t tileHalfSize = 1 << (degree - 1);
-    uint_t strideGlobal = 1 << (step - 1);
+__global__ void multiStep1Kernel(el_t *table, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
+    uint_t stride = 1 << (step - 1);
     uint_t threadsPerSubBlock = 1 << (step - degree);
     uint_t indexThread = blockIdx.x * blockDim.x + threadIdx.x;
     uint_t indexTable = (indexThread >> (step - degree) << step) + indexThread % threadsPerSubBlock;
     bool direction = orderAsc ^ ((indexThread >> (phase - degree)) & 1);
+    el_t el1, el2;
 
-    // Each thread loads elements for it's corresponding subsection of partition
-    for (uint_t i = 0; i < tileHalfSize; i++) {
-        uint_t start = indexTable + i * threadsPerSubBlock;
-        tile[i] = table[start];
-        tile[i + tileHalfSize] = table[start + strideGlobal];
-    }
-
-    // Syncthreads is not needed, because every thread proceses an separated subsection of partition
-    for (uint_t strideLocal = tileHalfSize; strideLocal > 0; strideLocal >>= 1) {
-        for (uint_t i = 0; i < tileHalfSize; i++) {
-            uint_t start = 2 * i - (i & (strideLocal - 1));
-            compareExchange(&tile[start], &tile[start + strideLocal], direction);
-        }
-    }
-
-    for (int i = 0; i < tileHalfSize; i++) {
-        uint_t start = indexTable + i * threadsPerSubBlock;
-        table[start] = tile[i];
-        table[start + strideGlobal] = tile[i + tileHalfSize];
-    }
+    load2(table + indexTable, &el1, &el2, stride);
+    compareExchange2(&el1, &el2, direction);
+    store2(table + indexTable, el1, el2, stride);
 }
 
-/*
-Multistep kernel using registers. Every thread loads only 2 elements. Than all threads
-execute bitonic merge.
-*/
-__global__ void multiStepSharedMemKernel(el_t *table, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
-    extern __shared__ el_t tile[];
-    uint_t strideGlobal = 1 << (step - 1);
+__global__ void multiStep2Kernel(el_t *table, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
+    uint_t stride = 1 << (step - 1);
     uint_t threadsPerSubBlock = 1 << (step - degree);
-    uint_t indexThread = blockIdx.x * blockDim.x + blockIdx.y * gridDim.x * blockDim.x + threadIdx.x;
-    uint_t indexTable = ((indexThread * threadsPerSubBlock) % strideGlobal) + ((indexThread >> (degree - 1)) % threadsPerSubBlock);
-    indexTable += indexThread >> (step - 1) << step;
-    uint_t bla = (threadIdx.x >> (degree - 1) << (degree)) + (threadIdx.x % (1 << (degree - 1)));
-    bool direction = orderAsc ^ ((indexThread >> (phase - 1)) & 1);
+    uint_t indexThread = blockIdx.x * blockDim.x + threadIdx.x;
+    uint_t indexTable1 = (indexThread >> (step - degree) << step) + indexThread % threadsPerSubBlock;
+    bool direction = orderAsc ^ ((indexThread >> (phase - degree)) & 1);
+    el_t el1, el2, el3, el4;
 
-    tile[bla] = table[indexTable];
-    tile[bla + (1 << (degree - 1))] = table[indexTable + strideGlobal];
+    load4(table + indexTable1, &el1, &el2, &el3, &el4, stride, threadsPerSubBlock);
+    compareExchange4(&el1, &el2, &el3, &el4, direction);
+    store4(table + indexTable1, el1, el2, el3, el4, stride, threadsPerSubBlock);
+}
 
-    // All threads execute bitonic merge in shared memory (syncthreads needed).
-    for (uint_t stride = 1 << (degree - 1); stride > 0; stride >>= 1) {
-        __syncthreads();
-        uint_t start = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
-        compareExchange(&tile[start], &tile[start + stride], direction);
-    }
+__global__ void multiStep3Kernel(el_t *table, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
+    uint_t stride = 1 << (step - 1);
+    uint_t threadsPerSubBlock = 1 << (step - degree);
+    uint_t indexThread = blockIdx.x * blockDim.x + threadIdx.x;
+    uint_t indexTable1 = (indexThread >> (step - degree) << step) + indexThread % threadsPerSubBlock;
+    bool direction = orderAsc ^ ((indexThread >> (phase - degree)) & 1);
+    el_t el1, el2, el3, el4, el5, el6, el7, el8;
 
-    __syncthreads();
-    table[indexTable] = tile[bla];
-    table[indexTable + strideGlobal] = tile[bla + (1 << (degree - 1))];
+    load8(table + indexTable1, &el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8, stride, threadsPerSubBlock);
+    compareExchange8(&el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8, direction);
+    store8(table + indexTable1, el1, el2, el3, el4, el5, el6, el7, el8, stride, threadsPerSubBlock);
+}
+
+__global__ void multiStep4Kernel(el_t *table, uint_t phase, uint_t step, uint_t degree, bool orderAsc) {
+    uint_t stride = 1 << (step - 1);
+    uint_t threadsPerSubBlock = 1 << (step - degree);
+    uint_t indexThread = blockIdx.x * blockDim.x + threadIdx.x;
+    uint_t indexTable1 = (indexThread >> (step - degree) << step) + indexThread % threadsPerSubBlock;
+    bool direction = orderAsc ^ ((indexThread >> (phase - degree)) & 1);
+    el_t el1, el2, el3, el4, el5, el6, el7, el8, el9, el10, el11, el12, el13, el14, el15, el16;
+
+    load16(table + indexTable1, &el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8, &el9, &el10, &el11,
+        &el12, &el13, &el14, &el15, &el16, stride, threadsPerSubBlock);
+    compareExchange16(&el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8, &el9, &el10, &el11, &el12, &el13,
+        &el14, &el15, &el16, direction);
+    store16(table + indexTable1, el1, el2, el3, el4, el5, el6, el7, el8, el9, el10, el11, el12, el13,
+        el14, el15, el16, stride, threadsPerSubBlock);
 }
 
 /*
@@ -137,7 +199,7 @@ __global__ void bitonicMergeKernel(el_t *table, uint_t phase, bool orderAsc) {
     for (uint_t stride = blockDim.x; stride > 0; stride >>= 1) {
         __syncthreads();
         uint_t start = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
-        compareExchange(&mergeTile[start], &mergeTile[start + stride], direction);
+        compareExchange2(&mergeTile[start], &mergeTile[start + stride], direction);
     }
 
     __syncthreads();

@@ -12,7 +12,7 @@
 Compares 2 elements and exchanges them according to orderAsc.
 */
 __device__ void compareExchange(el_t *elem1, el_t *elem2, bool orderAsc) {
-    if ((elem1->key <= elem2->key) ^ orderAsc) {
+    if (((int_t)(elem1->key - elem2->key) <= 0) ^ orderAsc) {
         el_t temp = *elem1;
         *elem1 = *elem2;
         *elem2 = temp;
