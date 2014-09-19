@@ -12,6 +12,13 @@ struct Element {
     uint_t key;
     uint_t val;
 };
+struct Interval {
+    uint32_t offset0;
+    uint32_t len0;
+    uint32_t offset1;
+    uint32_t len1;
+};
 typedef struct Element el_t;
+typedef struct Interval interval_t;
 
 #endif
