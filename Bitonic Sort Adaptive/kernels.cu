@@ -40,7 +40,7 @@ __device__ int binarySearch(el_t* table, interval_t *intervals, uint_t subBlockH
         el_t el1 = getTableElement(table, intervals, index + subBlockHalfLen);
 
         // TODO double-check for stability
-        if ((el0.key < el1.key) ^ (threadIdx.x % 2)) {
+        if (el0.key < el1.key) {
             indexStart = index + 1;
         } else {
             indexEnd = index;
@@ -99,6 +99,15 @@ __global__ void generateIntervalsKernel(el_t *table, interval_t *intervals, uint
         interval_t interval0 = intervalsTile[index];
         interval_t interval1 = intervalsTile[index + 1];
 
+        if (interval0.offset > interval1.offset) {
+            interval_t temp = interval0;
+            interval0 = interval1;
+            interval1 = temp;
+
+            intervalsTile[index] = interval0;
+            intervalsTile[index + 1] = interval1;
+        }
+
         __syncthreads();
         uint_t activeThreads = tableLen / (1 << step);
 
@@ -122,8 +131,8 @@ __global__ void generateIntervalsKernel(el_t *table, interval_t *intervals, uint
     intervals[index] = intervalsTile[index];
     intervals[index + 1] = intervalsTile[index + 1];
 
-    if (threadIdx.x == 0) {
-        for (int i = 0; i < 16; i++) {
+    /*if (threadIdx.x == 0) {
+        for (int i = 0; i < 8; i++) {
             if (i && (i % 2 == 0)) {
                 printf("\n");
             }
@@ -135,7 +144,7 @@ __global__ void generateIntervalsKernel(el_t *table, interval_t *intervals, uint
         }
 
         printf("\n\n");
-    }
+    }*/
 }
 
 /*
@@ -150,9 +159,7 @@ __global__ void bitonicMergeKernel(el_t *input, el_t *output, interval_t *interv
     // Every thread loads 2 elements
     mergeTile[threadIdx.x] = getTableElement(input, intervals, index);
     mergeTile[blockDim.x + threadIdx.x] = getTableElement(input, intervals, blockDim.x + index);
-
-    __syncthreads();
-    printf("%2d %2d %2d\n", blockIdx.x, mergeTile[threadIdx.x].key, mergeTile[blockDim.x + threadIdx.x].key);
+    //printf("%2d %2d %2d\n", blockIdx.x, mergeTile[threadIdx.x].key, mergeTile[blockDim.x + threadIdx.x].key);
 
     // Bitonic merge
     for (uint_t stride = blockDim.x; stride > 0; stride >>= 1) {
