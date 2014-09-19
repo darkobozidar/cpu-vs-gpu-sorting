@@ -91,7 +91,7 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
     uint_t phasesAll = log2((double)tableLen);
     uint_t phasesBitonicSort = 3;  // log2((double)min(tableLen / 2, THREADS_PER_SORT));
     uint_t phasesBitonicMerge = 1;  // log2((double)THREADS_PER_MERGE);
-    uint_t intervalsLen = 1 << (phasesAll - phasesBitonicMerge);
+    uint_t intervalsLen = 1 << (phasesAll - phasesBitonicMerge + 1);
 
     LARGE_INTEGER timer;
     double time;
