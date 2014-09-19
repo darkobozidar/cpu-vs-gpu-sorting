@@ -49,6 +49,11 @@ __global__ void bitonicSortKernel(el_t *table, bool orderAsc) {
     table[blockDim.x + index] = sortTile[blockDim.x + threadIdx.x];
 }
 
+__global__ void generateIntervalsKernel(el_t *table, interval_t *intervals, uint_t tableLen, uint_t step) {
+    extern __shared__ interval_t intervalTile[];
+    // TODO
+}
+
 /*
 Global bitonic merge for sections, where stride IS GREATER OR EQUAL than max shared memory.
 */
