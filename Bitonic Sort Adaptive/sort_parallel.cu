@@ -16,10 +16,13 @@
 /*
 Initializes device memory.
 */
-void memoryDataInit(el_t *h_table, el_t **d_table, interval_t **intervals, uint_t tableLen, uint_t intervalsLen) {
+void memoryDataInit(el_t *h_table, el_t **d_table, el_t **d_buffer, interval_t **intervals, uint_t tableLen,
+                    uint_t intervalsLen) {
     cudaError_t error;
 
     error = cudaMalloc(d_table, tableLen * sizeof(**d_table));
+    checkCudaError(error);
+    error = cudaMalloc(d_buffer, tableLen * sizeof(**d_buffer));
     checkCudaError(error);
     error = cudaMalloc(intervals, intervalsLen * sizeof(**intervals));
     checkCudaError(error);
@@ -66,18 +69,19 @@ void runGenerateIntervalsKernel(el_t *table, interval_t *intervals, uint_t table
     endStopwatch(timer, "Executing kernel for generating intervals");*/
 }
 
-void runBitoicMergeKernel(el_t *table, uint_t tableLen, uint_t phasesBitonicMerge, uint_t phase, bool orderAsc) {
+void runBitoicMergeKernel(el_t *input, el_t *output, interval_t *intervals, uint_t tableLen,
+                          uint_t phasesBitonicMerge, uint_t phase, bool orderAsc) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
     // Every thread loads and sorts 2 elements
-    uint_t subBlockSize = 1 << (phasesBitonicMerge + 1);
+    uint_t subBlockSize = 1 << phasesBitonicMerge;
     dim3 dimGrid(tableLen / subBlockSize, 1, 1);
     dim3 dimBlock(subBlockSize / 2, 1, 1);
 
     startStopwatch(&timer);
-    bitonicMergeKernel<<<dimGrid, dimBlock, subBlockSize * sizeof(*table)>>>(
-        table, phase, orderAsc
+    bitonicMergeKernel<<<dimGrid, dimBlock, subBlockSize * sizeof(*input)>>>(
+        input, output, intervals, phase, orderAsc
     );
     /*error = cudaDeviceSynchronize();
     checkCudaError(error);
@@ -85,7 +89,7 @@ void runBitoicMergeKernel(el_t *table, uint_t tableLen, uint_t phasesBitonicMerg
 }
 
 void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc) {
-    el_t *d_table;
+    el_t *d_table, *d_buffer;
     interval_t *d_intervals;
     // Every thread loads and sorts 2 elements in first bitonic sort kernel
     uint_t phasesAll = log2((double)tableLen);
@@ -97,14 +101,18 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
     double time;
     cudaError_t error;
 
-    memoryDataInit(h_input, &d_table, &d_intervals, tableLen, intervalsLen);
+    memoryDataInit(h_input, &d_table, &d_buffer, &d_intervals, tableLen, intervalsLen);
 
     startStopwatch(&timer);
     runBitoicSortKernel(d_table, tableLen, phasesBitonicSort, orderAsc);
 
     for (uint_t phase = phasesBitonicSort + 1; phase <= phasesAll; phase++) {
         runGenerateIntervalsKernel(d_table, d_intervals, tableLen, intervalsLen, phase, phasesBitonicMerge);
-        // runBitoicMergeKernel(d_table, tableLen, phasesBitonicMerge, phase, orderAsc);
+        runBitoicMergeKernel(d_table, d_buffer, d_intervals, tableLen, phasesBitonicMerge, phase, orderAsc);
+
+        el_t *temp = d_table;
+        d_table = d_buffer;
+        d_buffer = temp;
     }
 
     error = cudaDeviceSynchronize();

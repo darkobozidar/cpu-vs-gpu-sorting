@@ -39,7 +39,7 @@ int main(int argc, char** argv) {
     //printTable(input, tableLen);
 
     sortParallel(input, outputParallel, tableLen, orderAsc);
-    //printTable(outputParallel, tableLen);
+    printTable(outputParallel, tableLen);
 
     printf("\n");
     outputCorrect = sortCorrect(input, tableLen);

@@ -94,6 +94,7 @@ __global__ void generateIntervalsKernel(el_t *table, interval_t *intervals, uint
     }
 
     for (; step > phasesBitonicMerge; step--, subBlockSize /= 2) {
+        // TODO try to put in if statement if possible
         __syncthreads();
         interval_t interval0 = intervalsTile[index];
         interval_t interval1 = intervalsTile[index + 1];
@@ -117,7 +118,10 @@ __global__ void generateIntervalsKernel(el_t *table, interval_t *intervals, uint
         }
     }
 
-    /*__syncthreads();
+    __syncthreads();
+    intervals[index] = intervalsTile[index];
+    intervals[index + 1] = intervalsTile[index + 1];
+
     if (threadIdx.x == 0) {
         for (int i = 0; i < 16; i++) {
             if (i && (i % 2 == 0)) {
@@ -131,21 +135,24 @@ __global__ void generateIntervalsKernel(el_t *table, interval_t *intervals, uint
         }
 
         printf("\n\n");
-    }*/
+    }
 }
 
 /*
 Global bitonic merge for sections, where stride IS GREATER OR EQUAL than max shared memory.
 */
-__global__ void bitonicMergeKernel(el_t *table, uint_t phase, bool orderAsc) {
+__global__ void bitonicMergeKernel(el_t *input, el_t *output, interval_t *intervals, uint_t phase, bool orderAsc) {
     extern __shared__ el_t mergeTile[];
     uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
     // Elements inside same sub-block have to be ordered in same direction
     bool direction = orderAsc ^ ((index >> phase) & 1);
 
     // Every thread loads 2 elements
-    mergeTile[threadIdx.x] = table[index];
-    mergeTile[blockDim.x + threadIdx.x] = table[blockDim.x + index];
+    mergeTile[threadIdx.x] = getTableElement(input, intervals, index);
+    mergeTile[blockDim.x + threadIdx.x] = getTableElement(input, intervals, blockDim.x + index);
+
+    __syncthreads();
+    printf("%2d %2d %2d\n", blockIdx.x, mergeTile[threadIdx.x].key, mergeTile[blockDim.x + threadIdx.x].key);
 
     // Bitonic merge
     for (uint_t stride = blockDim.x; stride > 0; stride >>= 1) {
@@ -155,6 +162,6 @@ __global__ void bitonicMergeKernel(el_t *table, uint_t phase, bool orderAsc) {
     }
 
     __syncthreads();
-    table[index] = mergeTile[threadIdx.x];
-    table[blockDim.x + index] = mergeTile[blockDim.x + threadIdx.x];
+    output[index] = mergeTile[threadIdx.x];
+    output[blockDim.x + index] = mergeTile[blockDim.x + threadIdx.x];
 }
