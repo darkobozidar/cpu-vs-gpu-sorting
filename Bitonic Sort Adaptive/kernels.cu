@@ -19,6 +19,50 @@ __device__ void compareExchange(el_t *elem1, el_t *elem2, bool orderAsc) {
     }
 }
 
+__device__ uint_t getTableElement(el_t *table, interval_t *intervals, uint_t index) {
+    uint_t i = 0;
+    while (index >= intervals[i].len) {
+        index -= intervals[i].len;
+        i++;
+    }
+
+    return table[intervals[i].offset + index].key;
+}
+
+//__device__ int binarySearchExclusive(el_t* table, el_t target, int_t indexStart, int_t indexEnd,
+//    uint_t stride, bool orderAsc) {
+//    while (indexStart <= indexEnd) {
+//        // Floor to multiplier of stride - needed for strides > 1
+//        int index = ((indexStart + indexEnd) / 2) & ((stride - 1) ^ ULONG_MAX);
+//
+//        if ((target.key < table[index].key) ^ (!orderAsc)) {
+//            indexEnd = index - stride;
+//        }
+//        else {
+//            indexStart = index + stride;
+//        }
+//    }
+//
+//    return indexStart;
+//}
+//
+//__device__ int binarySearchInclusive(el_t* table, el_t target, int_t indexStart, int_t indexEnd,
+//    uint_t stride, bool orderAsc) {
+//    while (indexStart <= indexEnd) {
+//        // Floor to multiplier of stride - needed for strides > 1
+//        int index = ((indexStart + indexEnd) / 2) & ((stride - 1) ^ ULONG_MAX);
+//
+//        if ((target.key <= table[index].key) ^ (!orderAsc)) {
+//            indexEnd = index - stride;
+//        }
+//        else {
+//            indexStart = index + stride;
+//        }
+//    }
+//
+//    return indexStart;
+//}
+
 /*
 Sorts sub-blocks of input data with bitonic sort.
 */
@@ -49,9 +93,32 @@ __global__ void bitonicSortKernel(el_t *table, bool orderAsc) {
     table[blockDim.x + index] = sortTile[blockDim.x + threadIdx.x];
 }
 
-__global__ void generateIntervalsKernel(el_t *table, interval_t *intervals, uint_t tableLen, uint_t step) {
-    extern __shared__ interval_t intervalTile[];
-    // TODO
+__global__ void generateIntervalsKernel(el_t *table, interval_t *intervals, uint_t tableLen, uint_t step,
+                                        uint_t phasesBitonicMerge) {
+    extern __shared__ interval_t intervalsTile[];
+    interval_t *tile = intervalsTile + 2 * threadIdx.x;
+    uint_t subBlockSize = 1 << step;
+    interval_t interval0;
+    interval_t interval1;
+
+    if (threadIdx.x + 1 <= tableLen / subBlockSize) {
+        interval0.offset = threadIdx.x * subBlockSize;
+        interval0.len = subBlockSize / 2;
+        interval1.offset = threadIdx.x * subBlockSize + subBlockSize / 2;
+        interval1.len = subBlockSize / 2;
+
+        tile[0] = interval0;
+        tile[1] = interval1;
+    }
+
+    for (; step > phasesBitonicMerge; step--) {
+        __syncthreads();
+
+        if (threadIdx.x + 1 <= tableLen / (1 << step)) {
+            interval0 = tile[threadIdx.x];
+            interval1 = tile[threadIdx.x + blockDim.x];
+        }
+    }
 }
 
 /*

@@ -50,7 +50,7 @@ void runBitoicSortKernel(el_t *table, uint_t tableLen, uint_t phasesBitonicSort,
 }
 
 void runGenerateIntervalsKernel(el_t *table, interval_t *intervals, uint_t tableLen, uint_t intervalsLen,
-                                uint_t step) {
+                                uint_t step, uint_t phasesBitonicMerge) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
@@ -59,7 +59,7 @@ void runGenerateIntervalsKernel(el_t *table, interval_t *intervals, uint_t table
 
     startStopwatch(&timer);
     generateIntervalsKernel<<<dimGrid, dimBlock, intervalsLen * sizeof(*intervals)>>>(
-        table, intervals, tableLen, step
+        table, intervals, tableLen, step, phasesBitonicMerge
     );
     /*error = cudaDeviceSynchronize();
     checkCudaError(error);
@@ -103,7 +103,7 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
     runBitoicSortKernel(d_table, tableLen, phasesBitonicSort, orderAsc);
 
     for (uint_t phase = phasesBitonicSort + 1; phase <= phasesAll; phase++) {
-        runGenerateIntervalsKernel(d_table, d_intervals, tableLen, intervalsLen, phase);
+        runGenerateIntervalsKernel(d_table, d_intervals, tableLen, intervalsLen, phase, phasesBitonicMerge);
         // runBitoicMergeKernel(d_table, tableLen, phasesBitonicMerge, phase, orderAsc);
     }
 
