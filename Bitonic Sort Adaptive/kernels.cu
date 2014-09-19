@@ -9,6 +9,13 @@
 #include "constants.h"
 
 
+__global__ void printTableKernel(el_t *table, uint_t tableLen) {
+    for (uint_t i = 0; i < tableLen; i++) {
+        printf("%2d ", table[i]);
+    }
+    printf("\n\n");
+}
+
 /*
 Compares 2 elements and exchanges them according to orderAsc.
 */
@@ -23,31 +30,17 @@ __device__ void compareExchange(el_t *elem1, el_t *elem2, bool orderAsc) {
 __device__ el_t getTableElement(el_t *table, interval_t *intervals, uint_t index) {
     uint_t i = 0;
     while (index >= intervals[i].len) {
+        /*if (blockIdx.x == 4) {
+            printf("%d %d [%2d, %2d]\n", i, index, intervals[i].offset, intervals[i].len);
+        }*/
+
         index -= intervals[i].len;
         i++;
     }
-
+    /*if (blockIdx.x == 4) {
+        printf("\n\n%d %d\n\n", i, index);
+    }*/
     return table[intervals[i].offset + index];
-}
-
-__device__ int binarySearch(el_t* table, interval_t *intervals, uint_t subBlockHalfLen) {
-    int_t indexStart = 0;
-    int_t indexEnd = intervals[0].len;
-
-    while (indexStart < indexEnd) {
-        int index = indexStart + (indexEnd - indexStart) / 2;
-        el_t el0 = getTableElement(table, intervals, index);
-        el_t el1 = getTableElement(table, intervals, index + subBlockHalfLen);
-
-        // TODO double-check for stability
-        if (el0.key < el1.key) {
-            indexStart = index + 1;
-        } else {
-            indexEnd = index;
-        }
-    }
-
-    return indexStart;
 }
 
 /*
@@ -80,6 +73,46 @@ __global__ void bitonicSortKernel(el_t *table, bool orderAsc) {
     table[blockDim.x + index] = sortTile[blockDim.x + threadIdx.x];
 }
 
+__device__ int binarySearch(el_t* table, interval_t *intervals, uint_t subBlockHalfLen) {
+    int_t indexStart = 0;
+    int_t indexEnd = intervals[0].len < subBlockHalfLen ? intervals[0].len : subBlockHalfLen;
+    int x = 0;
+
+    while (indexStart < indexEnd) {
+        int index = indexStart + (indexEnd - indexStart) / 2;
+        el_t el0 = getTableElement(table, intervals, index);
+        el_t el1 = getTableElement(table, intervals, index + subBlockHalfLen);
+
+        /*if (threadIdx.x == 0) {
+            if (!x) {
+                printf(
+                    "[%d, %d], [%d, %d]\n",
+                    intervals[0].offset, intervals[0].len, intervals[1].offset, intervals[1].len
+                );
+            }
+
+            printf(
+                "%d %2d %2d %2d %2d %2d\n",
+                indexStart, indexEnd, index, index + subBlockHalfLen, el0.key, el1.key
+            );
+        }*/
+
+        // TODO double-check for stability
+        if (el0.key <= el1.key) {
+            indexStart = index + 1;
+        } else {
+            indexEnd = index;
+        }
+        x++;
+    }
+
+    /*if (threadIdx.x == 0) {
+        printf("\n\n");
+    }*/
+
+    return indexStart;
+}
+
 __global__ void generateIntervalsKernel(el_t *table, interval_t *intervals, uint_t tableLen, uint_t step,
                                         uint_t phasesBitonicMerge) {
     extern __shared__ interval_t intervalsTile[];
@@ -99,31 +132,34 @@ __global__ void generateIntervalsKernel(el_t *table, interval_t *intervals, uint
         interval_t interval0 = intervalsTile[index];
         interval_t interval1 = intervalsTile[index + 1];
 
-        if (interval0.offset > interval1.offset) {
-            interval_t temp = interval0;
-            interval0 = interval1;
-            interval1 = temp;
-
-            intervalsTile[index] = interval0;
-            intervalsTile[index + 1] = interval1;
-        }
-
         __syncthreads();
         uint_t activeThreads = tableLen / (1 << step);
 
         if (threadIdx.x < activeThreads) {
+            interval_t newInterval0, newInterval1;
             uint_t q = binarySearch(table, intervalsTile + index, subBlockSize / 2);
 
+            /*if (threadIdx.x == 1) {
+                printf("%d\n", q);
+            }*/
+
             // Left sub-block
-            intervalsTile[2 * index].offset = interval0.offset;
-            intervalsTile[2 * index].len = q;
-            intervalsTile[2 * index + 1].offset = interval1.offset + interval1.len - subBlockSize / 2 + q;
-            intervalsTile[2 * index + 1].len = subBlockSize / 2 - q;
+            newInterval0.offset = interval0.offset;
+            newInterval0.len = q;
+            newInterval1.offset = interval1.offset + interval1.len - subBlockSize / 2 + q;
+            newInterval1.len = subBlockSize / 2 - q;
+
+            intervalsTile[2 * index] = newInterval0.offset <= newInterval1.offset ? newInterval0 : newInterval1;
+            intervalsTile[2 * index + 1] = newInterval0.offset > newInterval1.offset ? newInterval0 : newInterval1;
+
             // Right sub-block
-            intervalsTile[2 * index + 2].offset = interval1.offset;
-            intervalsTile[2 * index + 2].len = q + interval1.len - subBlockSize / 2;
-            intervalsTile[2 * index + 3].offset = interval0.offset + q;
-            intervalsTile[2 * index + 3].len = interval0.len - q;
+            newInterval0.offset = interval1.offset;
+            newInterval0.len = q + interval1.len - subBlockSize / 2;
+            newInterval1.offset = interval0.offset + q;
+            newInterval1.len = interval0.len - q;
+
+            intervalsTile[2 * index + 2] = newInterval0.offset <= newInterval1.offset ? newInterval0: newInterval1;
+            intervalsTile[2 * index + 3] = newInterval0.offset > newInterval1.offset ? newInterval0 : newInterval1;
         }
     }
 
@@ -131,8 +167,9 @@ __global__ void generateIntervalsKernel(el_t *table, interval_t *intervals, uint
     intervals[index] = intervalsTile[index];
     intervals[index + 1] = intervalsTile[index + 1];
 
-    /*if (threadIdx.x == 0) {
-        for (int i = 0; i < 8; i++) {
+    /*__syncthreads();
+    if (threadIdx.x == 0) {
+        for (int i = 0; i < 16; i++) {
             if (i && (i % 2 == 0)) {
                 printf("\n");
             }
@@ -156,11 +193,14 @@ __global__ void bitonicMergeKernel(el_t *input, el_t *output, interval_t *interv
     // Elements inside same sub-block have to be ordered in same direction
     bool direction = orderAsc ^ ((index >> phase) & 1);
 
+    // TODO optimize get methods.
+
     // Every thread loads 2 elements
     mergeTile[threadIdx.x] = getTableElement(input, intervals, index);
     mergeTile[blockDim.x + threadIdx.x] = getTableElement(input, intervals, blockDim.x + index);
-    //printf("%2d %2d %2d\n", blockIdx.x, mergeTile[threadIdx.x].key, mergeTile[blockDim.x + threadIdx.x].key);
-
+    /*printf("%d %d %d\n", blockIdx.x, index, index + 1);
+    printf("%2d %2d %2d\n", blockIdx.x, mergeTile[threadIdx.x].key, mergeTile[blockDim.x + threadIdx.x].key);
+*/
     // Bitonic merge
     for (uint_t stride = blockDim.x; stride > 0; stride >>= 1) {
         __syncthreads();

@@ -58,7 +58,7 @@ void runGenerateIntervalsKernel(el_t *table, interval_t *intervals, uint_t table
     LARGE_INTEGER timer;
 
     dim3 dimGrid(1, 1, 1);
-    dim3 dimBlock(intervalsLen, 1, 1);
+    dim3 dimBlock(intervalsLen / 2, 1, 1);
 
     startStopwatch(&timer);
     generateIntervalsKernel<<<dimGrid, dimBlock, intervalsLen * sizeof(*intervals)>>>(
@@ -88,12 +88,18 @@ void runBitoicMergeKernel(el_t *input, el_t *output, interval_t *intervals, uint
     endStopwatch(timer, "Executing bitonic sort kernel");*/
 }
 
+void runPrintTableKernel(el_t *table, uint_t tableLen) {
+    printTableKernel<<<1, 1>>>(table, tableLen);
+    cudaError_t error = cudaDeviceSynchronize();
+    checkCudaError(error);
+}
+
 void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc) {
     el_t *d_table, *d_buffer;
     interval_t *d_intervals;
     // Every thread loads and sorts 2 elements in first bitonic sort kernel
     uint_t phasesAll = log2((double)tableLen);
-    uint_t phasesBitonicSort = 3;  // log2((double)min(tableLen / 2, THREADS_PER_SORT));
+    uint_t phasesBitonicSort = 6;  // log2((double)min(tableLen / 2, THREADS_PER_SORT));
     uint_t phasesBitonicMerge = 1;  // log2((double)THREADS_PER_MERGE);
     uint_t intervalsLen = 1 << (phasesAll - phasesBitonicMerge + 1);
 
@@ -105,6 +111,7 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
 
     startStopwatch(&timer);
     runBitoicSortKernel(d_table, tableLen, phasesBitonicSort, orderAsc);
+    runPrintTableKernel(d_table, tableLen);
 
     for (uint_t phase = phasesBitonicSort + 1; phase <= phasesAll; phase++) {
         runGenerateIntervalsKernel(d_table, d_intervals, tableLen, intervalsLen, phase, phasesBitonicMerge);
@@ -118,7 +125,7 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
     error = cudaDeviceSynchronize();
     checkCudaError(error);
     time = endStopwatch(timer, "Executing parallel bitonic sort.");
-    printf("Operations: %.2f M/s\n", tableLen / 1000 / time);
+    printf("Operations: %.2f M/s\n", tableLen / 1000.0 / time);
 
     error = cudaMemcpy(h_output, d_table, tableLen * sizeof(*h_output), cudaMemcpyDeviceToHost);
     checkCudaError(error);
