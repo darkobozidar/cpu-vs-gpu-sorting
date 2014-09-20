@@ -16,16 +16,16 @@
 
 int main(int argc, char** argv) {
     el_t *input;
-    cudaDeviceReset();
     /*el_t input[16] = {
-        2, 0, 3, 1, 5, 2, 7, 3, 8, 4, 10, 5, 13, 6, 15, 7, 17,
-        8, 14, 9, 12, 10, 11, 11, 9, 12, 7, 13, 3, 14, 1, 15
+        2, 0, 3, 1, 27, 2, 12, 3, 58, 4, 45, 5, 95, 6, 25, 7, 67,
+        8, 31, 9, 46, 10, 76, 11, 24, 12, 74, 13, 86, 14, 19, 15
     };*/
+    cudaDeviceReset();
     el_t *outputParallel;
     el_t *outputCorrect;
 
-    uint_t tableLen = 1 << 7;
-    uint_t interval = 1 << 16;
+    uint_t tableLen = 1 << 8;
+    uint_t interval = 1 << 4;
     bool orderAsc = true;
     cudaError_t error;
 
@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
     //printTable(input, tableLen);
 
     sortParallel(input, outputParallel, tableLen, orderAsc);
-    printTable(outputParallel, tableLen);
+    //printTable(outputParallel, tableLen);
 
     printf("\n");
     outputCorrect = sortCorrect(input, tableLen);
