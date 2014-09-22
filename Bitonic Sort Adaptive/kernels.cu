@@ -156,15 +156,15 @@ __global__ void initIntervalsKernel(el_t *table, interval_t *intervals, uint_t t
     }*/
 }
 
-__global__ void generateIntervalsKernel(el_t *table, interval_t *intervals, uint_t tableLen, uint_t phase,
-                                        uint_t step, uint_t phasesBitonicMerge) {
+__global__ void generateIntervalsKernel(el_t *table, interval_t *input, interval_t *output, uint_t tableLen,
+                                        uint_t phase, uint_t step, uint_t phasesBitonicMerge) {
     extern __shared__ interval_t intervalsTile[];
     uint_t index = blockIdx.x * blockDim.x + threadIdx.x;
     uint_t subBlockSize = 1 << step;
     interval_t interval;
 
     if (threadIdx.x < tableLen / subBlockSize / gridDim.x) {
-        intervalsTile[threadIdx.x] = intervals[blockIdx.x * (tableLen / subBlockSize / gridDim.x) + threadIdx.x];
+        intervalsTile[threadIdx.x] = input[blockIdx.x * (tableLen / subBlockSize / gridDim.x) + threadIdx.x];
     }
 
     for (int stride = 1 << (phase - step); subBlockSize > 1 << phasesBitonicMerge; subBlockSize /= 2, stride *= 2) {
@@ -198,8 +198,8 @@ __global__ void generateIntervalsKernel(el_t *table, interval_t *intervals, uint
         __syncthreads();
     }
 
-    intervals[2 * index] = intervalsTile[2 * threadIdx.x];
-    intervals[2 * index + 1] = intervalsTile[2 * threadIdx.x + 1];
+    output[2 * index] = intervalsTile[2 * threadIdx.x];
+    output[2 * index + 1] = intervalsTile[2 * threadIdx.x + 1];
 
     /*__syncthreads();
     if (threadIdx.x == 0) {

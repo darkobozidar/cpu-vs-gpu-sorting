@@ -72,8 +72,8 @@ void runInitIntervalsKernel(el_t *table, interval_t *intervals, uint_t tableLen,
     endStopwatch(timer, "Executing kernel for generating intervals");*/
 }
 
-void runGenerateIntervalsKernel(el_t *table, interval_t *intervals, uint_t tableLen, uint_t phase, uint_t step,
-                                uint_t phasesBitonicMerge) {
+void runGenerateIntervalsKernel(el_t *table, interval_t *input, interval_t *output, uint_t tableLen,
+                                uint_t phase, uint_t step, uint_t phasesBitonicMerge) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
@@ -82,8 +82,8 @@ void runGenerateIntervalsKernel(el_t *table, interval_t *intervals, uint_t table
     dim3 dimBlock(intervalsLen / 2, 1, 1);
 
     startStopwatch(&timer);
-    generateIntervalsKernel<<<dimGrid, dimBlock, intervalsLen * sizeof(*intervals)>>>(
-        table, intervals, tableLen, phase, step, phasesBitonicMerge
+    generateIntervalsKernel<<<dimGrid, dimBlock, intervalsLen * sizeof(*input)>>>(
+        table, input, output, tableLen, phase, step, phasesBitonicMerge
     );
     /*error = cudaDeviceSynchronize();
     checkCudaError(error);
@@ -136,13 +136,19 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
 
     for (uint_t phase = phasesBitonicSort + 1; phase <= phasesAll; phase++) {
         runInitIntervalsKernel(d_table, d_intervals, tableLen, phase, phasesBitonicMerge + 1);
-        runGenerateIntervalsKernel(d_table, d_intervals, tableLen, phase, phase - 2, phasesBitonicMerge);
+
+        interval_t *tempIntervals = d_intervals;
+        d_intervals = d_intervalsBuffer;
+        d_intervalsBuffer = tempIntervals;
+
+        runGenerateIntervalsKernel(d_table, d_intervalsBuffer, d_intervals, tableLen, phase, phase - 2,
+                                   phasesBitonicMerge);
         runBitoicMergeKernel(d_table, d_buffer, d_intervals, tableLen, phasesBitonicMerge, phase, orderAsc);
         //runPrintTableKernel(d_table, tableLen);
 
-        el_t *temp = d_table;
+        el_t *tempTable = d_table;
         d_table = d_buffer;
-        d_buffer = temp;
+        d_buffer = tempTable;
     }
 
     error = cudaDeviceSynchronize();
