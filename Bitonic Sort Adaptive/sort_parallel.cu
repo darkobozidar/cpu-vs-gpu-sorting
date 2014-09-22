@@ -99,7 +99,7 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
     interval_t *d_intervals;
     // Every thread loads and sorts 2 elements in first bitonic sort kernel
     uint_t phasesAll = log2((double)tableLen);
-    uint_t phasesBitonicSort = 2;  // log2((double)min(tableLen / 2, THREADS_PER_SORT));
+    uint_t phasesBitonicSort = 1;  // log2((double)min(tableLen / 2, THREADS_PER_SORT));
     uint_t phasesBitonicMerge = 1;  // log2((double)THREADS_PER_MERGE);
     uint_t intervalsLen = 1 << (phasesAll - phasesBitonicMerge + 1);
 

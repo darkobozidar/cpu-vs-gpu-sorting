@@ -119,22 +119,21 @@ __global__ void generateIntervalsKernel(el_t *table, interval_t *intervals, uint
 
     for (int i = 1; step > phasesBitonicMerge; step--, subBlockSize /= 2, i *= 2) {
         // TODO try to put in if statement if possible
-        __syncthreads();
         interval0 = intervalsTile[index];
         interval1 = intervalsTile[index + 1];
 
         __syncthreads();
         uint_t activeThreads = tableLen / (1 << step);
+        uint_t q;
+
+        if (threadIdx.x < activeThreads) {
+            bool bla = (threadIdx.x / i) & 1;
+            q = binarySearch(table, intervalsTile + index, subBlockSize / 2, bla);
+        }
+        __syncthreads();
 
         if (threadIdx.x < activeThreads) {
             interval_t newInterval0, newInterval1;
-            bool bla = (threadIdx.x / i) & 1;
-            uint_t q = binarySearch(table, intervalsTile + index, subBlockSize / 2, bla);
-
-            /*if (threadIdx.x == 1) {
-                printf("%d\n", q);
-            }*/
-
             // Left sub-block
             newInterval0.offset = interval0.offset;
             newInterval0.len = q;
@@ -153,9 +152,9 @@ __global__ void generateIntervalsKernel(el_t *table, interval_t *intervals, uint
             intervalsTile[2 * index + 2] = newInterval1;
             intervalsTile[2 * index + 3] = newInterval0;
         }
+        __syncthreads();
     }
 
-    __syncthreads();
     intervals[2 * index] = intervalsTile[2 * index];
     intervals[2 * index + 1] = intervalsTile[2 * index + 1];
     intervals[2 * index + 2] = intervalsTile[2 * index + 2];
