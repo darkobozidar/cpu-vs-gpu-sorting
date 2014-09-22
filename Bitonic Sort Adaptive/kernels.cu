@@ -108,23 +108,16 @@ __global__ void generateIntervalsKernel(el_t *table, interval_t *intervals, uint
         intervalsTile[index] = interval;
     }
 
-    for (int i = 1; step > phasesBitonicMerge; step--, subBlockSize /= 2, i *= 2) {
-        // TODO try to put in if statement if possible
-        uint_t activeThreads = tableLen / (1 << step);
-        uint_t q;
+    for (int stride = 1; subBlockSize > 1 << phasesBitonicMerge; subBlockSize /= 2, stride *= 2) {
+        uint_t isThreadActive = threadIdx.x < tableLen / subBlockSize;
 
-        if (threadIdx.x < activeThreads) {
+        if (isThreadActive) {
             interval = intervalsTile[index];
         }
         __syncthreads();
 
-        if (threadIdx.x < activeThreads) {
-            q = binarySearch(table, interval, subBlockSize / 2, (threadIdx.x / i) & 1);
-        }
-        // TODO remove
-        __syncthreads();
-
-        if (threadIdx.x < activeThreads) {
+        if (isThreadActive) {
+            uint_t q = binarySearch(table, interval, subBlockSize / 2, (threadIdx.x / stride) & 1);
             interval_t newInterval;
 
             // Left sub-block
