@@ -65,7 +65,7 @@ void runInitIntervalsKernel(el_t *table, interval_t *intervals, uint_t tableLen,
     dim3 dimBlock(threadBlockSize, 1, 1);
 
     startStopwatch(&timer);
-    initIntervalsKernel<<<dimGrid, dimBlock, 1 << (stepStart - stepEnd + 1) * sizeof(*intervals)>>>(
+    initIntervalsKernel<<<dimGrid, dimBlock, 2 * threadBlockSize * sizeof(*intervals)>>>(
         table, intervals, tableLen, stepStart, stepEnd
     );
     /*error = cudaDeviceSynchronize();
@@ -84,7 +84,7 @@ void runGenerateIntervalsKernel(el_t *table, interval_t *input, interval_t *outp
     dim3 dimBlock(threadBlockSize, 1, 1);
 
     startStopwatch(&timer);
-    generateIntervalsKernel<<<dimGrid, dimBlock, intervalsLen * sizeof(*input)>>>(
+    generateIntervalsKernel<<<dimGrid, dimBlock, 2 * threadBlockSize * sizeof(*input)>>>(
         table, input, output, tableLen, phase, stepStart, stepEnd
     );
     /*error = cudaDeviceSynchronize();
