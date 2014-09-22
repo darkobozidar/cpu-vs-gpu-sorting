@@ -99,8 +99,8 @@ __global__ void initIntervalsKernel(el_t *table, interval_t *intervals, uint_t t
     interval_t interval;
 
     if (threadIdx.x < tableLen / subBlockSize / gridDim.x) {
-        uint_t offset0 = index / gridDim.x * subBlockSize;
-        uint_t offset1 = index / gridDim.x * subBlockSize + subBlockSize / 2;
+        uint_t offset0 = index * subBlockSize;
+        uint_t offset1 = index * subBlockSize + subBlockSize / 2;
 
         interval.offset0 = index % 2 ? offset1 : offset0;
         interval.offset1 = index % 2 ? offset0 : offset1;
@@ -157,17 +157,17 @@ __global__ void initIntervalsKernel(el_t *table, interval_t *intervals, uint_t t
 }
 
 __global__ void generateIntervalsKernel(el_t *table, interval_t *input, interval_t *output, uint_t tableLen,
-                                        uint_t phase, uint_t step, uint_t phasesBitonicMerge) {
+                                        uint_t phase, uint_t stepStart, uint_t stepEnd) {
     extern __shared__ interval_t intervalsTile[];
     uint_t index = blockIdx.x * blockDim.x + threadIdx.x;
-    uint_t subBlockSize = 1 << step;
+    uint_t subBlockSize = 1 << stepStart;
     interval_t interval;
 
     if (threadIdx.x < tableLen / subBlockSize / gridDim.x) {
         intervalsTile[threadIdx.x] = input[blockIdx.x * (tableLen / subBlockSize / gridDim.x) + threadIdx.x];
     }
 
-    for (int stride = 1 << (phase - step); subBlockSize > 1 << phasesBitonicMerge; subBlockSize /= 2, stride *= 2) {
+    for (int stride = 1 << (phase - stepStart); subBlockSize > 1 << stepEnd; subBlockSize /= 2, stride *= 2) {
         uint_t isThreadActive = threadIdx.x < tableLen / subBlockSize / gridDim.x;
 
         if (isThreadActive) {
