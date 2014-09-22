@@ -24,8 +24,8 @@ int main(int argc, char** argv) {
     el_t *outputParallel;
     el_t *outputCorrect;
 
-    uint_t tableLen = 1 << 18;
-    uint_t interval = 2;
+    uint_t tableLen = 1 << 25;
+    uint_t interval = 1 << 16;
     bool orderAsc = true;
     cudaError_t error;
 
