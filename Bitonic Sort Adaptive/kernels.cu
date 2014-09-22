@@ -27,18 +27,15 @@ __device__ void compareExchange(el_t *elem1, el_t *elem2, bool orderAsc) {
     }
 }
 
-// TODO improve code
+/*
+From provided interval and index returns element in table.
+*/
 __device__ el_t getTableElement(el_t *table, interval_t interval, uint_t index) {
-    uint_t offset = interval.offset0;
+    bool useInterval1 = index >= interval.length0;
+    uint_t offset = useInterval1 ? interval.offset1 : interval.offset0;
 
-    if (index >= interval.length0) {
-        index -= interval.length0;
-        offset = interval.offset1;
-
-        if (index >= interval.length1) {
-            index -= interval.length1;
-        }
-    }
+    index -= useInterval1 ? interval.length0 : 0;
+    index -= useInterval1 && index >= interval.length1 ? interval.length1 : 0;
 
     return table[offset + index];
 }
