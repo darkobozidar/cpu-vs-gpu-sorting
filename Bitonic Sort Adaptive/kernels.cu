@@ -139,29 +139,27 @@ Generates initial intervals and continues to evolve them until the end step.
 __global__ void initIntervalsKernel(el_t *table, interval_t *intervals, uint_t tableLen, uint_t stepStart,
                                     uint_t stepEnd) {
     extern __shared__ interval_t intervalsTile[];
-    uint_t index = blockIdx.x * blockDim.x + threadIdx.x;
     uint_t subBlockSize = 1 << stepStart;
     uint_t activeThreadsPerBlock = tableLen / subBlockSize / gridDim.x;
+    uint_t index;
 
     if (threadIdx.x < tableLen / subBlockSize / gridDim.x) {
         uint_t intervalIndex = blockIdx.x * activeThreadsPerBlock + threadIdx.x;
         uint_t offset0 = intervalIndex * subBlockSize;
         uint_t offset1 = intervalIndex * subBlockSize + subBlockSize / 2;
-        interval_t interval;
 
         // In every odd block intervals have to be rotated
-        interval.offset0 = intervalIndex % 2 ? offset1 : offset0;
-        interval.offset1 = intervalIndex % 2 ? offset0 : offset1;
-        interval.length0 = subBlockSize / 2;
-        interval.length1 = subBlockSize / 2;
-
-        intervalsTile[threadIdx.x] = interval;
+        intervalsTile[threadIdx.x].offset0 = intervalIndex % 2 ? offset1 : offset0;
+        intervalsTile[threadIdx.x].offset1 = intervalIndex % 2 ? offset0 : offset1;
+        intervalsTile[threadIdx.x].length0 = subBlockSize / 2;
+        intervalsTile[threadIdx.x].length1 = subBlockSize / 2;
     }
 
     generateIntervals(table, intervalsTile, subBlockSize, 1 << stepEnd, 1, activeThreadsPerBlock);
 
-    intervals[2 * index] = intervalsTile[2 * threadIdx.x];
-    intervals[2 * index + 1] = intervalsTile[2 * threadIdx.x + 1];
+    index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
+    intervals[index] = intervalsTile[threadIdx.x];
+    intervals[blockDim.x + index] = intervalsTile[blockDim.x + threadIdx.x];
 }
 
 /*
@@ -170,9 +168,9 @@ Reads the existing intervals from global memory and evolve them until the end st
 __global__ void generateIntervalsKernel(el_t *table, interval_t *input, interval_t *output, uint_t tableLen,
                                         uint_t phase, uint_t stepStart, uint_t stepEnd) {
     extern __shared__ interval_t intervalsTile[];
-    uint_t index = blockIdx.x * blockDim.x + threadIdx.x;
     uint_t subBlockSize = 1 << stepStart;
     uint_t activeThreadsPerBlock = tableLen / subBlockSize / gridDim.x;
+    uint_t index;
 
     if (threadIdx.x < tableLen / subBlockSize / gridDim.x) {
         intervalsTile[threadIdx.x] = input[blockIdx.x * activeThreadsPerBlock + threadIdx.x];
@@ -182,8 +180,9 @@ __global__ void generateIntervalsKernel(el_t *table, interval_t *input, interval
         table, intervalsTile, subBlockSize, 1 << stepEnd, 1 << (phase - stepStart), activeThreadsPerBlock
     );
 
-    output[2 * index] = intervalsTile[2 * threadIdx.x];
-    output[2 * index + 1] = intervalsTile[2 * threadIdx.x + 1];
+    index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
+    output[index] = intervalsTile[threadIdx.x];
+    output[blockDim.x + index] = intervalsTile[blockDim.x + threadIdx.x];
 }
 
 /*

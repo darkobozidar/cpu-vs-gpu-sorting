@@ -5,6 +5,6 @@
 // Has to be greater or equal than THREADS_PER_SORT
 #define THREADS_PER_MERGE 256
 #define THREADS_PER_INIT_INTERVALS 128
-#define THREADS_PER_GEN_INTERVALS 256
+#define THREADS_PER_GEN_INTERVALS 128
 
 #endif

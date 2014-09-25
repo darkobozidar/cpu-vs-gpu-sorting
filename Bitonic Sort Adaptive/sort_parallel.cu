@@ -115,7 +115,7 @@ void runBitoicMergeKernel(el_t *input, el_t *output, interval_t *intervals, uint
 void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc) {
     el_t *d_table, *d_buffer;
     interval_t *d_intervals, *d_intervalsBuffer;
-    // Every thread loads and sorts 2 elements in first bitonic sort kernel
+    // Every thread loads and processes 2 elements
     uint_t phasesAll = log2((double)tableLen);
     uint_t phasesBitonicSort = log2((double)min(tableLen, 2 * THREADS_PER_SORT));
     uint_t phasesBitonicMerge = log2((double)2 * THREADS_PER_MERGE);
