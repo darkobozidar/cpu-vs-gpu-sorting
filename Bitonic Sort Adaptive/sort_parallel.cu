@@ -98,7 +98,8 @@ void runBitoicMergeKernel(el_t *input, el_t *output, interval_t *intervals, uint
     LARGE_INTEGER timer;
 
     // Every thread loads and sorts 2 elements
-    uint_t subBlockSize = 1 << phasesBitonicMerge;
+    uint_t phases = min(phasesBitonicMerge, phase);
+    uint_t subBlockSize = 1 << phases;
     dim3 dimGrid(tableLen / subBlockSize, 1, 1);
     dim3 dimBlock(subBlockSize / 2, 1, 1);
 
@@ -130,13 +131,13 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
 
     startStopwatch(&timer);
     runBitoicSortKernel(d_table, tableLen, phasesBitonicSort, orderAsc);
-    //runPrintTableKernel(d_table, tableLen);
 
     for (uint_t phase = phasesBitonicSort + 1; phase <= phasesAll; phase++) {
         uint_t stepStart = phase;
         uint_t stepEnd = max((double)phasesBitonicMerge, (double)phase - phasesInitIntervals);
         runInitIntervalsKernel(d_table, d_intervals, tableLen, phasesAll, stepStart, stepEnd);
 
+        // After initial intervals were generated intervals have to be evolved to the end
         while (stepEnd > phasesBitonicMerge) {
             interval_t *tempIntervals = d_intervals;
             d_intervals = d_intervalsBuffer;
@@ -148,8 +149,8 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
                                        stepStart, stepEnd);
         }
 
+        // Global merge with intervals
         runBitoicMergeKernel(d_table, d_buffer, d_intervals, tableLen, phasesBitonicMerge, phase, orderAsc);
-        //runPrintTableKernel(d_table, tableLen);
 
         el_t *tempTable = d_table;
         d_table = d_buffer;

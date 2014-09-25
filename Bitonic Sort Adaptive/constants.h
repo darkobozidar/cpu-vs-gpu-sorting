@@ -1,7 +1,7 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
-#define THREADS_PER_SORT 256
+#define THREADS_PER_SORT 512
 // Has to be greater or equal than THREADS_PER_SORT
 #define THREADS_PER_MERGE 256
 #define THREADS_PER_INIT_INTERVALS 128
