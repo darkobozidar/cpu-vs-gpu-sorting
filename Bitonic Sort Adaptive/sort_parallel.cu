@@ -70,7 +70,7 @@ void runInitIntervalsKernel(el_t *table, interval_t *intervals, uint_t tableLen,
     );
     /*error = cudaDeviceSynchronize();
     checkCudaError(error);
-    endStopwatch(timer, "Executing kernel for generating intervals");*/
+    endStopwatch(timer, "Executing kernel for initializing intervals");*/
 }
 
 void runGenerateIntervalsKernel(el_t *table, interval_t *input, interval_t *output, uint_t tableLen,
@@ -108,7 +108,7 @@ void runBitoicMergeKernel(el_t *input, el_t *output, interval_t *intervals, uint
     );
     /*error = cudaDeviceSynchronize();
     checkCudaError(error);
-    endStopwatch(timer, "Executing bitonic sort kernel");*/
+    endStopwatch(timer, "Executing bitonic merge kernel");*/
 }
 
 void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc) {

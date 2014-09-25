@@ -63,6 +63,41 @@ __device__ int binarySearch(el_t* table, interval_t interval, uint_t subBlockHal
     return indexStart;
 }
 
+/*
+Generates intervals in provided table until size of sub block is grater than end sub block size.
+Sub block size is the size of one block in bitonic merge step.
+*/
+__device__ void generateIntervals(el_t *table, interval_t *intervals, uint_t subBlockSize, uint_t subBlockSizeEnd,
+                                  uint_t stride, uint_t activeThreadsPerBlock) {
+    interval_t interval;
+
+    for (; subBlockSize > subBlockSizeEnd; subBlockSize /= 2, stride *= 2, activeThreadsPerBlock *= 2) {
+        uint_t isThreadActive = threadIdx.x < activeThreadsPerBlock;
+
+        if (isThreadActive) {
+            interval = intervals[threadIdx.x];
+        }
+        __syncthreads();
+
+        if (isThreadActive) {
+            uint_t intervalIndex = blockIdx.x * activeThreadsPerBlock + threadIdx.x;
+            uint_t q = binarySearch(table, interval, subBlockSize / 2, (intervalIndex / stride) & 1);
+
+            // Left sub-block
+            intervals[2 * threadIdx.x].offset0 = interval.offset0;
+            intervals[2 * threadIdx.x].length0 = q;
+            intervals[2 * threadIdx.x].offset1 = interval.offset1 + interval.length1 - subBlockSize / 2 + q;
+            intervals[2 * threadIdx.x].length1 = subBlockSize / 2 - q;
+
+            // Right sub-block
+            intervals[2 * threadIdx.x + 1].offset0 = interval.offset0 + q;
+            intervals[2 * threadIdx.x + 1].length0 = interval.length0 - q;
+            intervals[2 * threadIdx.x + 1].offset1 = interval.offset1;
+            intervals[2 * threadIdx.x + 1].length1 = q + interval.length1 - subBlockSize / 2;
+        }
+        __syncthreads();
+    }
+}
 
 /*---------------------------------------------------------
 ------------------------- KERNELS -------------------------
@@ -99,128 +134,56 @@ __global__ void bitonicSortKernel(el_t *table, bool orderAsc) {
 }
 
 /*
-
+Generates initial intervals and continues to evolve them until the end step.
 */
-__global__ void initIntervalsKernel(el_t *table, interval_t *intervals, uint_t tableLen, uint_t step,
-    uint_t phasesBitonicMerge) {
+__global__ void initIntervalsKernel(el_t *table, interval_t *intervals, uint_t tableLen, uint_t stepStart,
+                                    uint_t stepEnd) {
     extern __shared__ interval_t intervalsTile[];
     uint_t index = blockIdx.x * blockDim.x + threadIdx.x;
-    uint_t subBlockSize = 1 << step;
-    interval_t interval;
+    uint_t subBlockSize = 1 << stepStart;
+    uint_t activeThreadsPerBlock = tableLen / subBlockSize / gridDim.x;
 
     if (threadIdx.x < tableLen / subBlockSize / gridDim.x) {
-        uint_t offset0 = (blockIdx.x * (tableLen / subBlockSize / gridDim.x) + threadIdx.x) * subBlockSize;
-        uint_t offset1 = (blockIdx.x * (tableLen / subBlockSize / gridDim.x) + threadIdx.x) * subBlockSize + subBlockSize / 2;
+        uint_t intervalIndex = blockIdx.x * activeThreadsPerBlock + threadIdx.x;
+        uint_t offset0 = intervalIndex * subBlockSize;
+        uint_t offset1 = intervalIndex * subBlockSize + subBlockSize / 2;
+        interval_t interval;
 
-        interval.offset0 = (blockIdx.x * (tableLen / subBlockSize / gridDim.x) + threadIdx.x) % 2 ? offset1 : offset0;
-        interval.offset1 = (blockIdx.x * (tableLen / subBlockSize / gridDim.x) + threadIdx.x) % 2 ? offset0 : offset1;
+        // In every odd block intervals have to be rotated
+        interval.offset0 = intervalIndex % 2 ? offset1 : offset0;
+        interval.offset1 = intervalIndex % 2 ? offset0 : offset1;
         interval.length0 = subBlockSize / 2;
         interval.length1 = subBlockSize / 2;
 
         intervalsTile[threadIdx.x] = interval;
     }
 
-    for (int stride = 1; subBlockSize > 1 << phasesBitonicMerge; subBlockSize /= 2, stride *= 2) {
-        uint_t isThreadActive = threadIdx.x < tableLen / subBlockSize / gridDim.x;
-
-        if (isThreadActive) {
-            interval = intervalsTile[threadIdx.x];
-        }
-        __syncthreads();
-
-        if (isThreadActive) {
-            uint_t q = binarySearch(table, interval, subBlockSize / 2, ((blockIdx.x * (tableLen / subBlockSize / gridDim.x) + threadIdx.x) / stride) & 1);
-            interval_t newInterval;
-
-            // Left sub-block
-            newInterval.offset0 = interval.offset0;
-            newInterval.length0 = q;
-            newInterval.offset1 = interval.offset1 + interval.length1 - subBlockSize / 2 + q;
-            newInterval.length1 = subBlockSize / 2 - q;
-
-            intervalsTile[2 * threadIdx.x] = newInterval;
-
-            // Right sub-block
-            newInterval.offset0 = interval.offset0 + q;
-            newInterval.length0 = interval.length0 - q;
-            newInterval.offset1 = interval.offset1;
-            newInterval.length1 = q + interval.length1 - subBlockSize / 2;
-
-            intervalsTile[2 * threadIdx.x + 1] = newInterval;
-        }
-        __syncthreads();
-    }
+    generateIntervals(table, intervalsTile, subBlockSize, 1 << stepEnd, 1, activeThreadsPerBlock);
 
     intervals[2 * index] = intervalsTile[2 * threadIdx.x];
     intervals[2 * index + 1] = intervalsTile[2 * threadIdx.x + 1];
-
-    /*__syncthreads();
-    if (threadIdx.x == 0) {
-        uint_t stride = blockIdx.x * 2 * blockDim.x;
-        for (int i = stride; i < stride + 4; i++) {
-            printf("%d %d [%2d, %2d], [%2d, %2d]\n", blockIdx.x, threadIdx.x,
-                intervals[i].offset0, intervals[i].length0, intervals[i].offset1, intervals[i].length1
-            );
-        }
-        printf("\n");
-    }*/
 }
 
+/*
+Reads the existing intervals from global memory and evolve them until the end step.
+*/
 __global__ void generateIntervalsKernel(el_t *table, interval_t *input, interval_t *output, uint_t tableLen,
                                         uint_t phase, uint_t stepStart, uint_t stepEnd) {
     extern __shared__ interval_t intervalsTile[];
     uint_t index = blockIdx.x * blockDim.x + threadIdx.x;
     uint_t subBlockSize = 1 << stepStart;
-    interval_t interval;
+    uint_t activeThreadsPerBlock = tableLen / subBlockSize / gridDim.x;
 
     if (threadIdx.x < tableLen / subBlockSize / gridDim.x) {
-        intervalsTile[threadIdx.x] = input[blockIdx.x * (tableLen / subBlockSize / gridDim.x) + threadIdx.x];
+        intervalsTile[threadIdx.x] = input[blockIdx.x * activeThreadsPerBlock + threadIdx.x];
     }
 
-    for (int stride = 1 << (phase - stepStart); subBlockSize > 1 << stepEnd; subBlockSize /= 2, stride *= 2) {
-        uint_t isThreadActive = threadIdx.x < tableLen / subBlockSize / gridDim.x;
-
-        if (isThreadActive) {
-            interval = intervalsTile[threadIdx.x];
-        }
-        __syncthreads();
-
-        if (isThreadActive) {
-            uint_t q = binarySearch(table, interval, subBlockSize / 2, ((blockIdx.x * (tableLen / subBlockSize / gridDim.x) + threadIdx.x) / stride) & 1);
-            interval_t newInterval;
-
-            // Left sub-block
-            newInterval.offset0 = interval.offset0;
-            newInterval.length0 = q;
-            newInterval.offset1 = interval.offset1 + interval.length1 - subBlockSize / 2 + q;
-            newInterval.length1 = subBlockSize / 2 - q;
-
-            intervalsTile[2 * threadIdx.x] = newInterval;
-
-            // Right sub-block
-            newInterval.offset0 = interval.offset0 + q;
-            newInterval.length0 = interval.length0 - q;
-            newInterval.offset1 = interval.offset1;
-            newInterval.length1 = q + interval.length1 - subBlockSize / 2;
-
-            intervalsTile[2 * threadIdx.x + 1] = newInterval;
-        }
-        __syncthreads();
-    }
+    generateIntervals(
+        table, intervalsTile, subBlockSize, 1 << stepEnd, 1 << (phase - stepStart), activeThreadsPerBlock
+    );
 
     output[2 * index] = intervalsTile[2 * threadIdx.x];
     output[2 * index + 1] = intervalsTile[2 * threadIdx.x + 1];
-
-    /*__syncthreads();
-    if (threadIdx.x == 0) {
-        uint_t stride = blockIdx.x * 2 * blockDim.x;
-        for (int i = stride; i < stride + 4; i++) {
-            printf("%d %d [%2d, %2d], [%2d, %2d]\n", blockIdx.x, threadIdx.x,
-                output[i].offset0, output[i].length0, output[i].offset1, output[i].length1
-            );
-        }
-        printf("\n");
-    }*/
 }
 
 /*
