@@ -111,12 +111,6 @@ void runBitoicMergeKernel(el_t *input, el_t *output, interval_t *intervals, uint
     endStopwatch(timer, "Executing bitonic sort kernel");*/
 }
 
-void runPrintTableKernel(el_t *table, uint_t tableLen) {
-    printTableKernel<<<1, 1>>>(table, tableLen);
-    cudaError_t error = cudaDeviceSynchronize();
-    checkCudaError(error);
-}
-
 void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc) {
     el_t *d_table, *d_buffer;
     interval_t *d_intervals, *d_intervalsBuffer;

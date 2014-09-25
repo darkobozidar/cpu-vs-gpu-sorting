@@ -9,12 +9,9 @@
 #include "constants.h"
 
 
-__global__ void printTableKernel(el_t *table, uint_t tableLen) {
-    for (uint_t i = 0; i < tableLen; i++) {
-        printf("%2d ", table[i]);
-    }
-    printf("\n\n");
-}
+/*---------------------------------------------------------
+-------------------------- UTILS --------------------------
+-----------------------------------------------------------*/
 
 /*
 Compares 2 elements and exchanges them according to orderAsc.
@@ -28,7 +25,7 @@ __device__ void compareExchange(el_t *elem1, el_t *elem2, bool orderAsc) {
 }
 
 /*
-From provided interval and index returns element in table.
+From provided interval and index returns element in table. Index can't be higher than interval span.
 */
 __device__ el_t getTableElement(el_t *table, interval_t interval, uint_t index) {
     bool useInterval1 = index >= interval.length0;
@@ -39,6 +36,37 @@ __device__ el_t getTableElement(el_t *table, interval_t interval, uint_t index) 
 
     return table[offset + index];
 }
+
+/*
+Finds the index q, which is and index, where the exchanges in the bitonic sequence begin. All
+elements after index q have to be exchanged. Bitonic sequence boundaries are provided with interval.
+
+Example: 2, 3, 5, 7 | 8, 7, 3, 1 --> index q = 2 ; (5, 7 and 3, 1 have to be exchanged).
+*/
+__device__ int binarySearch(el_t* table, interval_t interval, uint_t subBlockHalfLen, bool orderAsc) {
+    // Depending which interval is longer, different start and end indexes are used
+    int_t indexStart = interval.length0 <= interval.length1 ? 0 : subBlockHalfLen - interval.length1;
+    int_t indexEnd = interval.length0 <= interval.length1 ? interval.length0 : subBlockHalfLen;
+
+    while (indexStart < indexEnd) {
+        int index = indexStart + (indexEnd - indexStart) / 2;
+        el_t el0 = getTableElement(table, interval, index);
+        el_t el1 = getTableElement(table, interval, index + subBlockHalfLen);
+
+        if ((el0.key < el1.key) ^ orderAsc) {
+            indexStart = index + 1;
+        } else {
+            indexEnd = index;
+        }
+    }
+
+    return indexStart;
+}
+
+
+/*---------------------------------------------------------
+------------------------- KERNELS -------------------------
+-----------------------------------------------------------*/
 
 /*
 Sorts sub-blocks of input data with bitonic sort.
@@ -70,27 +98,9 @@ __global__ void bitonicSortKernel(el_t *table, bool orderAsc) {
     table[blockDim.x + index] = sortTile[blockDim.x + threadIdx.x];
 }
 
-// TODO binary search in opposite side
-__device__ int binarySearch(el_t* table, interval_t interval, uint_t subBlockHalfLen, bool bla) {
-    int_t indexStart = 0;
-    int_t indexEnd = interval.length0 < subBlockHalfLen ? interval.length0 : subBlockHalfLen;
+/*
 
-    while (indexStart < indexEnd) {
-        int index = indexStart + (indexEnd - indexStart) / 2;
-        el_t el0 = getTableElement(table, interval, index);
-        el_t el1 = getTableElement(table, interval, index + subBlockHalfLen);
-
-        if (!bla && (el0.key <= el1.key) || bla && (el0.key >= el1.key)) {
-            indexStart = index + 1;
-        }
-        else {
-            indexEnd = index;
-        }
-    }
-
-    return indexStart;
-}
-
+*/
 __global__ void initIntervalsKernel(el_t *table, interval_t *intervals, uint_t tableLen, uint_t step,
     uint_t phasesBitonicMerge) {
     extern __shared__ interval_t intervalsTile[];
@@ -108,10 +118,6 @@ __global__ void initIntervalsKernel(el_t *table, interval_t *intervals, uint_t t
         interval.length1 = subBlockSize / 2;
 
         intervalsTile[threadIdx.x] = interval;
-
-        /*printf("%d %d [%2d, %2d], [%2d, %2d]\n", blockIdx.x, threadIdx.x,
-            interval.offset0, interval.length0, interval.offset1, interval.length1
-        );*/
     }
 
     for (int stride = 1; subBlockSize > 1 << phasesBitonicMerge; subBlockSize /= 2, stride *= 2) {
