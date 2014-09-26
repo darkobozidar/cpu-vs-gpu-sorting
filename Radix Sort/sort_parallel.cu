@@ -22,7 +22,7 @@ void memoryInit(el_t *h_table, el_t **d_table, uint_t tableLen) {
     checkCudaError(error);
 }
 
-void runSortBlockKernel(el_t *table, uint_t tableLen, uint_t digit, bool orderAsc) {
+void runSortBlockKernel(el_t *table, uint_t tableLen, uint_t startBit, bool orderAsc) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
@@ -30,9 +30,13 @@ void runSortBlockKernel(el_t *table, uint_t tableLen, uint_t digit, bool orderAs
     dim3 dimGrid(tableLen / (2 * threadBlockSize), 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
 
+    startStopwatch(&timer);
     sortBlockKernel<<<dimGrid, dimBlock, 2 * threadBlockSize * sizeof(*table)>>>(
-        table, digit, orderAsc
+        table, startBit, orderAsc
     );
+    /*error = cudaDeviceSynchronize();
+    checkCudaError(error);
+    endStopwatch(timer, "Executing parallel radix sort of blocks.");*/
 }
 
 void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc) {
@@ -44,7 +48,10 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
     memoryInit(h_input, &d_table, tableLen);
 
     startStopwatch(&timer);
-    runSortBlockKernel(d_table, tableLen, 0, orderAsc);
+
+    for (uint_t startBit = 0; startBit < sizeof(uint_t) * 8; startBit += BIT_COUNT) {
+        runSortBlockKernel(d_table, tableLen, startBit, orderAsc);
+    }
 
     error = cudaDeviceSynchronize();
     checkCudaError(error);

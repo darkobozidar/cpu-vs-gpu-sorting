@@ -21,13 +21,19 @@ __device__ uint2 scan(bool pred0, bool pred1) {
 
     for (unsigned int stride = 1; stride <= blockDim.x; stride *= 2) {
         int index = (threadIdx.x + 1) * 2 * stride - 1;
-        scanTile[index] += scanTile[index - stride];
+
+        if (index < 2 * blockDim.x) {
+            scanTile[index] += scanTile[index - stride];
+        }
         __syncthreads();
     }
 
     for (unsigned int stride = blockDim.x / 2; stride > 0; stride /= 2) {
         int index = (threadIdx.x + 1) * 2 * stride - 1;
-        scanTile[index + stride] += scanTile[index];
+
+        if (index + stride < 2 * blockDim.x) {
+            scanTile[index + stride] += scanTile[index];
+        }
         __syncthreads();
     }
 
@@ -63,14 +69,14 @@ __device__ uint2 split(bool pred0, bool pred1) {
     return rank;
 }
 
-__global__ void sortBlockKernel(el_t *table, uint_t digit, bool orderAsc) {
+__global__ void sortBlockKernel(el_t *table, uint_t startBit, bool orderAsc) {
     extern __shared__ el_t sortTile[];
     uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
 
     sortTile[threadIdx.x] = table[index];
     sortTile[threadIdx.x + blockDim.x] = table[index + blockDim.x];
 
-    for (uint_t shift = digit * BIT_COUNT; shift < (digit + 1) * BIT_COUNT; shift++) {
+    for (uint_t shift = startBit; shift < startBit + BIT_COUNT; shift++) {
         el_t el0 = sortTile[threadIdx.x];
         el_t el1 = sortTile[threadIdx.x + blockDim.x];
 
