@@ -90,3 +90,42 @@ __global__ void sortBlockKernel(el_t *table, uint_t startBit, bool orderAsc) {
     table[index] = sortTile[threadIdx.x];
     table[index + blockDim.x] = sortTile[threadIdx.x + blockDim.x];
 }
+
+__global__ void generateBlocksKernel(el_t *table, uint_t *blockOffsets, uint_t *blockSizes, uint_t startBit) {
+    extern __shared__ uint_t offsetsTile[];
+    uint_t radix = 1 << BIT_COUNT;
+
+    uint_t *radixTile = offsetsTile + radix;
+    uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
+    uint_t key0_0, key0_1, key1_0, key1_1;
+
+    radixTile[threadIdx.x] = (table[index].key >> startBit) & (radix - 1);
+    radixTile[threadIdx.x + blockDim.x] = (table[index + blockDim.x].key >> startBit) & (radix - 1);
+    __syncthreads();
+
+    if (blockDim.x < radix) {
+        for (int i = 0; i < radix; i += blockDim.x) {
+            offsetsTile[threadIdx.x + i] = 0;
+        }
+    } else if (threadIdx.x < radix) {
+        offsetsTile[threadIdx.x] = 0;
+    }
+    __syncthreads();
+
+    if (threadIdx.x > 0 && radixTile[threadIdx.x - 1] != radixTile[threadIdx.x]) {
+        offsetsTile[radixTile[threadIdx.x]] = threadIdx.x;
+    }
+    if (radixTile[threadIdx.x + blockDim.x - 1] != radixTile[threadIdx.x + blockDim.x]) {
+        offsetsTile[radixTile[threadIdx.x + blockDim.x]] = threadIdx.x + blockDim.x;
+    }
+    __syncthreads();
+
+    if (blockDim.x < radix) {
+        for (int i = 0; i < radix; i += blockDim.x) {
+            blockOffsets[blockIdx.x * radix + threadIdx.x + i] = offsetsTile[threadIdx.x + i];
+        }
+    } else if (threadIdx.x < radix) {
+        blockOffsets[blockIdx.x * radix + threadIdx.x] = offsetsTile[threadIdx.x];
+    }
+    __syncthreads();
+}

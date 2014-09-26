@@ -6,6 +6,7 @@
 typedef int data_t;
 typedef uint32_t uint_t;
 typedef int32_t int_t;
+// TODO create type for key
 
 // Key value pair used for sorting
 struct Element {
