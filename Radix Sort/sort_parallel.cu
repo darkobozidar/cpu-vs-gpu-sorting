@@ -26,11 +26,13 @@ void runSortBlockKernel(el_t *table, uint_t tableLen, uint_t digit, bool orderAs
     cudaError_t error;
     LARGE_INTEGER timer;
 
-    uint_t threadBlockSize = min(tableLen, THREADS_PER_SORT);
-    dim3 dimGrid(tableLen / threadBlockSize, 1, 1);
+    uint_t threadBlockSize = min(tableLen / 2, THREADS_PER_SORT);
+    dim3 dimGrid(tableLen / (2 * threadBlockSize), 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
 
-    sortBlockKernel<<<dimGrid, dimBlock, threadBlockSize * sizeof(*table)>>>(table, digit, orderAsc);
+    sortBlockKernel<<<dimGrid, dimBlock, 2 * threadBlockSize * sizeof(*table)>>>(
+        table, digit, orderAsc
+    );
 }
 
 void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc) {
@@ -40,4 +42,14 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
     cudaError_t error;
 
     memoryInit(h_input, &d_table, tableLen);
+
+    startStopwatch(&timer);
+    runSortBlockKernel(d_table, tableLen, 0, orderAsc);
+
+    error = cudaDeviceSynchronize();
+    checkCudaError(error);
+    endStopwatch(timer, "Executing parallel radix sort.");
+
+    error = cudaMemcpy(h_output, d_table, tableLen * sizeof(*h_output), cudaMemcpyDeviceToHost);
+    checkCudaError(error);
 }

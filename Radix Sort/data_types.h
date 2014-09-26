@@ -13,5 +13,12 @@ struct Element {
     uint_t val;
 };
 typedef struct Element el_t;
+struct Group {
+    el_t el0;
+    el_t el1;
+    el_t el2;
+    el_t el3;
+};
+typedef struct Group group_t;
 
 #endif
