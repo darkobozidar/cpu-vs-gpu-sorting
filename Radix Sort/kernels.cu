@@ -95,20 +95,23 @@ __global__ void generateBlocksKernel(el_t *table, uint_t *blockOffsets, uint_t *
     extern __shared__ uint_t offsetsTile[];
     uint_t radix = 1 << BIT_COUNT;
 
-    uint_t *radixTile = offsetsTile + radix;
+    uint_t *sizesTile = offsetsTile + radix;
+    uint_t *radixTile = offsetsTile + 2 * radix;
     uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
-    uint_t key0_0, key0_1, key1_0, key1_1;
 
     radixTile[threadIdx.x] = (table[index].key >> startBit) & (radix - 1);
     radixTile[threadIdx.x + blockDim.x] = (table[index + blockDim.x].key >> startBit) & (radix - 1);
     __syncthreads();
 
+    // Generate block offsets
     if (blockDim.x < radix) {
         for (int i = 0; i < radix; i += blockDim.x) {
             offsetsTile[threadIdx.x + i] = 0;
+            sizesTile[threadIdx.x + i] = 0;
         }
     } else if (threadIdx.x < radix) {
         offsetsTile[threadIdx.x] = 0;
+        sizesTile[threadIdx.x] = 0;
     }
     __syncthreads();
 
@@ -120,12 +123,42 @@ __global__ void generateBlocksKernel(el_t *table, uint_t *blockOffsets, uint_t *
     }
     __syncthreads();
 
+    // Generate block sizes
+    if (threadIdx.x > 0 && radixTile[threadIdx.x - 1] != radixTile[threadIdx.x]) {
+        uint_t radix = radixTile[threadIdx.x - 1];
+        sizesTile[radix] = threadIdx.x - offsetsTile[radix];
+    }
+    if (radixTile[threadIdx.x + blockDim.x - 1] != radixTile[threadIdx.x + blockDim.x]) {
+        uint_t radix = radixTile[threadIdx.x + blockDim.x - 1];
+        sizesTile[radix] = threadIdx.x + blockDim.x - offsetsTile[radix];
+    }
+    // Size for last block
+    if (threadIdx.x == blockDim.x - 1) {
+        uint_t radix = radixTile[2 * blockDim.x - 1];
+        sizesTile[radix] = 2 * blockDim.x - offsetsTile[radix];
+    }
+    __syncthreads();
+
+    // Write block offsets and sizes to global memory
     if (blockDim.x < radix) {
         for (int i = 0; i < radix; i += blockDim.x) {
             blockOffsets[blockIdx.x * radix + threadIdx.x + i] = offsetsTile[threadIdx.x + i];
+            blockSizes[blockIdx.x * radix + threadIdx.x + i] = sizesTile[threadIdx.x + i];
         }
     } else if (threadIdx.x < radix) {
         blockOffsets[blockIdx.x * radix + threadIdx.x] = offsetsTile[threadIdx.x];
+        blockSizes[blockIdx.x * radix + threadIdx.x] = sizesTile[threadIdx.x];
     }
-    __syncthreads();
+
+    /*if (blockIdx.x == 1 && threadIdx.x == 0) {
+        for (int i = 0; i < radix; i++) {
+            printf("%2d, ", blockOffsets[i]);
+        }
+        printf("\n\n");
+
+        for (int i = 0; i < radix; i++) {
+            printf("%2d, ", blockSizes[i]);
+        }
+        printf("\n\n");
+    }*/
 }

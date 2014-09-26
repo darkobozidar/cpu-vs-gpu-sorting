@@ -50,7 +50,7 @@ void runGenerateBlocksKernel(el_t *table, uint_t *blockOffsets, uint_t *blockSiz
     LARGE_INTEGER timer;
 
     uint_t threadBlockSize = min(tableLen / 2, THREADS_PER_SORT);
-    uint_t sharedMemSize = 2 * threadBlockSize * sizeof(uint_t) + (1 << BIT_COUNT) * sizeof(uint_t);
+    uint_t sharedMemSize = 2 * threadBlockSize * sizeof(uint_t) + 2 * (1 << BIT_COUNT) * sizeof(uint_t);
     dim3 dimGrid(tableLen / (2 * threadBlockSize), 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
 

@@ -17,7 +17,7 @@
 int main(int argc, char** argv) {
     /*el_t *input;*/
     el_t input[16] = {
-        2, 0, 2, 1, 3, 2, 3, 3, 1, 4, 0, 5, 3, 6, 2, 7, 1, 8, 2, 9, 1,
+        2, 0, 2, 1, 3, 2, 3, 3, 1, 4, 7, 5, 3, 6, 2, 7, 1, 8, 2, 9, 1,
         10, 0, 11, 1, 12, 1, 13, 2, 14, 0, 15
     };
     el_t *outputParallel;
@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
     error = cudaHostAlloc(&outputParallel, tableLen * sizeof(*outputParallel), cudaHostAllocDefault);
     checkCudaError(error);
     /*fillTable(input, tableLen, interval);*/
-    printTable(input, tableLen);
+    //printTable(input, tableLen);
 
     sortParallel(input, outputParallel, tableLen, orderAsc);
     printTable(outputParallel, tableLen);
