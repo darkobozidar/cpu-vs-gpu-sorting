@@ -71,12 +71,12 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
 
     startStopwatch(&timer);
 
-    runSortBlockKernel(d_table, tableLen, 0, orderAsc);
-    runGenerateBlocksKernel(d_table, d_blockOffsets, d_blockSizes, tableLen, 0);
+    /*runSortBlockKernel(d_table, tableLen, 0, orderAsc);
+    runGenerateBlocksKernel(d_table, d_blockOffsets, d_blockSizes, tableLen, 0);*/
 
-    /*for (uint_t startBit = 0; startBit < sizeof(uint_t) * 8; startBit += BIT_COUNT) {
+    for (uint_t startBit = 0; startBit < sizeof(uint_t) * 8; startBit += BIT_COUNT) {
         runSortBlockKernel(d_table, tableLen, startBit, orderAsc);
-    }*/
+    }
 
     error = cudaDeviceSynchronize();
     checkCudaError(error);

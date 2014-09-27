@@ -18,6 +18,7 @@ __device__ uint2 scan(bool pred0, bool pred1) {
 
     scanTile[threadIdx.x] = pred0;
     scanTile[threadIdx.x + blockDim.x] = pred1;
+    __syncthreads();
 
     for (unsigned int stride = 1; stride <= blockDim.x; stride *= 2) {
         int index = (threadIdx.x + 1) * 2 * stride - 1;
@@ -79,6 +80,7 @@ __global__ void sortBlockKernel(el_t *table, uint_t startBit, bool orderAsc) {
     for (uint_t shift = startBit; shift < startBit + BIT_COUNT; shift++) {
         el_t el0 = sortTile[threadIdx.x];
         el_t el1 = sortTile[threadIdx.x + blockDim.x];
+        __syncthreads();
 
         uint2 rank = split((el0.key >> shift) & 1, (el1.key >> shift) & 1);
 
