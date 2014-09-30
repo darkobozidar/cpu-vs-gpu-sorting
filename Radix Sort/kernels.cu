@@ -142,6 +142,7 @@ __global__ void generateBlocksKernel(el_t *table, uint_t *blockOffsets, uint_t *
     __syncthreads();
 
     // Write block offsets and sizes to global memory
+    // Block sizes are written in uncoalasced way, so that scan can be performed on this table
     if (blockDim.x < radix) {
         for (int i = 0; i < radix; i += blockDim.x) {
             blockOffsets[blockIdx.x * radix + threadIdx.x + i] = offsetsTile[threadIdx.x + i];
@@ -149,7 +150,7 @@ __global__ void generateBlocksKernel(el_t *table, uint_t *blockOffsets, uint_t *
         }
     } else if (threadIdx.x < radix) {
         blockOffsets[blockIdx.x * radix + threadIdx.x] = offsetsTile[threadIdx.x];
-        blockSizes[blockIdx.x * radix + threadIdx.x] = sizesTile[threadIdx.x];
+        blockSizes[threadIdx.x * gridDim.x * blockDim.x + blockIdx.x] = sizesTile[threadIdx.x];
     }
 
     /*if (blockIdx.x == 1 && threadIdx.x == 0) {
@@ -163,4 +164,31 @@ __global__ void generateBlocksKernel(el_t *table, uint_t *blockOffsets, uint_t *
         }
         printf("\n\n");
     }*/
+}
+
+__global__ void sortGlobalKernel(el_t *input, el_t *output, uint_t *offsetsLocal, uint_t *offsetsGlobal,
+                                 uint_t startBit) {
+    extern __shared__ el_t sortGlobalTile[];
+    __shared__ uint_t offsetsLocalTile[RADIX];
+    __shared__ uint_t offsetsGlobalTile[RADIX];
+    __shared__ uint_t sizesTile[RADIX];
+    uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
+    uint_t radix, indexOutput;
+
+    sortGlobalTile[threadIdx.x] = input[index];
+    sortGlobalTile[threadIdx.x + blockDim.x] = input[index + blockDim.x];
+
+    if (threadIdx.x < 16) {
+        offsetsLocalTile[threadIdx.x] = offsetsLocal[threadIdx.x * RADIX + threadIdx.x];
+        offsetsGlobalTile[threadIdx.x] = offsetsGlobal[threadIdx.x * gridDim.x * blockDim.x + blockIdx.x];
+    }
+    __syncthreads();
+
+    radix = (sortGlobalTile[threadIdx.x].key >> startBit) & (RADIX - 1);
+    indexOutput = offsetsGlobalTile[radix] + threadIdx.x - offsetsLocal[radix];
+    output[indexOutput] = sortGlobalTile[threadIdx.x];
+
+    radix = (sortGlobalTile[threadIdx.x + blockDim.x].key >> startBit) & (RADIX - 1);
+    indexOutput = offsetsGlobalTile[radix] + threadIdx.x - offsetsLocal[radix];
+    output[indexOutput] = sortGlobalTile[threadIdx.x];
 }
