@@ -23,6 +23,9 @@ __global__ void printTableKernel(el_t *table, uint_t tableLen) {
     printf("\n\n");
 }
 
+/*
+Performs scan and computes, how many elements have 'true' predicate before current element.
+*/
 __device__ uint2 scan(bool pred0, bool pred1) {
     extern __shared__ uint_t scanTile[];
     uint2 trueBefore;
@@ -31,6 +34,7 @@ __device__ uint2 scan(bool pred0, bool pred1) {
     scanTile[threadIdx.x + blockDim.x] = pred1;
     __syncthreads();
 
+    // First part of the scan
     for (unsigned int stride = 1; stride <= blockDim.x; stride *= 2) {
         int index = (threadIdx.x + 1) * 2 * stride - 1;
 
@@ -40,6 +44,7 @@ __device__ uint2 scan(bool pred0, bool pred1) {
         __syncthreads();
     }
 
+    // Second part of the scan
     for (unsigned int stride = blockDim.x / 2; stride > 0; stride /= 2) {
         int index = (threadIdx.x + 1) * 2 * stride - 1;
 
@@ -56,22 +61,28 @@ __device__ uint2 scan(bool pred0, bool pred1) {
     return trueBefore;
 }
 
+/*
+Computes the rank of the current element in shared memory block.
+*/
 __device__ uint2 split(bool pred0, bool pred1) {
     __shared__ uint_t falseTotal;
     uint2 trueBefore = scan(pred0, pred1);
     uint2 rank;
 
+    // Last thread computes the total number of elements, which have 'false' predicate value.
     if (threadIdx.x == blockDim.x - 1) {
         falseTotal = 2 * blockDim.x - (trueBefore.y + pred1);
     }
     __syncthreads();
 
+    // Computes the rank for the first element (in first half of shared memory)
     if (pred0) {
         rank.x = trueBefore.x + falseTotal;
     } else {
         rank.x = threadIdx.x - trueBefore.x;
     }
 
+    // Computes the rank for the second element (in second half of shared memory)
     if (pred1) {
         rank.y = trueBefore.y + falseTotal;
     } else {
@@ -85,18 +96,22 @@ __device__ uint2 split(bool pred0, bool pred1) {
 ------------------------- KERNELS -------------------------
 -----------------------------------------------------------*/
 
-__global__ void radixSortLocalKernel(el_t *table, uint_t startBit, bool orderAsc) {
+/*
+Sorts blocks in shared memory according to current radix diggit.
+*/
+__global__ void radixSortLocalKernel(el_t *table, uint_t bitOffset, bool orderAsc) {
     extern __shared__ el_t sortTile[];
     uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
 
     sortTile[threadIdx.x] = table[index];
     sortTile[threadIdx.x + blockDim.x] = table[index + blockDim.x];
 
-    for (uint_t shift = startBit; shift < startBit + BIT_COUNT; shift++) {
+    for (uint_t shift = bitOffset; shift < bitOffset + BIT_COUNT; shift++) {
         el_t el0 = sortTile[threadIdx.x];
         el_t el1 = sortTile[threadIdx.x + blockDim.x];
         __syncthreads();
 
+        // Extracts the current bit (predicate) to calculate ranks
         uint2 rank = split((el0.key >> shift) & 1, (el1.key >> shift) & 1);
 
         sortTile[rank.x] = el0;
@@ -108,7 +123,7 @@ __global__ void radixSortLocalKernel(el_t *table, uint_t startBit, bool orderAsc
     table[index + blockDim.x] = sortTile[threadIdx.x + blockDim.x];
 }
 
-__global__ void generateBlocksKernel(el_t *table, uint_t *blockOffsets, uint_t *blockSizes, uint_t startBit) {
+__global__ void generateBlocksKernel(el_t *table, uint_t *blockOffsets, uint_t *blockSizes, uint_t bitOffset) {
     extern __shared__ uint_t offsetsTile[];
     uint_t radix = 1 << BIT_COUNT;
 
@@ -116,8 +131,8 @@ __global__ void generateBlocksKernel(el_t *table, uint_t *blockOffsets, uint_t *
     uint_t *radixTile = offsetsTile + 2 * radix;
     uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
 
-    radixTile[threadIdx.x] = (table[index].key >> startBit) & (radix - 1);
-    radixTile[threadIdx.x + blockDim.x] = (table[index + blockDim.x].key >> startBit) & (radix - 1);
+    radixTile[threadIdx.x] = (table[index].key >> bitOffset) & (radix - 1);
+    radixTile[threadIdx.x + blockDim.x] = (table[index + blockDim.x].key >> bitOffset) & (radix - 1);
     __syncthreads();
 
     // Generate block offsets
@@ -182,7 +197,7 @@ __global__ void generateBlocksKernel(el_t *table, uint_t *blockOffsets, uint_t *
 }
 
 __global__ void sortGlobalKernel(el_t *input, el_t *output, uint_t *offsetsLocal, uint_t *offsetsGlobal,
-                                 uint_t startBit) {
+                                 uint_t bitOffset) {
     extern __shared__ el_t sortGlobalTile[];
     __shared__ uint_t offsetsLocalTile[RADIX];
     __shared__ uint_t offsetsGlobalTile[RADIX];
@@ -199,11 +214,11 @@ __global__ void sortGlobalKernel(el_t *input, el_t *output, uint_t *offsetsLocal
     }
     __syncthreads();
 
-    radix = (sortGlobalTile[threadIdx.x].key >> startBit) & (RADIX - 1);
+    radix = (sortGlobalTile[threadIdx.x].key >> bitOffset) & (RADIX - 1);
     indexOutput = offsetsGlobalTile[radix] + threadIdx.x - offsetsLocal[radix];
     output[indexOutput] = sortGlobalTile[threadIdx.x];
 
-    radix = (sortGlobalTile[threadIdx.x + blockDim.x].key >> startBit) & (RADIX - 1);
+    radix = (sortGlobalTile[threadIdx.x + blockDim.x].key >> bitOffset) & (RADIX - 1);
     indexOutput = offsetsGlobalTile[radix] + threadIdx.x - offsetsLocal[radix];
     output[indexOutput] = sortGlobalTile[threadIdx.x + blockDim.x];
 }
