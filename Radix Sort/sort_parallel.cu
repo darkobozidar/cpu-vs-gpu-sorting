@@ -27,16 +27,16 @@ void memoryInit(el_t *h_table, el_t **d_table, uint_t **blockOffsets, uint_t **b
     checkCudaError(error);
 }
 
-void runSortBlockKernel(el_t *table, uint_t tableLen, uint_t startBit, bool orderAsc) {
+void runRadixSortLocalKernel(el_t *table, uint_t tableLen, uint_t startBit, bool orderAsc) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
-    uint_t threadBlockSize = min(tableLen / 2, THREADS_PER_SORT);
+    uint_t threadBlockSize = min(tableLen / 2, THREADS_PER_LOCAL_SORT);
     dim3 dimGrid(tableLen / (2 * threadBlockSize), 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
 
     startStopwatch(&timer);
-    sortBlockKernel<<<dimGrid, dimBlock, 2 * threadBlockSize * sizeof(*table)>>>(
+    radixSortLocalKernel<<<dimGrid, dimBlock, 2 * threadBlockSize * sizeof(*table)>>>(
         table, startBit, orderAsc
     );
     /*error = cudaDeviceSynchronize();
@@ -49,7 +49,7 @@ void runGenerateBlocksKernel(el_t *table, uint_t *blockOffsets, uint_t *blockSiz
     cudaError_t error;
     LARGE_INTEGER timer;
 
-    uint_t threadBlockSize = min(tableLen / 2, THREADS_PER_SORT);
+    uint_t threadBlockSize = min(tableLen / 2, THREADS_PER_BLOCK_GEN);
     uint_t sharedMemSize = 2 * threadBlockSize * sizeof(uint_t) + 2 * (1 << BIT_COUNT) * sizeof(uint_t);
     dim3 dimGrid(tableLen / (2 * threadBlockSize), 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
@@ -59,10 +59,16 @@ void runGenerateBlocksKernel(el_t *table, uint_t *blockOffsets, uint_t *blockSiz
     );
 }
 
+void runPrintTableKernel(el_t *table, uint_t tableLen) {
+    printTableKernel << <1, 1 >> >(table, tableLen);
+    cudaError_t error = cudaDeviceSynchronize();
+    checkCudaError(error);
+}
+
 void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc) {
     el_t *d_table;
     uint_t *d_blockOffsets, *d_blockSizes;
-    uint_t blocksLen = (1 << BIT_COUNT) * (tableLen / (2 * THREADS_PER_SORT));
+    uint_t blocksLen = (1 << BIT_COUNT) * (tableLen / (2 * THREADS_PER_BLOCK_GEN));
 
     LARGE_INTEGER timer;
     cudaError_t error;
@@ -71,12 +77,12 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
 
     startStopwatch(&timer);
 
-    /*runSortBlockKernel(d_table, tableLen, 0, orderAsc);
-    runGenerateBlocksKernel(d_table, d_blockOffsets, d_blockSizes, tableLen, 0);*/
+    runRadixSortLocalKernel(d_table, tableLen, 0, orderAsc);
+    /*runGenerateBlocksKernel(d_table, d_blockOffsets, d_blockSizes, tableLen, 0);*/
 
-    for (uint_t startBit = 0; startBit < sizeof(uint_t) * 8; startBit += BIT_COUNT) {
+    /*for (uint_t startBit = 0; startBit < sizeof(uint_t) * 8; startBit += BIT_COUNT) {
         runSortBlockKernel(d_table, tableLen, startBit, orderAsc);
-    }
+    }*/
 
     error = cudaDeviceSynchronize();
     checkCudaError(error);

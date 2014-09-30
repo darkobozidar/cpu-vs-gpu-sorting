@@ -12,6 +12,17 @@
 #include "constants.h"
 
 
+/*---------------------------------------------------------
+-------------------------- UTILS --------------------------
+-----------------------------------------------------------*/
+
+__global__ void printTableKernel(el_t *table, uint_t tableLen) {
+    for (uint_t i = 0; i < tableLen; i++) {
+        printf("%2d ", table[i]);
+    }
+    printf("\n\n");
+}
+
 __device__ uint2 scan(bool pred0, bool pred1) {
     extern __shared__ uint_t scanTile[];
     uint2 trueBefore;
@@ -70,7 +81,11 @@ __device__ uint2 split(bool pred0, bool pred1) {
     return rank;
 }
 
-__global__ void sortBlockKernel(el_t *table, uint_t startBit, bool orderAsc) {
+/*---------------------------------------------------------
+------------------------- KERNELS -------------------------
+-----------------------------------------------------------*/
+
+__global__ void radixSortLocalKernel(el_t *table, uint_t startBit, bool orderAsc) {
     extern __shared__ el_t sortTile[];
     uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
 
@@ -190,5 +205,5 @@ __global__ void sortGlobalKernel(el_t *input, el_t *output, uint_t *offsetsLocal
 
     radix = (sortGlobalTile[threadIdx.x + blockDim.x].key >> startBit) & (RADIX - 1);
     indexOutput = offsetsGlobalTile[radix] + threadIdx.x - offsetsLocal[radix];
-    output[indexOutput] = sortGlobalTile[threadIdx.x];
+    output[indexOutput] = sortGlobalTile[threadIdx.x + blockDim.x];
 }
