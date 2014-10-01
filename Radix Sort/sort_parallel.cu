@@ -16,13 +16,13 @@
 /*
 Initializes memory needed for paralel sort implementation.
 */
-void memoryInit(el_t *h_table, el_t **d_input, el_t **d_output, uint_t **d_bucketOffsetsGlobal,
+void memoryInit(el_t *h_table, el_t **d_table, el_t **d_bufffer, uint_t **d_bucketOffsetsGlobal,
                 uint_t **bucketOffsetsLocal, uint_t **d_bucketSizes, uint_t tableLen, uint_t bucketsLen) {
     cudaError_t error;
 
-    error = cudaMalloc(d_input, tableLen * sizeof(**d_input));
+    error = cudaMalloc(d_table, tableLen * sizeof(**d_table));
     checkCudaError(error);
-    error = cudaMalloc(d_output, tableLen * sizeof(**d_output));
+    error = cudaMalloc(d_bufffer, tableLen * sizeof(**d_bufffer));
     checkCudaError(error);
     error = cudaMalloc(d_bucketOffsetsGlobal, bucketsLen * sizeof(**bucketOffsetsLocal));
     checkCudaError(error);
@@ -31,7 +31,7 @@ void memoryInit(el_t *h_table, el_t **d_input, el_t **d_output, uint_t **d_bucke
     error = cudaMalloc(d_bucketSizes, bucketsLen * sizeof(**d_bucketSizes));
     checkCudaError(error);
 
-    error = cudaMemcpy(*d_input, h_table, tableLen * sizeof(**d_input), cudaMemcpyHostToDevice);
+    error = cudaMemcpy(*d_table, h_table, tableLen * sizeof(**d_table), cudaMemcpyHostToDevice);
     checkCudaError(error);
 }
 
@@ -47,7 +47,7 @@ void cudppInitScan(CUDPPHandle *scanPlan, uint_t tableLen) {
     config.op = CUDPP_ADD;
     config.datatype = CUDPP_UINT;
     config.algorithm = CUDPP_SCAN;
-    config.options = CUDPP_OPTION_FORWARD | CUDPP_OPTION_INCLUSIVE;
+    config.options = CUDPP_OPTION_FORWARD | CUDPP_OPTION_EXCLUSIVE;
 
     *scanPlan = 0;
     CUDPPResult result = cudppPlan(theCudpp, scanPlan, config, tableLen, 1, 0);
@@ -118,7 +118,7 @@ void runPrintTableKernel(uint_t *table, uint_t tableLen) {
 }
 
 void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc) {
-    el_t *d_input, *d_output;
+    el_t *d_table, *d_bufffer;
     uint_t *d_bucketOffsetsLocal, *d_bucketOffsetsGlobal, *d_bucketSizes;
     uint_t bucketsLen = RADIX * (tableLen / (2 * THREADS_PER_LOCAL_SORT));
     CUDPPHandle scanPlan;
@@ -127,33 +127,38 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
     cudaError_t error;
 
     // Init memory and library CUDPP
-    memoryInit(h_input, &d_input, &d_output, &d_bucketOffsetsLocal, &d_bucketOffsetsGlobal, &d_bucketSizes,
+    memoryInit(h_input, &d_table, &d_bufffer, &d_bucketOffsetsLocal, &d_bucketOffsetsGlobal, &d_bucketSizes,
                tableLen, bucketsLen);
     cudppInitScan(&scanPlan, bucketsLen);
 
     startStopwatch(&timer);
 
-    runRadixSortLocalKernel(d_input, tableLen, 0, orderAsc);
-    runGenerateBucketsKernel(d_input, d_bucketOffsetsLocal, d_bucketSizes, tableLen, 0);
+    for (uint_t bitOffset = 0; bitOffset < sizeof(uint_t) * 8; bitOffset += BIT_COUNT) {
+        runRadixSortLocalKernel(d_table, tableLen, bitOffset, orderAsc);
+        runGenerateBucketsKernel(d_table, d_bucketOffsetsLocal, d_bucketSizes, tableLen, bitOffset);
 
-    CUDPPResult result = cudppScan(scanPlan, d_bucketOffsetsGlobal, d_bucketSizes, bucketsLen);
-    if (result != CUDPP_SUCCESS) {
-        printf("Error in cudppScan()\n");
-        exit(-1);
+        CUDPPResult result = cudppScan(scanPlan, d_bucketOffsetsGlobal, d_bucketSizes, bucketsLen);
+        if (result != CUDPP_SUCCESS) {
+            printf("Error in cudppScan()\n");
+            exit(-1);
+        }
+
+        runRadixSortGlobalKernel(
+            d_table, d_bufffer, d_bucketOffsetsLocal, d_bucketOffsetsGlobal, tableLen, bitOffset, orderAsc
+        );
+
+        el_t *temp = d_table;
+        d_table = d_bufffer;
+        d_bufffer = temp;
     }
-
-    /*for (uint_t bitOffset = 0; bitOffset < sizeof(uint_t) * 8; bitOffset += BIT_COUNT) {
-        runSortBlockKernel(d_input, tableLen, bitOffset, orderAsc);
-    }*/
-
-    el_t *temp = d_input;
-    d_input = d_output;
-    d_output = temp;
 
     error = cudaDeviceSynchronize();
     checkCudaError(error);
     endStopwatch(timer, "Executing parallel radix sort.");
 
-    error = cudaMemcpy(h_output, d_output, tableLen * sizeof(*h_output), cudaMemcpyDeviceToHost);
+    error = cudaMemcpy(h_output, d_table, tableLen * sizeof(*h_output), cudaMemcpyDeviceToHost);
     checkCudaError(error);
+
+    cudaFree(d_table);
+    cudaFree(d_bufffer);
 }

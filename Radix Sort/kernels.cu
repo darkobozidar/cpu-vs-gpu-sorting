@@ -215,17 +215,22 @@ __global__ void radixSortGlobalKernel(el_t *input, el_t *output, uint_t *offsets
     sortGlobalTile[threadIdx.x] = input[index];
     sortGlobalTile[threadIdx.x + blockDim.x] = input[index + blockDim.x];
 
-    if (threadIdx.x < RADIX) {
-        offsetsLocalTile[threadIdx.x] = offsetsLocal[threadIdx.x * RADIX + threadIdx.x];
+    if (blockDim.x < RADIX) {
+        for (int i = 0; i < RADIX; i += blockDim.x) {
+            offsetsLocalTile[threadIdx.x + i] = offsetsLocal[blockIdx.x * RADIX + threadIdx.x + i];
+            offsetsGlobalTile[threadIdx.x + i] = offsetsGlobal[(threadIdx.x + i) * gridDim.x + blockIdx.x];
+        }
+    } else if (threadIdx.x < RADIX) {
+        offsetsLocalTile[threadIdx.x] = offsetsLocal[blockIdx.x * RADIX + threadIdx.x];
         offsetsGlobalTile[threadIdx.x] = offsetsGlobal[threadIdx.x * gridDim.x + blockIdx.x];
     }
     __syncthreads();
 
     radix = (sortGlobalTile[threadIdx.x].key >> bitOffset) & (RADIX - 1);
-    indexOutput = offsetsGlobalTile[radix] + threadIdx.x - offsetsLocal[radix];
+    indexOutput = offsetsGlobalTile[radix] + threadIdx.x - offsetsLocalTile[radix];
     output[indexOutput] = sortGlobalTile[threadIdx.x];
 
     radix = (sortGlobalTile[threadIdx.x + blockDim.x].key >> bitOffset) & (RADIX - 1);
-    indexOutput = offsetsGlobalTile[radix] + threadIdx.x - offsetsLocal[radix];
+    indexOutput = offsetsGlobalTile[radix] + threadIdx.x + blockDim.x - offsetsLocalTile[radix];
     output[indexOutput] = sortGlobalTile[threadIdx.x + blockDim.x];
 }
