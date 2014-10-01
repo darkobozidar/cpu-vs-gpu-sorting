@@ -16,7 +16,7 @@
 -------------------------- UTILS --------------------------
 -----------------------------------------------------------*/
 
-__global__ void printTableKernel(el_t *table, uint_t tableLen) {
+__global__ void printTableKernel(uint_t *table, uint_t tableLen) {
     for (uint_t i = 0; i < tableLen; i++) {
         printf("%2d ", table[i]);
     }
@@ -192,31 +192,30 @@ __global__ void generateBucketsKernel(el_t *table, uint_t *bucketOffsets, uint_t
     }
 
     /*if (blockIdx.x == 1 && threadIdx.x == 0) {
-        for (int i = 0; i < radix; i++) {
+        for (int i = 0; i < RADIX; i++) {
             printf("%2d, ", bucketOffsets[i]);
         }
         printf("\n\n");
 
-        for (int i = 0; i < radix; i++) {
+        for (int i = 0; i < RADIX; i++) {
             printf("%2d, ", bucketSizes[i]);
         }
         printf("\n\n");
     }*/
 }
 
-__global__ void sortGlobalKernel(el_t *input, el_t *output, uint_t *offsetsLocal, uint_t *offsetsGlobal,
-                                 uint_t bitOffset) {
+__global__ void radixSortGlobalKernel(el_t *input, el_t *output, uint_t *offsetsLocal, uint_t *offsetsGlobal,
+                                      uint_t bitOffset) {
     extern __shared__ el_t sortGlobalTile[];
     __shared__ uint_t offsetsLocalTile[RADIX];
     __shared__ uint_t offsetsGlobalTile[RADIX];
-    __shared__ uint_t sizesTile[RADIX];
     uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
     uint_t radix, indexOutput;
 
     sortGlobalTile[threadIdx.x] = input[index];
     sortGlobalTile[threadIdx.x + blockDim.x] = input[index + blockDim.x];
 
-    if (threadIdx.x < 16) {
+    if (threadIdx.x < RADIX) {
         offsetsLocalTile[threadIdx.x] = offsetsLocal[threadIdx.x * RADIX + threadIdx.x];
         offsetsGlobalTile[threadIdx.x] = offsetsGlobal[threadIdx.x * gridDim.x + blockIdx.x];
     }

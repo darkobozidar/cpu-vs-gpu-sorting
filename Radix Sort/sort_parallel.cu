@@ -4,6 +4,7 @@
 #include <cuda.h>
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
+#include <cudpp.h>
 
 #include "data_types.h"
 #include "constants.h"
@@ -32,6 +33,29 @@ void memoryInit(el_t *h_table, el_t **d_input, el_t **d_output, uint_t **d_bucke
 
     error = cudaMemcpy(*d_input, h_table, tableLen * sizeof(**d_input), cudaMemcpyHostToDevice);
     checkCudaError(error);
+}
+
+/*
+Initializes library CUDPP, which implements scan() function
+*/
+void cudppInitScan(CUDPPHandle *scanPlan, uint_t tableLen) {
+    // Initializes the CUDPP Library
+    CUDPPHandle theCudpp;
+    cudppCreate(&theCudpp);
+
+    CUDPPConfiguration config;
+    config.op = CUDPP_ADD;
+    config.datatype = CUDPP_UINT;
+    config.algorithm = CUDPP_SCAN;
+    config.options = CUDPP_OPTION_FORWARD | CUDPP_OPTION_INCLUSIVE;
+
+    *scanPlan = 0;
+    CUDPPResult result = cudppPlan(theCudpp, scanPlan, config, tableLen, 1, 0);
+
+    if (result != CUDPP_SUCCESS) {
+        printf("Error creating CUDPPPlan\n");
+        exit(-1);
+    }
 }
 
 /*
@@ -69,8 +93,26 @@ void runGenerateBucketsKernel(el_t *table, uint_t *blockOffsets, uint_t *blockSi
     );
 }
 
-void runPrintTableKernel(el_t *table, uint_t tableLen) {
-    printTableKernel << <1, 1 >> >(table, tableLen);
+void runRadixSortGlobalKernel(el_t *input,  el_t *output, uint_t *offsetsLocal, uint_t *offsetsGlobal,
+                              uint_t tableLen, uint_t bitOffset, bool orderAsc) {
+    cudaError_t error;
+    LARGE_INTEGER timer;
+
+    uint_t threadBlockSize = min(tableLen / 2, THREADS_PER_GLOBAL_SORT);
+    dim3 dimGrid(tableLen / (2 * threadBlockSize), 1, 1);
+    dim3 dimBlock(threadBlockSize, 1, 1);
+
+    startStopwatch(&timer);
+    radixSortGlobalKernel<<<dimGrid, dimBlock, 2 * threadBlockSize * sizeof(*input)>>>(
+        input, output, offsetsLocal, offsetsGlobal, bitOffset
+    );
+    /*error = cudaDeviceSynchronize();
+    checkCudaError(error);
+    endStopwatch(timer, "Executing global parallel radix sort.");*/
+}
+
+void runPrintTableKernel(uint_t *table, uint_t tableLen) {
+    printTableKernel<<<1, 1>>>(table, tableLen);
     cudaError_t error = cudaDeviceSynchronize();
     checkCudaError(error);
 }
@@ -79,17 +121,26 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
     el_t *d_input, *d_output;
     uint_t *d_bucketOffsetsLocal, *d_bucketOffsetsGlobal, *d_bucketSizes;
     uint_t bucketsLen = RADIX * (tableLen / (2 * THREADS_PER_LOCAL_SORT));
+    CUDPPHandle scanPlan;
 
     LARGE_INTEGER timer;
     cudaError_t error;
 
+    // Init memory and library CUDPP
     memoryInit(h_input, &d_input, &d_output, &d_bucketOffsetsLocal, &d_bucketOffsetsGlobal, &d_bucketSizes,
                tableLen, bucketsLen);
+    cudppInitScan(&scanPlan, bucketsLen);
 
     startStopwatch(&timer);
 
     runRadixSortLocalKernel(d_input, tableLen, 0, orderAsc);
     runGenerateBucketsKernel(d_input, d_bucketOffsetsLocal, d_bucketSizes, tableLen, 0);
+
+    CUDPPResult result = cudppScan(scanPlan, d_bucketOffsetsGlobal, d_bucketSizes, bucketsLen);
+    if (result != CUDPP_SUCCESS) {
+        printf("Error in cudppScan()\n");
+        exit(-1);
+    }
 
     /*for (uint_t bitOffset = 0; bitOffset < sizeof(uint_t) * 8; bitOffset += BIT_COUNT) {
         runSortBlockKernel(d_input, tableLen, bitOffset, orderAsc);
