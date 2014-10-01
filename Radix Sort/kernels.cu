@@ -123,30 +123,37 @@ __global__ void radixSortLocalKernel(el_t *table, uint_t bitOffset, bool orderAs
     table[index + blockDim.x] = sortTile[threadIdx.x + blockDim.x];
 }
 
-__global__ void generateBlocksKernel(el_t *table, uint_t *blockOffsets, uint_t *blockSizes, uint_t bitOffset) {
-    extern __shared__ uint_t offsetsTile[];
-    uint_t radix = 1 << BIT_COUNT;
+/*
+Generates buckets offsets and sizes for every sorted data block, which was sorted with local radix sort.
+*/
+__global__ void generateBucketsKernel(el_t *table, uint_t *bucketOffsets, uint_t *bucketSizes, uint_t bitOffset) {
+    extern __shared__ uint_t tile[];
 
-    uint_t *sizesTile = offsetsTile + radix;
-    uint_t *radixTile = offsetsTile + 2 * radix;
+    // Tile for saving bucket offsets, bucket sizes and radixes
+    uint_t *offsetsTile = tile;
+    uint_t *sizesTile = tile + RADIX;
+    uint_t *radixTile = tile + 2 * RADIX;
     uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
 
-    radixTile[threadIdx.x] = (table[index].key >> bitOffset) & (radix - 1);
-    radixTile[threadIdx.x + blockDim.x] = (table[index + blockDim.x].key >> bitOffset) & (radix - 1);
+    // Reads current radixes of elements
+    radixTile[threadIdx.x] = (table[index].key >> bitOffset) & (RADIX - 1);
+    radixTile[threadIdx.x + blockDim.x] = (table[index + blockDim.x].key >> bitOffset) & (RADIX - 1);
     __syncthreads();
 
-    // Generate block offsets
-    if (blockDim.x < radix) {
-        for (int i = 0; i < radix; i += blockDim.x) {
+    // Initializes block sizes and offsets
+    // TODO blockDim.x < 2 * radix
+    if (blockDim.x < RADIX) {
+        for (int i = 0; i < RADIX; i += blockDim.x) {
             offsetsTile[threadIdx.x + i] = 0;
             sizesTile[threadIdx.x + i] = 0;
         }
-    } else if (threadIdx.x < radix) {
+    } else if (threadIdx.x < RADIX) {
         offsetsTile[threadIdx.x] = 0;
         sizesTile[threadIdx.x] = 0;
     }
     __syncthreads();
 
+    // Search for bucket offsets (where 2 consecutive elements differ)
     if (threadIdx.x > 0 && radixTile[threadIdx.x - 1] != radixTile[threadIdx.x]) {
         offsetsTile[radixTile[threadIdx.x]] = threadIdx.x;
     }
@@ -155,7 +162,7 @@ __global__ void generateBlocksKernel(el_t *table, uint_t *blockOffsets, uint_t *
     }
     __syncthreads();
 
-    // Generate block sizes
+    // Generate bucket sizes from previously generated bucket offsets
     if (threadIdx.x > 0 && radixTile[threadIdx.x - 1] != radixTile[threadIdx.x]) {
         uint_t radix = radixTile[threadIdx.x - 1];
         sizesTile[radix] = threadIdx.x - offsetsTile[radix];
@@ -164,7 +171,7 @@ __global__ void generateBlocksKernel(el_t *table, uint_t *blockOffsets, uint_t *
         uint_t radix = radixTile[threadIdx.x + blockDim.x - 1];
         sizesTile[radix] = threadIdx.x + blockDim.x - offsetsTile[radix];
     }
-    // Size for last block
+    // Size for last bucket
     if (threadIdx.x == blockDim.x - 1) {
         uint_t radix = radixTile[2 * blockDim.x - 1];
         sizesTile[radix] = 2 * blockDim.x - offsetsTile[radix];
@@ -172,25 +179,26 @@ __global__ void generateBlocksKernel(el_t *table, uint_t *blockOffsets, uint_t *
     __syncthreads();
 
     // Write block offsets and sizes to global memory
-    // Block sizes are written in uncoalasced way, so that scan can be performed on this table
-    if (blockDim.x < radix) {
-        for (int i = 0; i < radix; i += blockDim.x) {
-            blockOffsets[blockIdx.x * radix + threadIdx.x + i] = offsetsTile[threadIdx.x + i];
-            blockSizes[blockIdx.x * radix + threadIdx.x + i] = sizesTile[threadIdx.x + i];
+    // Block sizes are not writtec consecutively way, so that scan can be performed on this table
+    // TODO blockDim.x < 2 * radix, TODO verify
+    if (blockDim.x < RADIX) {
+        for (int i = 0; i < RADIX; i += blockDim.x) {
+            bucketOffsets[blockIdx.x * RADIX + threadIdx.x + i] = offsetsTile[threadIdx.x + i];
+            bucketSizes[(threadIdx.x + i) * gridDim.x + blockIdx.x] = sizesTile[threadIdx.x + i];
         }
-    } else if (threadIdx.x < radix) {
-        blockOffsets[blockIdx.x * radix + threadIdx.x] = offsetsTile[threadIdx.x];
-        blockSizes[threadIdx.x * gridDim.x * blockDim.x + blockIdx.x] = sizesTile[threadIdx.x];
+    } else if (threadIdx.x < RADIX) {
+        bucketOffsets[blockIdx.x * RADIX + threadIdx.x] = offsetsTile[threadIdx.x];
+        bucketSizes[threadIdx.x * gridDim.x + blockIdx.x] = sizesTile[threadIdx.x];
     }
 
     /*if (blockIdx.x == 1 && threadIdx.x == 0) {
         for (int i = 0; i < radix; i++) {
-            printf("%2d, ", blockOffsets[i]);
+            printf("%2d, ", bucketOffsets[i]);
         }
         printf("\n\n");
 
         for (int i = 0; i < radix; i++) {
-            printf("%2d, ", blockSizes[i]);
+            printf("%2d, ", bucketSizes[i]);
         }
         printf("\n\n");
     }*/
@@ -210,7 +218,7 @@ __global__ void sortGlobalKernel(el_t *input, el_t *output, uint_t *offsetsLocal
 
     if (threadIdx.x < 16) {
         offsetsLocalTile[threadIdx.x] = offsetsLocal[threadIdx.x * RADIX + threadIdx.x];
-        offsetsGlobalTile[threadIdx.x] = offsetsGlobal[threadIdx.x * gridDim.x * blockDim.x + blockIdx.x];
+        offsetsGlobalTile[threadIdx.x] = offsetsGlobal[threadIdx.x * gridDim.x + blockIdx.x];
     }
     __syncthreads();
 
