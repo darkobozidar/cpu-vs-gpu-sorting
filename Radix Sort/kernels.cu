@@ -26,47 +26,56 @@ __global__ void printTableKernel(uint_t *table, uint_t tableLen) {
 /*
 Performs scan and computes, how many elements have 'true' predicate before current element.
 */
-__device__ uint2 scan(bool pred0, bool pred1) {
-    extern __shared__ uint_t scanTile[];
+__device__ uint2 intraWarpScan(volatile uint_t *scanTile, bool pred0, bool pred1) {
+    // The same kind of indexing as for bitonic sort
+    uint_t warpSize = WARP_SIZE <= blockDim.x ? WARP_SIZE : blockDim.x;
+    uint_t index = 2 * threadIdx.x - (threadIdx.x & (warpSize - 1));
     uint2 trueBefore;
+    uint_t temp;
 
-    scanTile[threadIdx.x] = pred0;
-    scanTile[threadIdx.x + blockDim.x] = pred1;
-    __syncthreads();
+    scanTile[index] = 0;
+    index += warpSize;
+    scanTile[index] = pred0 + pred1;
 
-    // First part of the scan
-    for (unsigned int stride = 1; stride <= blockDim.x; stride *= 2) {
-        int index = (threadIdx.x + 1) * 2 * stride - 1;
-
-        if (index < 2 * blockDim.x) {
-            scanTile[index] += scanTile[index - stride];
-        }
-        __syncthreads();
+    if (warpSize > 1) {
+        temp = scanTile[index - 1];
+        scanTile[index] += temp;
     }
-
-    // Second part of the scan
-    for (unsigned int stride = blockDim.x / 2; stride > 0; stride /= 2) {
-        int index = (threadIdx.x + 1) * 2 * stride - 1;
-
-        if (index + stride < 2 * blockDim.x) {
-            scanTile[index + stride] += scanTile[index];
-        }
-        __syncthreads();
+    if (warpSize > 2) {
+        temp = scanTile[index - 2];
+        scanTile[index] += temp;
+    }
+    if (warpSize > 4) {
+        temp = scanTile[index - 4];
+        scanTile[index] += temp;
+    }
+    if (warpSize > 8) {
+        temp = scanTile[index - 8];
+        scanTile[index] += temp;
+    }
+    if (warpSize > 16) {
+        temp = scanTile[index - 16];
+        scanTile[index] += temp;
     }
 
     // Converts inclusive scan to exclusive
-    trueBefore.x = scanTile[threadIdx.x] - pred0;
-    trueBefore.y = scanTile[threadIdx.x + blockDim.x] - pred1;
+    trueBefore.y = scanTile[index] - pred1;
+    trueBefore.x = trueBefore.y - pred0;
 
     return trueBefore;
+}
+
+__device__ void intraBlockScan(volatile uint_t *scanTile, bool pred0, bool pred1) {
+    // TODO
 }
 
 /*
 Computes the rank of the current element in shared memory block.
 */
 __device__ uint2 split(bool pred0, bool pred1) {
+    extern __shared__ uint_t scanTile[];
     __shared__ uint_t falseTotal;
-    uint2 trueBefore = scan(pred0, pred1);
+    uint2 trueBefore = intraWarpScan(scanTile, pred0, pred1);
     uint2 rank;
 
     // Last thread computes the total number of elements, which have 'false' predicate value.
@@ -79,14 +88,14 @@ __device__ uint2 split(bool pred0, bool pred1) {
     if (pred0) {
         rank.x = trueBefore.x + falseTotal;
     } else {
-        rank.x = threadIdx.x - trueBefore.x;
+        rank.x = 2 * threadIdx.x - trueBefore.x;
     }
 
     // Computes the rank for the second element (in second half of shared memory)
     if (pred1) {
         rank.y = trueBefore.y + falseTotal;
     } else {
-        rank.y = threadIdx.x + blockDim.x - trueBefore.y;
+        rank.y = (2 * threadIdx.x + 1) - trueBefore.y;
     }
 
     return rank;
@@ -107,8 +116,8 @@ __global__ void radixSortLocalKernel(el_t *table, uint_t bitOffset, bool orderAs
     sortTile[threadIdx.x + blockDim.x] = table[index + blockDim.x];
 
     for (uint_t shift = bitOffset; shift < bitOffset + BIT_COUNT; shift++) {
-        el_t el0 = sortTile[threadIdx.x];
-        el_t el1 = sortTile[threadIdx.x + blockDim.x];
+        el_t el0 = sortTile[2 * threadIdx.x];
+        el_t el1 = sortTile[2 * threadIdx.x + 1];
         __syncthreads();
 
         // Extracts the current bit (predicate) to calculate ranks

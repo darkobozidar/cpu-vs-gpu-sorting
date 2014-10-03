@@ -133,7 +133,10 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
 
     startStopwatch(&timer);
 
-    for (uint_t bitOffset = 0; bitOffset < sizeof(uint_t) * 8; bitOffset += BIT_COUNT) {
+    runRadixSortLocalKernel(d_table, tableLen, 0, orderAsc);
+
+
+    /*for (uint_t bitOffset = 0; bitOffset < sizeof(uint_t) * 8; bitOffset += BIT_COUNT) {
         runRadixSortLocalKernel(d_table, tableLen, bitOffset, orderAsc);
         runGenerateBucketsKernel(d_table, d_bucketOffsetsLocal, d_bucketSizes, tableLen, bitOffset);
 
@@ -150,7 +153,7 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
         el_t *temp = d_table;
         d_table = d_bufffer;
         d_bufffer = temp;
-    }
+    }*/
 
     error = cudaDeviceSynchronize();
     checkCudaError(error);

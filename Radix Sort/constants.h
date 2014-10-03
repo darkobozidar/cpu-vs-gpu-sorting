@@ -7,4 +7,7 @@
 #define BIT_COUNT 4
 #define RADIX (1 << BIT_COUNT)
 
+// Size of warp of threads
+#define WARP_SIZE 32
+
 #endif
