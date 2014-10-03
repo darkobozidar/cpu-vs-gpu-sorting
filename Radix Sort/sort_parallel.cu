@@ -54,6 +54,7 @@ void cudppInitScan(CUDPPHandle *scanPlan, uint_t tableLen) {
 
     if (result != CUDPP_SUCCESS) {
         printf("Error creating CUDPPPlan\n");
+        getchar();
         exit(-1);
     }
 }
@@ -120,7 +121,8 @@ void runPrintTableKernel(uint_t *table, uint_t tableLen) {
 void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc) {
     el_t *d_table, *d_bufffer;
     uint_t *d_bucketOffsetsLocal, *d_bucketOffsetsGlobal, *d_bucketSizes;
-    uint_t bucketsLen = RADIX * (tableLen / (2 * THREADS_PER_LOCAL_SORT));
+    uint_t threadsPerSort = min(tableLen / 2, THREADS_PER_LOCAL_SORT);
+    uint_t bucketsLen = RADIX * (tableLen / (2 * threadsPerSort));
     CUDPPHandle scanPlan;
 
     LARGE_INTEGER timer;
@@ -133,16 +135,16 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
 
     startStopwatch(&timer);
 
-    runRadixSortLocalKernel(d_table, tableLen, 0, orderAsc);
+    /*runRadixSortLocalKernel(d_table, tableLen, 0, orderAsc);*/
 
-
-    /*for (uint_t bitOffset = 0; bitOffset < sizeof(uint_t) * 8; bitOffset += BIT_COUNT) {
+    for (uint_t bitOffset = 0; bitOffset < sizeof(uint_t) * 8; bitOffset += BIT_COUNT) {
         runRadixSortLocalKernel(d_table, tableLen, bitOffset, orderAsc);
         runGenerateBucketsKernel(d_table, d_bucketOffsetsLocal, d_bucketSizes, tableLen, bitOffset);
 
         CUDPPResult result = cudppScan(scanPlan, d_bucketOffsetsGlobal, d_bucketSizes, bucketsLen);
         if (result != CUDPP_SUCCESS) {
             printf("Error in cudppScan()\n");
+            getchar();
             exit(-1);
         }
 
@@ -153,7 +155,7 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
         el_t *temp = d_table;
         d_table = d_bufffer;
         d_bufffer = temp;
-    }*/
+    }
 
     error = cudaDeviceSynchronize();
     checkCudaError(error);
