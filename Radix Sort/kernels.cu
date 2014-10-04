@@ -23,6 +23,18 @@ __global__ void printTableKernel(uint_t *table, uint_t tableLen) {
     printf("\n\n");
 }
 
+__device__ unsigned int laneMask() {
+    unsigned int mask;
+    asm("mov.u32 %0, %lanemask_lt;" : "=r"(mask));
+    return mask;
+}
+
+__device__ uint_t binaryWarpScan(bool pred) {
+    const uint_t mask = laneMask();
+    uint_t ballot = __ballot(pred);
+    return __popc(ballot & mask);
+}
+
 /*
 Performs scan and computes, how many elements have 'true' predicate before current element.
 */
@@ -51,7 +63,8 @@ __device__ uint2 intraBlockScan(bool pred0, bool pred1) {
     uint_t predSum = pred0 + pred1;
     uint2 trueBefore;
 
-    uint_t warpResult = intraWarpScan(scanTile, predSum);
+    uint_t warpResult = binaryWarpScan(pred0);
+    warpResult += binaryWarpScan(pred1);
     __syncthreads();
 
     if (laneIdx == warpSize - 1) {
