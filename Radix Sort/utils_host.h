@@ -4,8 +4,8 @@
 #include <windows.h>
 
 void startStopwatch(LARGE_INTEGER* start);
-void endStopwatch(LARGE_INTEGER start, char *comment, char deviceType);
-void endStopwatch(LARGE_INTEGER start, char *comment);
+double endStopwatch(LARGE_INTEGER start, char *comment, char deviceType);
+double endStopwatch(LARGE_INTEGER start, char *comment);
 void fillTable(el_t *table, uint_t tableLen, uint_t interval);
 void compareArrays(el_t* array1, el_t* array2, uint_t arrayLen);
 void printTable(el_t *table, uint_t tableLen);

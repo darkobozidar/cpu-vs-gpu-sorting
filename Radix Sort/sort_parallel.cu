@@ -159,7 +159,8 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
 
     error = cudaDeviceSynchronize();
     checkCudaError(error);
-    endStopwatch(timer, "Executing parallel radix sort.");
+    double time = endStopwatch(timer, "Executing parallel radix sort.");
+    printf("Operations (pair swaps): %.2f M/s\n", tableLen / 500.0 / time);
 
     error = cudaMemcpy(h_output, d_table, tableLen * sizeof(*h_output), cudaMemcpyDeviceToHost);
     checkCudaError(error);

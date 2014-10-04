@@ -23,14 +23,14 @@ __global__ void printTableKernel(uint_t *table, uint_t tableLen) {
     printf("\n\n");
 }
 
-__device__ unsigned int laneMask() {
-    unsigned int mask;
+__device__ uint_t laneMask() {
+    uint_t mask;
     asm("mov.u32 %0, %lanemask_lt;" : "=r"(mask));
     return mask;
 }
 
 __device__ uint_t binaryWarpScan(bool pred) {
-    const uint_t mask = laneMask();
+    uint_t mask = laneMask();
     uint_t ballot = __ballot(pred);
     return __popc(ballot & mask);
 }
