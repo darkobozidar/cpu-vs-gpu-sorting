@@ -38,19 +38,29 @@ __device__ uint_t binaryWarpScan(bool pred) {
 /*
 Performs scan and computes, how many elements have 'true' predicate before current element.
 */
-__device__ uint_t intraWarpScan(volatile uint_t *scanTile, uint_t val) {
+__device__ uint_t intraWarpScan(volatile uint_t *scanTile, uint_t val, uint_t stride) {
     // The same kind of indexing as for bitonic sort
-    uint_t index = 2 * threadIdx.x - (threadIdx.x & (warpSize - 1));
+    uint_t index = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
 
     scanTile[index] = 0;
-    index += warpSize;
+    index += stride;
     scanTile[index] = val;
 
-    scanTile[index] += scanTile[index - 1];
-    scanTile[index] += scanTile[index - 2];
-    scanTile[index] += scanTile[index - 4];
-    scanTile[index] += scanTile[index - 8];
-    scanTile[index] += scanTile[index - 16];
+    if (stride > 1) {
+        scanTile[index] += scanTile[index - 1];
+    }
+    if (stride > 2) {
+        scanTile[index] += scanTile[index - 2];
+    }
+    if (stride > 4) {
+        scanTile[index] += scanTile[index - 4];
+    }
+    if (stride > 8) {
+        scanTile[index] += scanTile[index - 8];
+    }
+    if (stride > 16) {
+        scanTile[index] += scanTile[index - 16];
+    }
 
     // Converts inclusive scan to exclusive
     return scanTile[index] - val;
@@ -72,8 +82,9 @@ __device__ uint2 intraBlockScan(bool pred0, bool pred1) {
     }
     __syncthreads();
 
-    if (threadIdx.x < warpSize) {
-        scanTile[threadIdx.x] = intraWarpScan(scanTile, scanTile[threadIdx.x]);
+    // Maximum number of elements for scan is warpSize ^ 2
+    if (threadIdx.x < blockDim.x / warpSize) {
+        scanTile[threadIdx.x] = intraWarpScan(scanTile, scanTile[threadIdx.x], blockDim.x / warpSize);
     }
     __syncthreads();
 
@@ -121,6 +132,7 @@ __device__ uint2 split(bool pred0, bool pred1) {
 /*
 Sorts blocks in shared memory according to current radix diggit.
 */
+// TODO read process more than two elements
 __global__ void radixSortLocalKernel(el_t *table, uint_t bitOffset, bool orderAsc) {
     extern __shared__ el_t sortTile[];
     uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
