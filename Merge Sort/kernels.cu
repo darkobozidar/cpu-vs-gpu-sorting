@@ -198,6 +198,8 @@ __global__ void mergeKernel(el_t* input, el_t* output, uint_t *ranksEven, uint_t
     uint_t offsetEven, offsetOdd;
     uint_t numElementsEven, numElementsOdd;
 
+    // TODO now that you have discovered RELEASE try again optimization, where you don't calculate the
+    // offset for the firt sample
     // Read the START index for even and odd sub-blocks
     if (blockIdx.x > 0) {
         indexStartEven = ranksEven[indexRank - 1];
