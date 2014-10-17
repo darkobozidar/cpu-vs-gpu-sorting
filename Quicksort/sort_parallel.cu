@@ -27,6 +27,24 @@ void memoryInit(el_t *h_input, el_t **d_dataInput, el_t **d_dataBuffer, uint_t t
     checkCudaError(error);
 }
 
+void runQuickSortLocalKernel(el_t *input, el_t *output, uint_t tableLen, bool orderAsc) {
+    cudaError_t error;
+    LARGE_INTEGER timer;
+
+    uint_t threadBlockSize = THREADS_PER_SORT_LOCAL;
+    uint_t elementsPerBlock = ELEMENTS_PER_THREAD_LOCAL * threadBlockSize;
+    dim3 dimGrid(tableLen / elementsPerBlock, 1, 1);
+    dim3 dimBlock(threadBlockSize, 1, 1);
+
+    startStopwatch(&timer);
+    quickSortLocalKernel<<<dimGrid, dimBlock, elementsPerBlock * sizeof(*input)>>>(
+        input, output, tableLen, orderAsc
+    );
+    /*error = cudaDeviceSynchronize();
+    checkCudaError(error);
+    endStopwatch(timer, "Executing local parallel quicksort.");*/
+}
+
 void sortParallel(el_t *h_dataInput, el_t *h_dataOutput, uint_t tableLen, bool orderAsc) {
     el_t *d_dataInput, *d_dataBuffer;
 
@@ -37,16 +55,17 @@ void sortParallel(el_t *h_dataInput, el_t *h_dataOutput, uint_t tableLen, bool o
 
     startStopwatch(&timer);
 
-    // TODO
+    // Quicksort
+    runQuickSortLocalKernel(d_dataInput, d_dataBuffer, tableLen, orderAsc);
 
     error = cudaDeviceSynchronize();
     checkCudaError(error);
-    double time = endStopwatch(timer, "Executing parallel radix sort.");
+    double time = endStopwatch(timer, "Executing parallel quicksort.");
     printf("Operations (pair swaps): %.2f M/s\n", tableLen / 500.0 / time);
 
-    /*error = cudaMemcpy(h_output, d_table, tableLen * sizeof(*h_output), cudaMemcpyDeviceToHost);
-    checkCudaError(error);*/
+    error = cudaMemcpy(h_dataOutput, d_dataBuffer, tableLen * sizeof(*h_dataOutput), cudaMemcpyDeviceToHost);
+    checkCudaError(error);
 
-    /*cudaFree(d_table);
-    cudaFree(d_bufffer);*/
+    cudaFree(d_dataInput);
+    cudaFree(d_dataBuffer);
 }

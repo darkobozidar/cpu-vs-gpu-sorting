@@ -28,31 +28,33 @@ Sorts input data with bitonic sort and outputs them to output array.
 */
 __device__ void bitonicSortKernel(el_t *input, el_t *output, uint_t tableLen, bool orderAsc) {
     extern __shared__ el_t sortTile[];
+    uint_t elementsPerBlock = blockDim.x * ELEMENTS_PER_THREAD_LOCAL;
     uint_t index = blockIdx.x * ELEMENTS_PER_THREAD_LOCAL * blockDim.x + threadIdx.x;
 
     // Read data from global to shared memory
     for (uint_t i = 0; i < ELEMENTS_PER_THREAD_LOCAL; i++) {
         sortTile[i * blockDim.x + threadIdx.x] = input[i * blockDim.x + index];
     }
+    __syncthreads();
 
-    // By default every thread sorts 2 elements with bitonic sort
-    for (uint_t offsetFactor = 0; offsetFactor < ELEMENTS_PER_THREAD_LOCAL / 2; offsetFactor++) {
-        uint_t tx = offsetFactor * 2 * blockDim.x + threadIdx.x;
+    // Bitonic sort
+    for (uint_t subBlockSize = 1; subBlockSize < elementsPerBlock; subBlockSize <<= 1) {
+        for (uint_t stride = subBlockSize; stride > 0; stride >>= 1) {
 
-        // Bitonic sort
-        for (uint_t subBlockSize = 1; subBlockSize <= blockDim.x; subBlockSize <<= 1) {
-            bool direction = (tx & subBlockSize) != 0;
+            // Every thread can sort/exchange 2+ elements
+            for (uint_t offsetFactor = 0; offsetFactor < ELEMENTS_PER_THREAD_LOCAL / 2; offsetFactor++) {
+                // TODO check if bottom 2 statements can be moved outside this for loop
+                uint_t tx = offsetFactor * blockDim.x + threadIdx.x;
+                bool direction = orderAsc ^ ((tx & subBlockSize) != 0);
 
-            for (uint_t stride = subBlockSize; stride > 0; stride >>= 1) {
-                __syncthreads();
                 uint_t start = 2 * tx - (tx & (stride - 1));
                 compareExchange(&sortTile[start], &sortTile[start + stride], direction);
             }
+            __syncthreads();
         }
     }
 
     // Store data from shared to global memory
-    __syncthreads();
     for (uint_t i = 0; i < ELEMENTS_PER_THREAD_LOCAL; i++) {
         output[i * blockDim.x + index] = sortTile[i * blockDim.x + threadIdx.x];
     }
