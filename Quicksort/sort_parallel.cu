@@ -15,14 +15,25 @@
 /*
 Initializes memory needed for paralel sort implementation.
 */
-void memoryInit() {
+void memoryInit(el_t *h_input, el_t **d_dataInput, el_t **d_dataBuffer, uint_t tableLen) {
     cudaError_t error;
-    // TODO
+
+    error = cudaMalloc(d_dataInput, tableLen * sizeof(**d_dataInput));
+    checkCudaError(error);
+    error = cudaMalloc(d_dataBuffer, tableLen * sizeof(**d_dataBuffer));
+    checkCudaError(error);
+
+    error = cudaMemcpy(*d_dataInput, h_input, tableLen * sizeof(**d_dataInput), cudaMemcpyHostToDevice);
+    checkCudaError(error);
 }
 
-void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc) {
+void sortParallel(el_t *h_dataInput, el_t *h_dataOutput, uint_t tableLen, bool orderAsc) {
+    el_t *d_dataInput, *d_dataBuffer;
+
     LARGE_INTEGER timer;
     cudaError_t error;
+
+    memoryInit(h_dataInput, &d_dataInput, &d_dataBuffer, tableLen);
 
     startStopwatch(&timer);
 
