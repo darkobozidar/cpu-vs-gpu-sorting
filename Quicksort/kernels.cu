@@ -23,59 +23,47 @@ __device__ void compareExchange(el_t *elem1, el_t *elem2, bool orderAsc) {
 }
 
 /*
-Sorts input data with bitonic sort and outputs them to output array.
+Sorts input data with NORMALIZED bitonic sort (all comparisons are made in same direction,
+easy to implement for input sequences of arbitrary size) and outputs them to output array.
+
 - TODO use quick sort kernel instead of bitonic sort
 */
-__device__ void bitonicSortKernel(el_t *input, el_t *output, uint_t start, uint_t end, bool orderAsc) {
+__device__ void bitonicSortKernel(el_t *input, el_t *output, uint_t start, uint_t length, bool orderAsc) {
     extern __shared__ el_t sortTile[];
-    uint_t elementsPerBlock = blockDim.x * ELEMENTS_PER_THREAD_LOCAL;
 
-    // Read data from global to shared memory
-    for (uint_t i = 0; i < ELEMENTS_PER_THREAD_LOCAL; i++) {
-        uint_t index = start + i * blockDim.x + threadIdx.x;
-        if (index >= end) {
-            break;
-        }
-
-        sortTile[i * blockDim.x + threadIdx.x] = input[index];
+    // Read data from global to shared memory.
+    for (uint_t tx = threadIdx.x; tx < length; tx += blockDim.x) {
+        sortTile[tx] = input[start + tx];
     }
     __syncthreads();
 
     // Bitonic sort
-    for (uint_t subBlockSize = 1; subBlockSize < elementsPerBlock; subBlockSize <<= 1) {
+    for (uint_t subBlockSize = 1; subBlockSize < length; subBlockSize <<= 1) {
         for (uint_t stride = subBlockSize; stride > 0; stride >>= 1) {
-
             // Every thread can sort/exchange 2 or more elements (at least 2 and only power of 2)
-            for (uint_t offsetFactor = 0; offsetFactor < ELEMENTS_PER_THREAD_LOCAL / 2; offsetFactor++) {
-                // TODO check if bottom 2 statements can be moved outside this for loop
-                uint_t tx = offsetFactor * blockDim.x + threadIdx.x;
-                bool direction = orderAsc ^ ((tx & subBlockSize) != 0);
-
-                // Calculate the index, from which thread is going to do an exchange
-                uint_t index = 2 * tx - (tx & (stride - 1));
-                if (start + index + stride > end) {
+            for (uint_t tx = threadIdx.x; tx < (blockDim.x * ELEMENTS_PER_THREAD_LOCAL >> 1); tx += blockDim.x) {
+                // In normalized bitonic sort, first step of every phase uses different stride
+                // than all other steps.
+                uint_t offset = stride == subBlockSize ? ((stride - (tx & (stride - 1))) << 1) - 1 : stride;
+                uint_t index = (tx << 1) - (tx & (stride - 1));
+                if (index + offset >= length) {
                     break;
                 }
 
-                compareExchange(&sortTile[index], &sortTile[index + stride], direction);
+                compareExchange(&sortTile[index], &sortTile[index + offset], orderAsc);
             }
             __syncthreads();
         }
     }
 
     // Store data from shared to global memory
-    for (uint_t i = 0; i < ELEMENTS_PER_THREAD_LOCAL; i++) {
-        uint_t index = start + i * blockDim.x + threadIdx.x;
-        if (index >= end) {
-            break;
-        }
-
-        output[index] = sortTile[i * blockDim.x + threadIdx.x];
+    for (uint_t tx = threadIdx.x; tx < length; tx += blockDim.x) {
+        output[start + tx] = sortTile[tx];
     }
 }
 
 __global__ void quickSortLocalKernel(el_t *input, el_t *output, uint_t tableLen, bool orderAsc) {
-    uint_t start = blockIdx.x * (blockDim.x * ELEMENTS_PER_THREAD_LOCAL);
-    uint_t end = (blockIdx.x + 1) * (blockDim.x * ELEMENTS_PER_THREAD_LOCAL);
-    bitonicSortKernel(input, output, start, end, orderAsc);
+    uint_t start = 3;
+    uint_t length = 1;
+    bitonicSortKernel(input, output, start, length, orderAsc);
 }

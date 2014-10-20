@@ -33,8 +33,10 @@ void runQuickSortLocalKernel(el_t *input, el_t *output, uint_t tableLen, bool or
 
     uint_t threadBlockSize = THREADS_PER_SORT_LOCAL;
     uint_t elementsPerBlock = ELEMENTS_PER_THREAD_LOCAL * threadBlockSize;
-    dim3 dimGrid(tableLen / elementsPerBlock, 1, 1);
-    dim3 dimBlock(threadBlockSize, 1, 1);
+    /*dim3 dimGrid(tableLen / elementsPerBlock, 1, 1);
+    dim3 dimBlock(threadBlockSize, 1, 1);*/
+    dim3 dimGrid(1, 1, 1);
+    dim3 dimBlock(256, 1, 1);
 
     startStopwatch(&timer);
     quickSortLocalKernel<<<dimGrid, dimBlock, elementsPerBlock * sizeof(*input)>>>(
