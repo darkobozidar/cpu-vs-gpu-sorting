@@ -34,7 +34,7 @@ void runQuickSortLocalKernel(el_t *input, el_t *output, lparam_t *localParams, u
     LARGE_INTEGER timer;
 
     // The same shared memory array is used for counting elements greater/lower than pivot and for bitonic sort.
-    // max(2 arrays of counters for elements greater/lower than pivot, array size for bitonic sort)
+    // max(intra-block-scan array size, array size for bitonic sort)
     uint_t sharedMemSize = max(
         2 * THREADS_PER_SORT_LOCAL * sizeof(uint_t), BITONIC_SORT_SIZE_LOCAL * sizeof(*input)
     );
