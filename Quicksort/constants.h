@@ -1,7 +1,8 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
-#define THREADS_PER_SORT_LOCAL 1
-#define ELEMENTS_PER_THREAD_LOCAL 2  // Min value is 2 and has to be power of 2 (bitonic sort)
+#define MAX_SEQUENCES 1  // Maximum number of sequences, which get produced by global quicksort
+
+#define THREADS_PER_SORT_LOCAL 1  // Thread block size for local quicksort
 
 #endif

@@ -28,26 +28,28 @@ easy to implement for input sequences of arbitrary size) and outputs them to out
 
 - TODO use quick sort kernel instead of bitonic sort
 */
-__device__ void bitonicSortKernel(el_t *input, el_t *output, uint_t start, uint_t length, bool orderAsc) {
+__device__ void bitonicSortKernel(el_t *input, el_t *output, lparam_t localParam, uint_t tableLen, bool orderAsc) {
     extern __shared__ el_t sortTile[];
 
     // Read data from global to shared memory.
-    for (uint_t tx = threadIdx.x; tx < length; tx += blockDim.x) {
-        sortTile[tx] = input[start + tx];
+    for (uint_t tx = threadIdx.x; tx < localParam.length; tx += blockDim.x) {
+        sortTile[tx] = input[localParam.start + tx];
     }
     __syncthreads();
 
     // Bitonic sort
-    for (uint_t subBlockSize = 1; subBlockSize < length; subBlockSize <<= 1) {
+    for (uint_t subBlockSize = 1; subBlockSize < localParam.length; subBlockSize <<= 1) {
         for (uint_t stride = subBlockSize; stride > 0; stride >>= 1) {
             // Every thread can sort/exchange 2 or more elements (at least 2 and only power of 2)
-            for (uint_t tx = threadIdx.x; tx < (blockDim.x * ELEMENTS_PER_THREAD_LOCAL >> 1); tx += blockDim.x) {
+            for (uint_t tx = threadIdx.x; tx < (tableLen / MAX_SEQUENCES) >> 1; tx += blockDim.x) {
                 // In normalized bitonic sort, first step of every phase uses different stride
                 // than all other steps.
+
+                // TODO fix that consecutive threads get consecutive index
                 uint_t offset = stride == subBlockSize ? ((stride - (tx & (stride - 1))) << 1) - 1 : stride;
                 uint_t index = (tx << 1) - (tx & (stride - 1));
-                if (index + offset >= length) {
-                    break;
+                if (index + offset >= localParam.length) {
+                    continue;
                 }
 
                 compareExchange(&sortTile[index], &sortTile[index + offset], orderAsc);
@@ -57,13 +59,12 @@ __device__ void bitonicSortKernel(el_t *input, el_t *output, uint_t start, uint_
     }
 
     // Store data from shared to global memory
-    for (uint_t tx = threadIdx.x; tx < length; tx += blockDim.x) {
-        output[start + tx] = sortTile[tx];
+    for (uint_t tx = threadIdx.x; tx < localParam.length; tx += blockDim.x) {
+        output[localParam.start + tx] = sortTile[tx];
     }
 }
 
-__global__ void quickSortLocalKernel(el_t *input, el_t *output, uint_t tableLen, bool orderAsc) {
-    uint_t start = 3;
-    uint_t length = 1;
-    bitonicSortKernel(input, output, start, length, orderAsc);
+__global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localParams, uint_t tableLen,
+                                     bool orderAsc) {
+    bitonicSortKernel(input, output, localParams[blockIdx.x], tableLen, orderAsc);
 }

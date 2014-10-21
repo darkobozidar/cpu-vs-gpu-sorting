@@ -15,4 +15,10 @@ struct Element {
 };
 typedef struct Element el_t;
 
+struct LocalParams {
+    uint_t start;
+    uint_t length;
+};
+typedef struct LocalParams lparam_t;
+
 #endif
