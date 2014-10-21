@@ -37,19 +37,27 @@ __device__ void bitonicSortKernel(el_t *input, el_t *output, lparam_t localParam
     }
     __syncthreads();
 
-    // Bitonic sort
+    // Bitonic sort PHASES
     for (uint_t subBlockSize = 1; subBlockSize < localParam.length; subBlockSize <<= 1) {
+        // Bitonic merge STEPS
         for (uint_t stride = subBlockSize; stride > 0; stride >>= 1) {
-            // Every thread can sort/exchange 2 or more elements (at least 2 and only power of 2)
             for (uint_t tx = threadIdx.x; tx < (tableLen / MAX_SEQUENCES) >> 1; tx += blockDim.x) {
-                // In normalized bitonic sort, first step of every phase uses different stride
-                // than all other steps.
+                uint_t indexThread = tx;
+                uint_t offset = stride;
 
-                // TODO fix that consecutive threads get consecutive index
-                uint_t offset = stride == subBlockSize ? ((stride - (tx & (stride - 1))) << 1) - 1 : stride;
-                uint_t index = (tx << 1) - (tx & (stride - 1));
+                // In normalized bitonic sort, first STEP of every PHASE uses different offset than all other
+                // STEPS. Also in first step of every phase, offsets sizes are generated in ASCENDING order
+                // (normalized bitnic sort requires DESCENDING order). Because of that we can break the loop if
+                // index + offset >= length (bellow). If we want to generate offset sizes in ASCENDING order,
+                // than thread indexes inside every sub-block have to be reversed.
+                if (stride == subBlockSize) {
+                    indexThread = (tx / stride) * stride + ((stride - 1) - (tx % stride));
+                    offset = ((tx & (stride - 1)) << 1) + 1;
+                }
+
+                uint_t index = (indexThread << 1) - (indexThread & (stride - 1));
                 if (index + offset >= localParam.length) {
-                    continue;
+                    break;
                 }
 
                 compareExchange(&sortTile[index], &sortTile[index + offset], orderAsc);
