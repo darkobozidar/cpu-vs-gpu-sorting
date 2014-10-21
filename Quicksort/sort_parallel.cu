@@ -33,12 +33,17 @@ void runQuickSortLocalKernel(el_t *input, el_t *output, lparam_t *localParams, u
     cudaError_t error;
     LARGE_INTEGER timer;
 
+    // The same shared memory array is used for counting elements greater/lower than pivot and for bitonic sort.
+    // max(2 arrays of counters for elements greater/lower than pivot, array size for bitonic sort)
+    uint_t sharedMemSize = max(
+        2 * THREADS_PER_SORT_LOCAL * sizeof(uint_t), BITONIC_SORT_SIZE_LOCAL * sizeof(*input)
+    );
     uint_t elementsPerBlock = tableLen / MAX_SEQUENCES;
     dim3 dimGrid(MAX_SEQUENCES, 1, 1);
     dim3 dimBlock(THREADS_PER_SORT_LOCAL, 1, 1);
 
     startStopwatch(&timer);
-    quickSortLocalKernel<<<dimGrid, dimBlock, elementsPerBlock * sizeof(*input)>>>(
+    quickSortLocalKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
         input, output, localParams, tableLen, orderAsc
     );
     /*error = cudaDeviceSynchronize();
@@ -48,8 +53,10 @@ void runQuickSortLocalKernel(el_t *input, el_t *output, lparam_t *localParams, u
 
 void quickSort(el_t *dataInput, el_t *dataBuffer, lparam_t *h_localParams, lparam_t *d_localParams,
                uint_t tableLen, bool orderAsc) {
-    h_localParams[0].start = 3;
-    h_localParams[0].length = 11;
+    // TODO handle empty sub-blocks
+    h_localParams[0].start = 0;
+    h_localParams[0].length = 16;
+    h_localParams[0].direction = false;
 
     cudaMemcpy(d_localParams, h_localParams, MAX_SEQUENCES * sizeof(*d_localParams), cudaMemcpyHostToDevice);
 

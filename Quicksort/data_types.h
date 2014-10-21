@@ -18,6 +18,9 @@ typedef struct Element el_t;
 struct LocalParams {
     uint_t start;
     uint_t length;
+    // TODO enum
+    // false: dataInput -> dataBuffer, true: dataBuffer -> dataInput
+    bool direction;
 };
 typedef struct LocalParams lparam_t;
 
