@@ -57,6 +57,9 @@ void quickSort(el_t *dataInput, el_t *dataBuffer, lparam_t *h_localParams, lpara
     h_localParams[0].start = 0;
     h_localParams[0].length = 16;
     h_localParams[0].direction = false;
+    h_localParams[1].start = 16;
+    h_localParams[1].length = 0;
+    h_localParams[1].direction = false;
 
     cudaMemcpy(d_localParams, h_localParams, MAX_SEQUENCES * sizeof(*d_localParams), cudaMemcpyHostToDevice);
 

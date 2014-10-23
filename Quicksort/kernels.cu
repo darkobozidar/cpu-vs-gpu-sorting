@@ -151,7 +151,7 @@ __device__ void normalizedBitonicSort(el_t *input, el_t *output, lparam_t localP
 ///////////////////////////////////////////////////////////////////
 
 // TODO in general chech if __shared__ values work faster (pivot, array1, array2, ...)
-// TODO try alignment with 32 because of bank conflicts.
+// TODO try alignment with 32 because of bank conflicts in shared memory.
 __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localParams, uint_t tableLen,
                                      bool orderAsc) {
     __shared__ extern uint_t localSortTile[];
@@ -165,13 +165,20 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localP
     __shared__ lparam_t workstack[32];
     __shared__ uint_t workstackCounter;
 
-    workstack[0] = localParams[blockIdx.x];
-    workstackCounter = 1;
+    if (threadIdx.x == 0) {
+        workstack[0] = localParams[blockIdx.x];
+        workstackCounter = 1;
+    }
+    __syncthreads();
+
+    // TODO handle this on host
+    if (workstack[0].length == 0) {
+        return;
+    }
 
     while (workstackCounter > 0) {
         // TODO try with explicit local values start, end, direction
         lparam_t params = workstack[workstackCounter - 1];
-        uint_t end = params.start + params.length;
 
         if (params.length <= BITONIC_SORT_SIZE_LOCAL) {
             // Bitonic sort is executed in-place and sorted data has to be writter to output.
@@ -190,7 +197,8 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localP
         el_t *array2 = params.direction ? input : output;
 
         uint_t pivot = getMedian(
-            array1[params.start].key, array1[(params.start + end) / 2].key, array1[end].key
+            array1[params.start].key, array1[params.start + (params.length / 2)].key,
+            array1[params.start + params.length - 1].key
         );
 
         // Counter of number of elements, which are lower/greater than pivot
@@ -198,17 +206,63 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localP
         uint_t greaterCounter = 0;
 
         // Every thread counts the number of elements lower/greater than pivot
-        for (uint_t index = params.start + threadIdx.x; index < end; index += blockDim.x) {
-            el_t temp = array1[index];
+        for (uint_t tx = threadIdx.x; tx < params.length; tx += blockDim.x) {
+            el_t temp = array1[params.start + tx];
             lowerCounter += temp.key < pivot;
             greaterCounter += temp.key > pivot;
         }
         __syncthreads();
 
         // Calculates global offsets for each thread
+        // TODO optimize scan
         lowerCounter = intraBlockScan(lowerCounter);
         greaterCounter = intraBlockScan(greaterCounter);
+
+        // Add new subsequences on explicit stack
+        if (threadIdx.x == (blockDim.x - 1)) {
+            lparam_t newParams1, newParams2;
+
+            newParams1.direction = !params.direction;
+            newParams2.direction = !params.direction;
+
+            if (lowerCounter <= greaterCounter) {
+                newParams1.start = params.start + params.length - greaterCounter;
+                newParams1.length = greaterCounter;
+                newParams2.start = params.start;
+                newParams2.length = lowerCounter;
+            } else {
+                newParams1.start = params.start;
+                newParams1.length = lowerCounter;
+                newParams2.start = params.start + params.length - greaterCounter;
+                newParams2.length = greaterCounter;
+            }
+
+            workstack[workstackCounter] = newParams1;
+            workstack[workstackCounter + 1] = newParams2;
+
+            workstackCounter++;
+        }
         __syncthreads();
+
+        uint_t indexLower = params.start + lowerCounter;
+        uint_t indexGreater = params.start + params.length - greaterCounter;
+
+        // Scatter elements to newly generated left/right subsequences
+        for (uint_t tx = threadIdx.x; tx < params.length; tx += blockDim.x) {
+            el_t temp = array1[params.start + tx];
+
+            if (temp.key < pivot) {
+                array2[indexLower++] = temp;
+            } else if (temp.key > pivot) {
+                array2[indexGreater++] = temp;
+            }
+        }
+        __syncthreads();
+
+        // Scatter pivots
+        /*for (uint_t index = params.start + ;;) {
+
+        }*/
 
         workstackCounter--;
     }
