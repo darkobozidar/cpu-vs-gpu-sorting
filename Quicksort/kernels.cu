@@ -156,13 +156,24 @@ __device__ void normalizedBitonicSort(el_t *input, el_t *output, lparam_t localP
 
 ////////////////////// LOCAL QUICKSORT UTILS //////////////////////
 
-__device__ int_t pushNewSeqOnStack(lparam_t *workstack, lparam_t params, uint_t workstackCounter,
-                                  uint_t lowerCounter, uint_t greaterCounter) {
+
+__device__ lparam_t popWorkstack(lparam_t *workstack, int_t &workstackCounter) {
+    if (threadIdx.x == 0) {
+        workstackCounter--;
+    }
+    __syncthreads();
+
+    return workstack[workstackCounter + 1];
+}
+
+__device__ int_t pushWorkstack(lparam_t *workstack, int_t &workstackCounter, lparam_t params,
+                               uint_t lowerCounter, uint_t greaterCounter) {
     lparam_t newParams1, newParams2;
 
     newParams1.direction = !params.direction;
     newParams2.direction = !params.direction;
 
+    // TODO try in-place change directly on workstack without newParams 1 and 2
     if (lowerCounter <= greaterCounter) {
         newParams1.start = params.start + params.length - greaterCounter;
         newParams1.length = greaterCounter;
@@ -176,7 +187,6 @@ __device__ int_t pushNewSeqOnStack(lparam_t *workstack, lparam_t params, uint_t 
     }
 
     // TODO verify if there are any benefits with this if statement
-    workstackCounter--;
     if (newParams1.length > 0) {
         workstack[++workstackCounter] = newParams1;
     }
@@ -213,14 +223,14 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localP
     }
     __syncthreads();
 
-    // TODO handle this on host
+    // TODO handle this on host (if possible in null distributions)
     if (workstack[0].length == 0) {
         return;
     }
 
     while (workstackCounter >= 0) {
         // TODO try with explicit local values start, end, direction
-        lparam_t params = workstack[workstackCounter];
+        lparam_t params = popWorkstack(workstack, workstackCounter);
 
         if (params.length <= BITONIC_SORT_SIZE_LOCAL) {
             // Bitonic sort is executed in-place and sorted data has to be writter to output.
@@ -229,10 +239,6 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localP
             normalizedBitonicSort(inputTemp, output, params, tableLen, orderAsc);
             __syncthreads();
 
-            if (threadIdx.x == 0) {
-                workstackCounter--;
-            }
-            __syncthreads();
             continue;
         }
 
@@ -281,11 +287,10 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localP
         }
         __syncthreads();
 
-        // Add new subsequences on explicit stack
-        // TODO verify for thread block size is greater than table len
+        // Add new subsequences on explicit stack and broadcast pivot offsets
         if (threadIdx.x == (blockDim.x - 1)) {
-            workstackCounter = pushNewSeqOnStack(
-                workstack, params, workstackCounter, globalLower + localLower, globalGreater + localGreater
+            pushWorkstack(
+                workstack, workstackCounter, params, globalLower + localLower, globalGreater + localGreater
             );
 
             pivotLowerOffset = globalLower + localLower;
