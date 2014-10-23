@@ -61,20 +61,22 @@ __device__ uint_t intraWarpScan(volatile uint_t *scanTile, uint_t val, uint_t st
 
 __device__ uint_t intraBlockScan(uint_t val) {
     extern __shared__ uint_t scanTile[];
-    uint_t warpIdx = threadIdx.x / warpSize;
-    uint_t laneIdx = threadIdx.x & (warpSize - 1);  // Thread index inside warp
+    // If thread block size is lower than warp size, than thread block size is used as warp size
+    uint_t warpLen = warpSize <= blockDim.x ? warpSize : blockDim.x;
+    uint_t warpIdx = threadIdx.x / warpLen;
+    uint_t laneIdx = threadIdx.x & (warpLen - 1);  // Thread index inside warp
 
-    uint_t warpResult = intraWarpScan(scanTile, val, warpSize);
+    uint_t warpResult = intraWarpScan(scanTile, val, warpLen);
     __syncthreads();
 
-    if (laneIdx == warpSize - 1) {
+    if (laneIdx == warpLen - 1) {
         scanTile[warpIdx] = warpResult;
     }
     __syncthreads();
 
     // Maximum number of elements for scan is warpSize ^ 2
-    if (threadIdx.x < blockDim.x / warpSize) {
-        scanTile[threadIdx.x] = intraWarpScan(scanTile, scanTile[threadIdx.x], blockDim.x / warpSize);
+    if (threadIdx.x < blockDim.x / warpLen) {
+        scanTile[threadIdx.x] = intraWarpScan(scanTile, scanTile[threadIdx.x], blockDim.x / warpLen);
     }
     __syncthreads();
 
@@ -146,6 +148,38 @@ __device__ void normalizedBitonicSort(el_t *input, el_t *output, lparam_t localP
 }
 
 
+////////////////////// LOCAL QUICKSORT UTILS //////////////////////
+
+__device__ void pushNewSeqOnStack(lparam_t *workstack, lparam_t params, uint_t &workstackCounter,
+                                  uint_t lowerCounter, uint_t greaterCounter) {
+    lparam_t newParams1, newParams2;
+
+    newParams1.direction = !params.direction;
+    newParams2.direction = !params.direction;
+
+    if (lowerCounter <= greaterCounter) {
+        newParams1.start = params.start + params.length - greaterCounter;
+        newParams1.length = greaterCounter;
+        newParams2.start = params.start;
+        newParams2.length = lowerCounter;
+    } else {
+        newParams1.start = params.start;
+        newParams1.length = lowerCounter;
+        newParams2.start = params.start + params.length - greaterCounter;
+        newParams2.length = greaterCounter;
+    }
+
+    // TODO verify if there are any benefits with this if statement
+    workstackCounter--;
+    if (newParams1.length > 0) {
+        workstack[++workstackCounter] = newParams1;
+    }
+    if (newParams1.length > 0) {
+        workstack[++workstackCounter] = newParams2;
+    }
+}
+
+
 ///////////////////////////////////////////////////////////////////
 ///////////////////////////// KERNELS /////////////////////////////
 ///////////////////////////////////////////////////////////////////
@@ -167,7 +201,7 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localP
 
     if (threadIdx.x == 0) {
         workstack[0] = localParams[blockIdx.x];
-        workstackCounter = 1;
+        workstackCounter = 0;
     }
     __syncthreads();
 
@@ -176,9 +210,9 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localP
         return;
     }
 
-    while (workstackCounter > 0) {
+    while (workstackCounter >= 0) {
         // TODO try with explicit local values start, end, direction
-        lparam_t params = workstack[workstackCounter - 1];
+        lparam_t params = workstack[workstackCounter];
 
         if (params.length <= BITONIC_SORT_SIZE_LOCAL) {
             // Bitonic sort is executed in-place and sorted data has to be writter to output.
@@ -202,50 +236,37 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localP
         );
 
         // Counter of number of elements, which are lower/greater than pivot
-        uint_t lowerCounter = 0;
-        uint_t greaterCounter = 0;
+        uint_t localLower = 0;
+        uint_t localGreater = 0;
 
         // Every thread counts the number of elements lower/greater than pivot
         for (uint_t tx = threadIdx.x; tx < params.length; tx += blockDim.x) {
             el_t temp = array1[params.start + tx];
-            lowerCounter += temp.key < pivot;
-            greaterCounter += temp.key > pivot;
+            localLower += temp.key < pivot;
+            localGreater += temp.key > pivot;
         }
         __syncthreads();
 
         // Calculates global offsets for each thread
-        // TODO optimize scan
-        lowerCounter = intraBlockScan(lowerCounter);
-        greaterCounter = intraBlockScan(greaterCounter);
-
-        // Add new subsequences on explicit stack
-        if (threadIdx.x == (blockDim.x - 1)) {
-            lparam_t newParams1, newParams2;
-
-            newParams1.direction = !params.direction;
-            newParams2.direction = !params.direction;
-
-            if (lowerCounter <= greaterCounter) {
-                newParams1.start = params.start + params.length - greaterCounter;
-                newParams1.length = greaterCounter;
-                newParams2.start = params.start;
-                newParams2.length = lowerCounter;
-            } else {
-                newParams1.start = params.start;
-                newParams1.length = lowerCounter;
-                newParams2.start = params.start + params.length - greaterCounter;
-                newParams2.length = greaterCounter;
-            }
-
-            workstack[workstackCounter] = newParams1;
-            workstack[workstackCounter + 1] = newParams2;
-
-            workstackCounter++;
-        }
+        uint_t globalLower = intraBlockScan(localLower);
+        __syncthreads();
+        uint_t globalGreater = intraBlockScan(localGreater);
         __syncthreads();
 
-        uint_t indexLower = params.start + lowerCounter;
-        uint_t indexGreater = params.start + params.length - greaterCounter;
+        // Add new subsequences on explicit stack
+        // TODO verify for thread block size is greater than table len
+        if (threadIdx.x == (blockDim.x - 1)) {
+            pushNewSeqOnStack(
+                workstack, params, workstackCounter, globalLower + localLower, globalGreater + localGreater
+            );
+
+            // TODO push global offset
+        }
+        __syncthreads();
+        break;
+
+        uint_t indexLower = params.start + globalLower;
+        uint_t indexGreater = params.start + params.length - globalGreater;
 
         // Scatter elements to newly generated left/right subsequences
         for (uint_t tx = threadIdx.x; tx < params.length; tx += blockDim.x) {
