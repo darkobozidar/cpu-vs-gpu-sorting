@@ -243,13 +243,13 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localP
         }
 
         // In order not to spoil references *input and *output, additional 2 local references are used
-        el_t *array1 = params.direction ? output : input;
-        el_t *array2 = params.direction ? input : output;
+        el_t *primaryArray = params.direction ? output : input;
+        el_t *bufferArray = params.direction ? input : output;
 
         if (threadIdx.x == 0) {
             pivot = getMedian(
-                array1[params.start], array1[params.start + (params.length / 2)],
-                array1[params.start + params.length - 1]
+                primaryArray[params.start], primaryArray[params.start + (params.length / 2)],
+                primaryArray[params.start + params.length - 1]
             );
         }
         __syncthreads();
@@ -260,7 +260,7 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localP
 
         // Every thread counts the number of elements lower/greater than pivot
         for (uint_t tx = threadIdx.x; tx < params.length; tx += blockDim.x) {
-            el_t temp = array1[params.start + tx];
+            el_t temp = primaryArray[params.start + tx];
             localLower += temp.key < pivot.key;
             localGreater += temp.key > pivot.key;
         }
@@ -277,12 +277,12 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localP
 
         // Scatter elements to newly generated left/right subsequences
         for (uint_t tx = threadIdx.x; tx < params.length; tx += blockDim.x) {
-            el_t temp = array1[params.start + tx];
+            el_t temp = primaryArray[params.start + tx];
 
             if (temp.key < pivot.key) {
-                array2[indexLower++] = temp;
+                bufferArray[indexLower++] = temp;
             } else if (temp.key > pivot.key) {
-                array2[indexGreater++] = temp;
+                bufferArray[indexGreater++] = temp;
             }
         }
         __syncthreads();
