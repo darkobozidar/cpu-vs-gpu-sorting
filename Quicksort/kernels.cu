@@ -199,6 +199,9 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localP
     __shared__ lparam_t workstack[32];
     __shared__ uint_t workstackCounter;
 
+    __shared__ uint_t pivotLowerOffset;
+    __shared__ uint_t pivotGreaterOffset;
+
     if (threadIdx.x == 0) {
         workstack[0] = localParams[blockIdx.x];
         workstackCounter = 0;
@@ -255,18 +258,19 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localP
 
         // Add new subsequences on explicit stack
         // TODO verify for thread block size is greater than table len
+        // TODO move bellow scattering
         if (threadIdx.x == (blockDim.x - 1)) {
             pushNewSeqOnStack(
                 workstack, params, workstackCounter, globalLower + localLower, globalGreater + localGreater
             );
 
-            // TODO push global offset
+            pivotLowerOffset = globalLower;
+            pivotGreaterOffset = globalGreater;
         }
         __syncthreads();
-        break;
 
         uint_t indexLower = params.start + globalLower;
-        uint_t indexGreater = params.start + params.length - globalGreater;
+        uint_t indexGreater = params.start + params.length - (globalGreater + localGreater);
 
         // Scatter elements to newly generated left/right subsequences
         for (uint_t tx = threadIdx.x; tx < params.length; tx += blockDim.x) {
