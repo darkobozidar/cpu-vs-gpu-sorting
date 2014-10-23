@@ -156,7 +156,7 @@ __device__ void normalizedBitonicSort(el_t *input, el_t *output, lparam_t localP
 
 ////////////////////// LOCAL QUICKSORT UTILS //////////////////////
 
-__device__ uint_t pushNewSeqOnStack(lparam_t *workstack, lparam_t params, uint_t workstackCounter,
+__device__ int_t pushNewSeqOnStack(lparam_t *workstack, lparam_t params, uint_t workstackCounter,
                                   uint_t lowerCounter, uint_t greaterCounter) {
     lparam_t newParams1, newParams2;
 
@@ -193,7 +193,7 @@ __device__ uint_t pushNewSeqOnStack(lparam_t *workstack, lparam_t params, uint_t
 ///////////////////////////////////////////////////////////////////
 
 // TODO in general chech if __shared__ values work faster (pivot, array1, array2, ...)
-// TODO try alignment with 32 because of bank conflicts in shared memory.
+// TODO try alignment with 32 because of coalasced reading.
 __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localParams, uint_t tableLen,
                                      bool orderAsc) {
     __shared__ extern uint_t localSortTile[];
@@ -201,7 +201,7 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localP
     // Explicit stack (instead of recursion) for work to be done
     // TODO allocate explicit stack dynamically according to sub-block size
     __shared__ lparam_t workstack[32];
-    __shared__ uint_t workstackCounter;
+    __shared__ int_t workstackCounter;
 
     __shared__ uint_t pivotLowerOffset;
     __shared__ uint_t pivotGreaterOffset;
@@ -227,10 +227,12 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localP
             el_t *inputTemp = params.direction ? output : input;
 
             normalizedBitonicSort(inputTemp, output, params, tableLen, orderAsc);
-            // TODO verify if syncthreads() is needed
             __syncthreads();
 
-            workstackCounter--;
+            if (threadIdx.x == 0) {
+                workstackCounter--;
+            }
+            __syncthreads();
             continue;
         }
 
@@ -295,6 +297,5 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localP
         for (uint_t tx = pivotLowerOffset + threadIdx.x; tx < params.length - pivotGreaterOffset; tx += blockDim.x) {
             array2[params.start + tx] = pivot;
         }
-        break;
     }
 }
