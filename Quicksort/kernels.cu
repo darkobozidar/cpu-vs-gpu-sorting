@@ -65,6 +65,9 @@ __device__ uint_t intraWarpScan(volatile uint_t *scanTile, uint_t val, uint_t st
     return scanTile[index] - val;
 }
 
+/*
+Performs intra-block INCLUSIVE scan.
+*/
 __device__ uint_t intraBlockScan(uint_t val) {
     extern __shared__ uint_t scanTile[];
     // If thread block size is lower than warp size, than thread block size is used as warp size
@@ -86,7 +89,7 @@ __device__ uint_t intraBlockScan(uint_t val) {
     }
     __syncthreads();
 
-    return warpResult + scanTile[warpIdx];
+    return warpResult + scanTile[warpIdx] + val;
 }
 
 
@@ -202,6 +205,7 @@ __device__ int_t pushWorkstack(lparam_t *workstack, int_t &workstackCounter, lpa
 ///////////////////////////// KERNELS /////////////////////////////
 ///////////////////////////////////////////////////////////////////
 
+// TODO add implementation for null distributions
 // TODO in general chech if __shared__ values work faster (pivot, array1, array2, ...)
 // TODO try alignment with 32 because of coalasced reading.
 __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localParams, uint_t tableLen,
@@ -266,14 +270,14 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localP
         }
         __syncthreads();
 
-        // Calculates global offsets for each thread
+        // Calculates global offsets for each thread with inclusive scan
         uint_t globalLower = intraBlockScan(localLower);
         __syncthreads();
         uint_t globalGreater = intraBlockScan(localGreater);
         __syncthreads();
 
-        uint_t indexLower = params.start + globalLower;
-        uint_t indexGreater = params.start + params.length - (globalGreater + localGreater);
+        uint_t indexLower = params.start + (globalLower - localLower);
+        uint_t indexGreater = params.start + params.length - globalGreater;
 
         // Scatter elements to newly generated left/right subsequences
         for (uint_t tx = threadIdx.x; tx < params.length; tx += blockDim.x) {
@@ -287,14 +291,12 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localP
         }
         __syncthreads();
 
-        // Add new subsequences on explicit stack and broadcast pivot offsets
+        // Add new subsequences on explicit stack and broadcast pivot offsets into shared memory
         if (threadIdx.x == (blockDim.x - 1)) {
-            pushWorkstack(
-                workstack, workstackCounter, params, globalLower + localLower, globalGreater + localGreater
-            );
+            pushWorkstack(workstack, workstackCounter, params, globalLower, globalGreater);
 
-            pivotLowerOffset = globalLower + localLower;
-            pivotGreaterOffset = globalGreater + localGreater;
+            pivotLowerOffset = globalLower;
+            pivotGreaterOffset = globalGreater;
         }
         __syncthreads();
 
