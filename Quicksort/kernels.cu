@@ -18,11 +18,17 @@
 /*
 http://stackoverflow.com/questions/1582356/fastest-way-of-finding-the-middle-value-of-a-triple
 */
-__device__ uint_t getMedian(uint_t a, uint_t b, uint_t c) {
-    uint_t maxVal = max(max(a, b), c);
-    uint_t minVal = min(min(a, b), c);
+__device__ el_t getMedian(el_t a, el_t b, el_t c) {
+    uint_t maxVal = max(max(a.key, b.key), c.key);
+    uint_t minVal = min(min(a.key, b.key), c.key);
+    uint_t median = a.key ^ b.key ^ c.key ^ maxVal ^ minVal;
 
-    return a ^ b ^ c ^ maxVal ^ minVal;
+    if (median == a.key) {
+        return a;
+    } else if (median == b.key) {
+        return b;
+    }
+    return c;
 }
 
 
@@ -150,7 +156,7 @@ __device__ void normalizedBitonicSort(el_t *input, el_t *output, lparam_t localP
 
 ////////////////////// LOCAL QUICKSORT UTILS //////////////////////
 
-__device__ void pushNewSeqOnStack(lparam_t *workstack, lparam_t params, uint_t &workstackCounter,
+__device__ uint_t pushNewSeqOnStack(lparam_t *workstack, lparam_t params, uint_t workstackCounter,
                                   uint_t lowerCounter, uint_t greaterCounter) {
     lparam_t newParams1, newParams2;
 
@@ -177,6 +183,8 @@ __device__ void pushNewSeqOnStack(lparam_t *workstack, lparam_t params, uint_t &
     if (newParams1.length > 0) {
         workstack[++workstackCounter] = newParams2;
     }
+
+    return workstackCounter;
 }
 
 
@@ -190,17 +198,14 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localP
                                      bool orderAsc) {
     __shared__ extern uint_t localSortTile[];
 
-    // Array of counters for elements lower/greater than pivot. One element belongs to one thread.
-    uint_t *lowerThanPivot = localSortTile;
-    uint_t *greaterThanPivot = localSortTile + blockDim.x;
-
     // Explicit stack (instead of recursion) for work to be done
-    // TODO allocate memory dynamically according to sub-block size
+    // TODO allocate explicit stack dynamically according to sub-block size
     __shared__ lparam_t workstack[32];
     __shared__ uint_t workstackCounter;
 
     __shared__ uint_t pivotLowerOffset;
     __shared__ uint_t pivotGreaterOffset;
+    __shared__ el_t pivot;
 
     if (threadIdx.x == 0) {
         workstack[0] = localParams[blockIdx.x];
@@ -233,10 +238,13 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localP
         el_t *array1 = params.direction ? output : input;
         el_t *array2 = params.direction ? input : output;
 
-        uint_t pivot = getMedian(
-            array1[params.start].key, array1[params.start + (params.length / 2)].key,
-            array1[params.start + params.length - 1].key
-        );
+        if (threadIdx.x == 0) {
+            pivot = getMedian(
+                array1[params.start], array1[params.start + (params.length / 2)],
+                array1[params.start + params.length - 1]
+            );
+        }
+        __syncthreads();
 
         // Counter of number of elements, which are lower/greater than pivot
         uint_t localLower = 0;
@@ -245,8 +253,8 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localP
         // Every thread counts the number of elements lower/greater than pivot
         for (uint_t tx = threadIdx.x; tx < params.length; tx += blockDim.x) {
             el_t temp = array1[params.start + tx];
-            localLower += temp.key < pivot;
-            localGreater += temp.key > pivot;
+            localLower += temp.key < pivot.key;
+            localGreater += temp.key > pivot.key;
         }
         __syncthreads();
 
@@ -256,19 +264,6 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localP
         uint_t globalGreater = intraBlockScan(localGreater);
         __syncthreads();
 
-        // Add new subsequences on explicit stack
-        // TODO verify for thread block size is greater than table len
-        // TODO move bellow scattering
-        if (threadIdx.x == (blockDim.x - 1)) {
-            pushNewSeqOnStack(
-                workstack, params, workstackCounter, globalLower + localLower, globalGreater + localGreater
-            );
-
-            pivotLowerOffset = globalLower;
-            pivotGreaterOffset = globalGreater;
-        }
-        __syncthreads();
-
         uint_t indexLower = params.start + globalLower;
         uint_t indexGreater = params.start + params.length - (globalGreater + localGreater);
 
@@ -276,19 +271,30 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localP
         for (uint_t tx = threadIdx.x; tx < params.length; tx += blockDim.x) {
             el_t temp = array1[params.start + tx];
 
-            if (temp.key < pivot) {
+            if (temp.key < pivot.key) {
                 array2[indexLower++] = temp;
-            } else if (temp.key > pivot) {
+            } else if (temp.key > pivot.key) {
                 array2[indexGreater++] = temp;
             }
         }
         __syncthreads();
 
+        // Add new subsequences on explicit stack
+        // TODO verify for thread block size is greater than table len
+        if (threadIdx.x == (blockDim.x - 1)) {
+            workstackCounter = pushNewSeqOnStack(
+                workstack, params, workstackCounter, globalLower + localLower, globalGreater + localGreater
+            );
+
+            pivotLowerOffset = globalLower + localLower;
+            pivotGreaterOffset = globalGreater + localGreater;
+        }
+        __syncthreads();
+
         // Scatter pivots
-        /*for (uint_t index = params.start + ;;) {
-
-        }*/
-
-        workstackCounter--;
+        for (uint_t tx = pivotLowerOffset + threadIdx.x; tx < params.length - pivotGreaterOffset; tx += blockDim.x) {
+            array2[params.start + tx] = pivot;
+        }
+        break;
     }
 }
