@@ -293,9 +293,9 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localP
         }
         __syncthreads();
 
-        // Scatter pivots
+        // Scatter pivots to output array
         for (uint_t tx = pivotLowerOffset + threadIdx.x; tx < params.length - pivotGreaterOffset; tx += blockDim.x) {
-            array2[params.start + tx] = pivot;
+            output[params.start + tx] = pivot;
         }
     }
 }
