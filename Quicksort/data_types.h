@@ -15,6 +15,16 @@ struct Element {
 };
 typedef struct Element el_t;
 
+struct GlobalParams {
+    uint_t start;
+    uint_t length;
+    uint_t oldStart;
+    uint_t oldLength;
+    // false: dataInput -> dataBuffer, true: dataBuffer -> dataInput
+    bool direction;
+};
+typedef struct GlobalParams gparam_t;
+
 struct LocalParams {
     uint_t start;
     uint_t length;
