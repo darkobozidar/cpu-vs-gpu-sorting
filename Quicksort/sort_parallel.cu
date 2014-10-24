@@ -73,7 +73,9 @@ void quickSort(el_t *hostData, el_t *dataInput, el_t *dataBuffer, h_gparam_t *h_
     uint_t elemsPerThreadBlock = THREADS_PER_SORT_GLOBAL * ELEMENTS_PER_THREAD_GLOBAL;
     // Maximum number of sequences which can be generated with global quicksort
     uint_t maxSequences = tableLen / (elemsPerThreadBlock * 1);  // TODO replace 1 with constant
+    cudaError_t error;
 
+    // TODO if statement for initial sequence length
     while (hostWorkCounter < maxSequences) {
         uint_t threadBlockCounter = 0;
 
@@ -89,6 +91,18 @@ void quickSort(el_t *hostData, el_t *dataInput, el_t *dataBuffer, h_gparam_t *h_
             // Store work, that thread blocks assigned to current sequence have to perform
             h_devGlobalParams[workIdx].fromHostGlobalParams(h_hostGlobalParams[workIdx]);
         }
+
+        cudaMemcpy(d_devGlobalParams, h_devGlobalParams, hostWorkCounter * sizeof(*d_devGlobalParams),
+                   cudaMemcpyHostToDevice);
+        cudaMemcpy(d_globalSeqIndexes, h_globalSeqIndexes, threadBlockCounter * sizeof(*d_globalSeqIndexes),
+                   cudaMemcpyHostToDevice);
+
+        // TODO run global quicksort
+
+        cudaMemcpy(h_devGlobalParams, d_devGlobalParams, hostWorkCounter * sizeof(*h_devGlobalParams),
+                   cudaMemcpyDeviceToHost);
+
+        // TODO generate new sequences
 
         break;
     }
