@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <climits>
 #include <Windows.h>
 
 #include <cuda.h>
@@ -15,8 +16,8 @@
 /*
 Initializes memory needed for paralel sort implementation.
 */
-void memoryInit(el_t *h_input, el_t **d_dataInput, el_t **d_dataBuffer, gparam_t **d_globalParams,
-                lparam_t **d_localParams, uint_t tableLen) {
+void memoryInit(el_t *h_input, el_t **d_dataInput, el_t **d_dataBuffer, d_gparam_t **d_globalParams,
+                uint_t **d_globalSeqIndexes, lparam_t **d_localParams, uint_t tableLen) {
     cudaError_t error;
 
     error = cudaMalloc(d_dataInput, tableLen * sizeof(**d_dataInput));
@@ -24,6 +25,8 @@ void memoryInit(el_t *h_input, el_t **d_dataInput, el_t **d_dataBuffer, gparam_t
     error = cudaMalloc(d_dataBuffer, tableLen * sizeof(**d_dataBuffer));
     checkCudaError(error);
     error = cudaMalloc(d_globalParams, 2 * MAX_SEQUENCES * sizeof(**d_globalParams));
+    checkCudaError(error);
+    error = cudaMalloc(d_globalSeqIndexes, 2 * MAX_SEQUENCES * sizeof(**d_globalSeqIndexes));
     checkCudaError(error);
     error = cudaMalloc(d_localParams, 2 * MAX_SEQUENCES * sizeof(**d_localParams));
     checkCudaError(error);
@@ -55,44 +58,51 @@ void runQuickSortLocalKernel(el_t *input, el_t *output, lparam_t *localParams, u
 }
 
 // TODO handle empty sub-blocks
-void quickSort(el_t *dataInput, el_t *dataBuffer, gparam_t *h_globalParams, gparam_t *d_globalParams,
-               lparam_t *h_localParams, lparam_t *d_localParams, uint_t tableLen, bool orderAsc) {
-    h_globalParams[0].start = 0;
-    h_globalParams[0].length = tableLen;
-    h_globalParams[0].oldStart = 0;
-    h_globalParams[0].oldLength = tableLen;
-    h_globalParams[0].direction = false;
+void quickSort(el_t *dataInput, el_t *dataBuffer, h_gparam_t *h_hostGlobalParams, h_gparam_t *h_hostGlobalBuffer,
+               d_gparam_t *h_devGlobalParams, d_gparam_t *d_devGlobalParams, uint_t *h_globalSeqIndexes,
+               uint_t *d_globalSeqIndexes, lparam_t *h_localParams, lparam_t *d_localParams, uint_t tableLen,
+               bool orderAsc) {
+    // TODO struct constructor
+    h_hostGlobalParams[0].start = 0;
+    h_hostGlobalParams[0].length = tableLen;
+    h_hostGlobalParams[0].oldStart = 0;
+    h_hostGlobalParams[0].oldLength = tableLen;
+    h_hostGlobalParams[0].direction = false;
+    // TODO pivot
 
-    uint_t workCounter = 1;
-    uint_t minLength = tableLen / MAX_SEQUENCES;
+    // Size of workstack
+    uint_t hostWorkCounter = 1;
+    uint_t elemsPerThreadBlock = THREADS_PER_SORT_GLOBAL * ELEMENTS_PER_THREAD_GLOBAL;
+    uint_t maxSequences = tableLen / (elemsPerThreadBlock * 1);  // TODO replace 1 with constant
 
-    while (workCounter < MAX_SEQUENCES) {
-        uint_t threadBlockSize = 0;
+    while (hostWorkCounter < maxSequences) {
+        uint_t threadBlockCounter = 0;
 
-        // Because pivots are not sorted, total size of sequence gets shorter and shorter
-        for (uint_t i = 0; i < workCounter; i++) {
-            threadBlockSize += h_globalParams[i].length;
-        }
-        threadBlockSize /= MAX_SEQUENCES;
+        for (uint_t workIdx = 0; workIdx < hostWorkCounter; workIdx++) {
+            h_gparam_t params = h_hostGlobalParams[workIdx];
+            uint_t threadBlocksPerSequence = max(params.length / elemsPerThreadBlock, 1);
 
-        uint_t deviceWorkCounter = 0;
-
-        for (uint_t i = 0; i < workCounter; i++) {
-            gparam_t params = h_globalParams[i];
-            if (params.length <= minLength) {
-                // TODO add to list "done"
-                continue;
+            // For every thread block mark, which work they have to perform.
+            for (uint_t blockIdx = 0; blockIdx < threadBlocksPerSequence; blockIdx++) {
+                h_globalSeqIndexes[threadBlockCounter++] = workIdx;
             }
 
-            uint_t threadBlockCount = max(params.length / threadBlockSize, 1);
-            for (uint_t j = 0; j < threadBlockCount; j++) {
-                d_globalParams[j].start = params.start + j * threadBlockSize;
-                d_globalParams[j].length = threadBlockSize;
-                deviceWorkCounter++;
-            }
-            d_globalParams[deviceWorkCounter - 1].start = params.start + (threadBlockCount - 1) * threadBlockSize;
-            d_globalParams[deviceWorkCounter - 1].length = params.length - (threadBlockCount - 1) * threadBlockCount;
+            // Store work, that thread blocks assigned to current sequence have to perform.
+            // TODO constructor
+            h_devGlobalParams[workIdx].start = params.start;
+            h_devGlobalParams[workIdx].length = params.length;
+            h_devGlobalParams[workIdx].direction = params.direction;
+
+            h_devGlobalParams[workIdx].offsetLower = 0;
+            h_devGlobalParams[workIdx].offsetGreater = 0;
+
+            h_devGlobalParams[workIdx].minValLower = UINT32_MAX;
+            h_devGlobalParams[workIdx].maxValLower = 0;
+            h_devGlobalParams[workIdx].minValGreater = UINT32_MAX;
+            h_devGlobalParams[workIdx].maxValGreater = 0;
         }
+
+        break;
     }
 
     /*cudaMemcpy(d_localParams, h_localParams, MAX_SEQUENCES * sizeof(*d_localParams), cudaMemcpyHostToDevice);
@@ -101,17 +111,25 @@ void quickSort(el_t *dataInput, el_t *dataBuffer, gparam_t *h_globalParams, gpar
 
 void sortParallel(el_t *h_dataInput, el_t *h_dataOutput, uint_t tableLen, bool orderAsc) {
     el_t *d_dataInput, *d_dataBuffer;
-    gparam_t h_globalParams[2 * MAX_SEQUENCES], *d_globalParams;
+    // Arrays needed for global quicksort
+    h_gparam_t h_hostGlobalParams[2 * MAX_SEQUENCES], h_hostGlobalBuffer[2 * MAX_SEQUENCES];
+    d_gparam_t h_devGlobalParams[2 * MAX_SEQUENCES], *d_devGlobalParams;
+    uint_t h_globalSeqIndexes[2 * MAX_SEQUENCES], *d_globalSeqIndexes;
+    // Arrays needed for local quicksort
     lparam_t h_localParams[2 * MAX_SEQUENCES], *d_localParams;
 
     LARGE_INTEGER timer;
     cudaError_t error;
 
-    memoryInit(h_dataInput, &d_dataInput, &d_dataBuffer, &d_globalParams, &d_localParams, tableLen);
+    memoryInit(
+        h_dataInput, &d_dataInput, &d_dataBuffer, &d_devGlobalParams, &d_globalSeqIndexes, &d_localParams, tableLen
+    );
 
     startStopwatch(&timer);
-    quickSort(d_dataInput, d_dataBuffer, h_globalParams, d_globalParams, h_localParams, d_localParams,
-              tableLen, orderAsc);
+    quickSort(
+        d_dataInput, d_dataBuffer, h_hostGlobalParams, h_hostGlobalBuffer, h_devGlobalParams, d_devGlobalParams,
+        h_globalSeqIndexes, d_globalSeqIndexes, h_localParams, d_localParams, tableLen, orderAsc
+    );
 
     error = cudaDeviceSynchronize();
     checkCudaError(error);
