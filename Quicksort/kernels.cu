@@ -205,9 +205,56 @@ __device__ int_t pushWorkstack(lparam_t *workstack, int_t &workstackCounter, lpa
 ///////////////////////////// KERNELS /////////////////////////////
 ///////////////////////////////////////////////////////////////////
 
+
+// TODO try alignment with 32 for coalasced reading
+__global__ void quickSortLocalKernel(el_t *input, el_t *output, d_gparam_t *globalParams, uint_t *seqIndexes,
+                                     uint_t tableLen) {
+    extern __shared__ uint_t globalSortTile[];
+    uint_t *minValues = globalSortTile + 2 * blockDim.x;
+    uint_t *maxValues = globalSortTile + 3 * blockDim.x;
+
+    uint_t workIndex = seqIndexes[blockIdx.x];
+    d_gparam_t params = globalParams[workIndex];
+    minValues[threadIdx.x] = input[params.start + threadIdx.x].key;
+    maxValues[threadIdx.x] = input[params.start + threadIdx.x].key;
+
+    el_t *primaryArray = params.direction ? output : input;
+    el_t *bufferArray = params.direction ? input : output;
+
+    uint_t localLower = 0;
+    uint_t localGreater = 0;
+
+    for (uint_t tx = threadIdx.x; tx < params.length; tx += blockDim.x) {
+        el_t temp = input[params.start + tx];
+        localLower += temp.key < params.pivot;
+        localGreater += temp.key > params.pivot;
+
+        minValues[threadIdx.x] = min(minValues[threadIdx.x], temp.key);
+        maxValues[threadIdx.x] = max(maxValues[threadIdx.x], temp.key);
+    }
+    __syncthreads();
+
+    uint_t scanLower = intraBlockScan(localLower);
+    __syncthreads();
+    uint_t scanGreater = intraBlockScan(localGreater);
+    __syncthreads();
+
+    // TODO parallel reduction for min
+
+    __shared__ uint_t globalLower, globalGreater;
+    if (threadIdx.x == (blockDim.x - 1)) {
+        globalLower = atomicAdd(&globalParams[workIndex].offsetLower, scanLower);
+        globalGreater = atomicAdd(&globalParams[workIndex].offsetGreater, scanGreater);
+
+        // TODO atomic min/max, check how they stored min/max in quicksort.cu 285-289
+        /*atomicMin(&globalParams[workIndex].minValGreater, minValues[0])*/
+    }
+    __syncthreads();
+}
+
 // TODO add implementation for null distributions
 // TODO in general chech if __shared__ values work faster (pivot, array1, array2, ...)
-// TODO try alignment with 32 because of coalasced reading.
+// TODO try alignment with 32 for coalasced reading
 __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localParams, uint_t tableLen,
                                      bool orderAsc) {
     __shared__ extern uint_t localSortTile[];

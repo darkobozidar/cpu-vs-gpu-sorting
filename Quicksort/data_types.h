@@ -65,6 +65,7 @@ struct DeviceGlobalParams {
         offsetLower = 0;
         offsetGreater = 0;
 
+        // TODO probably not needed, because in kernel every thread initializes it's own value
         minValLower = UINT32_MAX;
         maxValLower = 0;
         minValGreater = UINT32_MAX;
