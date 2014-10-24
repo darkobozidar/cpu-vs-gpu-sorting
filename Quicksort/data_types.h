@@ -24,7 +24,16 @@ struct HostGlobalParams {
 
     // false: dataInput -> dataBuffer, true: dataBuffer -> dataInput
     bool direction;
-    el_t pivot;
+    // TODO use correct data type
+    uint_t pivot;
+
+    void setDefaultParams(uint_t tableLen) {
+        start = 0;
+        length = tableLen;
+        oldStart = 0;
+        oldLength = tableLen;
+        direction = false;
+    }
 };
 typedef struct HostGlobalParams h_gparam_t;
 
@@ -34,6 +43,8 @@ struct DeviceGlobalParams {
     uint_t length;
     // false: dataInput -> dataBuffer, true: dataBuffer -> dataInput
     bool direction;
+    // TODO use correct data type
+    uint_t pivot;
 
     uint_t offsetLower;
     uint_t offsetGreater;
@@ -44,6 +55,21 @@ struct DeviceGlobalParams {
     uint_t maxValLower;
     uint_t minValGreater;
     uint_t maxValGreater;
+
+    void fromHostGlobalParams(h_gparam_t hostGlobalParams) {
+        start = hostGlobalParams.start;
+        length = hostGlobalParams.length;
+        direction = hostGlobalParams.direction;
+        pivot = hostGlobalParams.pivot;
+
+        offsetLower = 0;
+        offsetGreater = 0;
+
+        minValLower = UINT32_MAX;
+        maxValLower = 0;
+        minValGreater = UINT32_MAX;
+        maxValGreater = 0;
+    }
 };
 typedef struct DeviceGlobalParams d_gparam_t;
 

@@ -58,48 +58,36 @@ void runQuickSortLocalKernel(el_t *input, el_t *output, lparam_t *localParams, u
 }
 
 // TODO handle empty sub-blocks
-void quickSort(el_t *dataInput, el_t *dataBuffer, h_gparam_t *h_hostGlobalParams, h_gparam_t *h_hostGlobalBuffer,
-               d_gparam_t *h_devGlobalParams, d_gparam_t *d_devGlobalParams, uint_t *h_globalSeqIndexes,
-               uint_t *d_globalSeqIndexes, lparam_t *h_localParams, lparam_t *d_localParams, uint_t tableLen,
-               bool orderAsc) {
-    // TODO struct constructor
-    h_hostGlobalParams[0].start = 0;
-    h_hostGlobalParams[0].length = tableLen;
-    h_hostGlobalParams[0].oldStart = 0;
-    h_hostGlobalParams[0].oldLength = tableLen;
-    h_hostGlobalParams[0].direction = false;
-    // TODO pivot
+void quickSort(el_t *hostData, el_t *dataInput, el_t *dataBuffer, h_gparam_t *h_hostGlobalParams,
+               h_gparam_t *h_hostGlobalBuffer, d_gparam_t *h_devGlobalParams, d_gparam_t *d_devGlobalParams,
+               uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes, lparam_t *h_localParams,
+               lparam_t *d_localParams, uint_t tableLen, bool orderAsc) {
+    // Set starting work
+    uint_t minVal = min(min(hostData[0].key, hostData[tableLen / 2].key), hostData[tableLen - 1].key);
+    uint_t maxVal = max(max(hostData[0].key, hostData[tableLen / 2].key), hostData[tableLen - 1].key);
+    h_hostGlobalParams[0].setDefaultParams(tableLen);
+    h_hostGlobalParams[0].pivot = (minVal + maxVal) / 2;
 
     // Size of workstack
     uint_t hostWorkCounter = 1;
     uint_t elemsPerThreadBlock = THREADS_PER_SORT_GLOBAL * ELEMENTS_PER_THREAD_GLOBAL;
+    // Maximum number of sequences which can be generated with global quicksort
     uint_t maxSequences = tableLen / (elemsPerThreadBlock * 1);  // TODO replace 1 with constant
 
     while (hostWorkCounter < maxSequences) {
         uint_t threadBlockCounter = 0;
 
+        // Store work to device
         for (uint_t workIdx = 0; workIdx < hostWorkCounter; workIdx++) {
-            h_gparam_t params = h_hostGlobalParams[workIdx];
-            uint_t threadBlocksPerSequence = max(params.length / elemsPerThreadBlock, 1);
+            uint_t threadBlocksPerSequence = (h_hostGlobalParams[workIdx].length - 1) / elemsPerThreadBlock + 1;
 
-            // For every thread block mark, which work they have to perform.
+            // For every thread block marks, which sequence they have to partiton (which work they have to perform)
             for (uint_t blockIdx = 0; blockIdx < threadBlocksPerSequence; blockIdx++) {
                 h_globalSeqIndexes[threadBlockCounter++] = workIdx;
             }
 
-            // Store work, that thread blocks assigned to current sequence have to perform.
-            // TODO constructor
-            h_devGlobalParams[workIdx].start = params.start;
-            h_devGlobalParams[workIdx].length = params.length;
-            h_devGlobalParams[workIdx].direction = params.direction;
-
-            h_devGlobalParams[workIdx].offsetLower = 0;
-            h_devGlobalParams[workIdx].offsetGreater = 0;
-
-            h_devGlobalParams[workIdx].minValLower = UINT32_MAX;
-            h_devGlobalParams[workIdx].maxValLower = 0;
-            h_devGlobalParams[workIdx].minValGreater = UINT32_MAX;
-            h_devGlobalParams[workIdx].maxValGreater = 0;
+            // Store work, that thread blocks assigned to current sequence have to perform
+            h_devGlobalParams[workIdx].fromHostGlobalParams(h_hostGlobalParams[workIdx]);
         }
 
         break;
@@ -127,8 +115,8 @@ void sortParallel(el_t *h_dataInput, el_t *h_dataOutput, uint_t tableLen, bool o
 
     startStopwatch(&timer);
     quickSort(
-        d_dataInput, d_dataBuffer, h_hostGlobalParams, h_hostGlobalBuffer, h_devGlobalParams, d_devGlobalParams,
-        h_globalSeqIndexes, d_globalSeqIndexes, h_localParams, d_localParams, tableLen, orderAsc
+        h_dataInput, d_dataInput, d_dataBuffer, h_hostGlobalParams, h_hostGlobalBuffer, h_devGlobalParams,
+        d_devGlobalParams, h_globalSeqIndexes, d_globalSeqIndexes, h_localParams, d_localParams, tableLen, orderAsc
     );
 
     error = cudaDeviceSynchronize();
