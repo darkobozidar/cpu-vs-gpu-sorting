@@ -89,7 +89,7 @@ void quickSort(el_t *hostData, el_t *dataInput, el_t *dataBuffer, h_gparam_t *h_
             }
 
             // Store work, that thread blocks assigned to current sequence have to perform
-            h_devGlobalParams[workIdx].fromHostGlobalParams(h_hostGlobalParams[workIdx]);
+            h_devGlobalParams[workIdx].fromHostGlobalParams(h_hostGlobalParams[workIdx], threadBlocksPerSequence);
         }
 
         cudaMemcpy(d_devGlobalParams, h_devGlobalParams, hostWorkCounter * sizeof(*d_devGlobalParams),

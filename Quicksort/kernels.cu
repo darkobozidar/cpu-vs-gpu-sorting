@@ -93,6 +93,30 @@ __device__ uint_t intraBlockScan(uint_t val) {
 }
 
 
+//////////////////////// MIN/MAX REDUCTION ////////////////////////
+
+/*
+Performs parallel min/max reduction. Half of the threads in thread block calculates min value,
+other half calculates max value. Result is returned as the first element in each array.
+
+TODO read papers about parallel reduction optimization
+*/
+__global__ void minMaxReduction(uint_t *minValues, uint_t *maxValues, uint_t length) {
+    extern __shared__ float partialSum[];
+
+    for (uint_t stride = blockDim.x / 2; stride > 0; stride /= 2) {
+        if (threadIdx.x < stride && threadIdx.x + stride < length) {
+            if (threadIdx.x < blockDim.x) {
+                minValues[threadIdx.x] = min(minValues[threadIdx.x], minValues[threadIdx.x + stride]);
+            } else {
+                maxValues[threadIdx.x] = max(maxValues[threadIdx.x], maxValues[threadIdx.x + stride]);
+            }
+        }
+        __syncthreads();
+    }
+}
+
+
 /////////////////////// BITONIC SORT UTILS ////////////////////////
 
 /*
@@ -207,16 +231,30 @@ __device__ int_t pushWorkstack(lparam_t *workstack, int_t &workstackCounter, lpa
 
 
 // TODO try alignment with 32 for coalasced reading
-__global__ void quickSortLocalKernel(el_t *input, el_t *output, d_gparam_t *globalParams, uint_t *seqIndexes,
-                                     uint_t tableLen) {
+__global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_gparam_t *globalParams, uint_t *seqIndexes,
+                                      uint_t tableLen) {
     extern __shared__ uint_t globalSortTile[];
     uint_t *minValues = globalSortTile + 2 * blockDim.x;
     uint_t *maxValues = globalSortTile + 3 * blockDim.x;
 
+    // Retrieve the parameters for current subsequence
     uint_t workIndex = seqIndexes[blockIdx.x];
-    d_gparam_t params = globalParams[workIndex];
-    minValues[threadIdx.x] = input[params.start + threadIdx.x].key;
-    maxValues[threadIdx.x] = input[params.start + threadIdx.x].key;
+    __shared__ d_gparam_t params = globalParams[workIndex];
+
+    if (threadIdx.x == 0) {
+        atomicSub(&globalParams[workIndex].blockCounter, 1);
+
+        uint_t elemsPerBlock = blockDim.x * ELEMENTS_PER_THREAD_GLOBAL;
+        params.start += params.blockCounter * elemsPerBlock;
+        params.length -= params.blockCounter > 0 ? elemsPerBlock : ((params.length - 1) % elemsPerBlock) + 1;
+    }
+    __syncthreads();
+
+    // Initializes min/max value
+    if (threadIdx.x < params.length / 2) {
+        minValues[threadIdx.x] = input[params.start + threadIdx.x].key;
+        maxValues[threadIdx.x] = input[params.start + threadIdx.x].key;
+    }
 
     el_t *primaryArray = params.direction ? output : input;
     el_t *bufferArray = params.direction ? input : output;
@@ -239,17 +277,20 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, d_gparam_t *glob
     uint_t scanGreater = intraBlockScan(localGreater);
     __syncthreads();
 
-    // TODO parallel reduction for min
+    minMaxReduction(minValues, maxValues, params.length);
 
     __shared__ uint_t globalLower, globalGreater;
     if (threadIdx.x == (blockDim.x - 1)) {
         globalLower = atomicAdd(&globalParams[workIndex].offsetLower, scanLower);
         globalGreater = atomicAdd(&globalParams[workIndex].offsetGreater, scanGreater);
 
-        // TODO atomic min/max, check how they stored min/max in quicksort.cu 285-289
-        /*atomicMin(&globalParams[workIndex].minValGreater, minValues[0])*/
+        atomicMin(&globalParams[workIndex].minVal, minValues[0]);
+        atomicMax(&globalParams[workIndex].maxVal, maxValues[0]);
     }
     __syncthreads();
+
+    // TODO scatter
+    // TODO store pivots
 }
 
 // TODO add implementation for null distributions

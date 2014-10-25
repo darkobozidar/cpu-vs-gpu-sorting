@@ -45,31 +45,25 @@ struct DeviceGlobalParams {
     bool direction;
     // TODO use correct data type
     uint_t pivot;
+    uint_t blockCounter;
 
     uint_t offsetLower;
     uint_t offsetGreater;
 
     // Can't use el_t because of avg(), which is used for pivot calculation
     // TODO use correct data type
-    uint_t minValLower;
-    uint_t maxValLower;
-    uint_t minValGreater;
-    uint_t maxValGreater;
+    uint_t minVal;
+    uint_t maxVal;
 
-    void fromHostGlobalParams(h_gparam_t hostGlobalParams) {
+    void fromHostGlobalParams(h_gparam_t hostGlobalParams, uint_t threadBlocksPerSequence) {
         start = hostGlobalParams.start;
         length = hostGlobalParams.length;
         direction = hostGlobalParams.direction;
         pivot = hostGlobalParams.pivot;
+        blockCounter = threadBlocksPerSequence;
 
         offsetLower = 0;
         offsetGreater = 0;
-
-        // TODO probably not needed, because in kernel every thread initializes it's own value
-        minValLower = UINT32_MAX;
-        maxValLower = 0;
-        minValGreater = UINT32_MAX;
-        maxValGreater = 0;
     }
 };
 typedef struct DeviceGlobalParams d_gparam_t;
