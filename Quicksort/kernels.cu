@@ -289,8 +289,30 @@ __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_gparam_t *glo
     }
     __syncthreads();
 
-    // TODO scatter
-    // TODO store pivots
+    uint_t indexLower = params.start + globalLower + scanLower;
+    uint_t indexGreater = params.start + params.length - globalGreater + scanGreater;
+
+    // Scatter elements to newly generated left/right subsequences
+    for (uint_t tx = threadIdx.x; tx < params.length; tx += blockDim.x) {
+        el_t temp = primaryArray[params.start + tx];
+
+        if (temp.key < params.pivot) {
+            bufferArray[indexLower++] = temp;
+        } else if (temp.key > params.pivot) {
+            bufferArray[indexGreater++] = temp;
+        }
+    }
+    __syncthreads();
+
+    // Last block assigned to current sub-sequence stores pivots
+    if (params.blockCounter == 0) {
+        el_t pivot;
+        pivot.key = params.pivot;
+
+        for (uint_t tx = params.offsetLower + threadIdx.x; tx < params.length - params.offsetGreater; tx += blockDim.x) {
+            output[tx] = pivot;
+        }
+    }
 }
 
 // TODO add implementation for null distributions
