@@ -50,12 +50,12 @@ void runQuickSortGlobalKernel(el_t *input, el_t* output, d_gparam_t *h_devGlobal
         cudaMemcpyHostToDevice);
     checkCudaError(error);
 
-    quickSortGlobalKernel<<<threadBlockCounter, THREADS_PER_SORT_GLOBAL>>>(
+    quickSortGlobalKernel<<<threadBlockCounter, THREADS_PER_SORT_GLOBAL, 4 * THREADS_PER_SORT_GLOBAL>>>(
         input, output, d_devGlobalParams, d_globalSeqIndexes, tableLen
     );
 
     error = cudaMemcpy(h_devGlobalParams, d_devGlobalParams, hostWorkCounter * sizeof(*h_devGlobalParams),
-        cudaMemcpyDeviceToHost);
+                       cudaMemcpyDeviceToHost);
     checkCudaError(error);
 
     /*error = cudaDeviceSynchronize();
@@ -63,7 +63,8 @@ void runQuickSortGlobalKernel(el_t *input, el_t* output, d_gparam_t *h_devGlobal
     endStopwatch(timer, "Executing global parallel quicksort.");*/
 }
 
-void runQuickSortLocalKernel(el_t *input, el_t *output, lparam_t *localParams, uint_t tableLen, bool orderAsc) {
+void runQuickSortLocalKernel(el_t *input, el_t *output, lparam_t *h_localParams, lparam_t *d_localParams,
+                             uint_t tableLen, uint_t numThreadBlocks, bool orderAsc) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
@@ -72,11 +73,14 @@ void runQuickSortLocalKernel(el_t *input, el_t *output, lparam_t *localParams, u
     uint_t sharedMemSize = max(
         2 * THREADS_PER_SORT_LOCAL * sizeof(uint_t), BITONIC_SORT_SIZE_LOCAL * sizeof(*input)
     );
-    uint_t elementsPerBlock = tableLen / MAX_SEQUENCES;
-    dim3 dimGrid(MAX_SEQUENCES, 1, 1);
+    dim3 dimGrid(numThreadBlocks, 1, 1);
     dim3 dimBlock(THREADS_PER_SORT_LOCAL, 1, 1);
 
     startStopwatch(&timer);
+    error = cudaMemcpy(d_localParams, h_localParams, MAX_SEQUENCES * sizeof(*d_localParams),
+                       cudaMemcpyHostToDevice);
+    checkCudaError(error);
+
     quickSortLocalKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
         input, output, localParams, tableLen, orderAsc
     );
@@ -162,8 +166,7 @@ void quickSort(el_t *hostData, el_t *dataInput, el_t *dataBuffer, h_gparam_t *h_
         h_localParams[localWorkCounter++].fromGlobalParams(h_hostGlobalParams[workIdx]);
     }
 
-    /*cudaMemcpy(d_localParams, h_localParams, MAX_SEQUENCES * sizeof(*d_localParams), cudaMemcpyHostToDevice);
-    runQuickSortLocalKernel(dataInput, dataBuffer, d_localParams, tableLen, orderAsc);*/
+    runQuickSortLocalKernel(dataInput, dataBuffer, h_localParams, d_localParams, tableLen, workTotal, orderAsc);
 }
 
 void sortParallel(el_t *h_dataInput, el_t *h_dataOutput, uint_t tableLen, bool orderAsc) {
