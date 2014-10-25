@@ -35,6 +35,34 @@ void memoryInit(el_t *h_input, el_t **d_dataInput, el_t **d_dataBuffer, d_gparam
     checkCudaError(error);
 }
 
+void runQuickSortGlobalKernel(el_t *input, el_t* output, d_gparam_t *h_devGlobalParams,
+                              d_gparam_t *d_devGlobalParams, uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes,
+                              uint_t hostWorkCounter, uint_t threadBlockCounter, uint_t tableLen) {
+    cudaError_t error;
+    LARGE_INTEGER timer;
+
+    startStopwatch(&timer);
+
+    error = cudaMemcpy(d_devGlobalParams, h_devGlobalParams, hostWorkCounter * sizeof(*d_devGlobalParams),
+        cudaMemcpyHostToDevice);
+    checkCudaError(error);
+    error = cudaMemcpy(d_globalSeqIndexes, h_globalSeqIndexes, threadBlockCounter * sizeof(*d_globalSeqIndexes),
+        cudaMemcpyHostToDevice);
+    checkCudaError(error);
+
+    quickSortGlobalKernel<<<threadBlockCounter, THREADS_PER_SORT_GLOBAL>>>(
+        input, output, d_devGlobalParams, d_globalSeqIndexes, tableLen
+    );
+
+    error = cudaMemcpy(h_devGlobalParams, d_devGlobalParams, hostWorkCounter * sizeof(*h_devGlobalParams),
+        cudaMemcpyDeviceToHost);
+    checkCudaError(error);
+
+    /*error = cudaDeviceSynchronize();
+    checkCudaError(error);
+    endStopwatch(timer, "Executing global parallel quicksort.");*/
+}
+
 void runQuickSortLocalKernel(el_t *input, el_t *output, lparam_t *localParams, uint_t tableLen, bool orderAsc) {
     cudaError_t error;
     LARGE_INTEGER timer;
@@ -92,15 +120,10 @@ void quickSort(el_t *hostData, el_t *dataInput, el_t *dataBuffer, h_gparam_t *h_
             h_devGlobalParams[workIdx].fromHostGlobalParams(h_hostGlobalParams[workIdx], threadBlocksPerSequence);
         }
 
-        cudaMemcpy(d_devGlobalParams, h_devGlobalParams, hostWorkCounter * sizeof(*d_devGlobalParams),
-                   cudaMemcpyHostToDevice);
-        cudaMemcpy(d_globalSeqIndexes, h_globalSeqIndexes, threadBlockCounter * sizeof(*d_globalSeqIndexes),
-                   cudaMemcpyHostToDevice);
-
-        // TODO run global quicksort
-
-        cudaMemcpy(h_devGlobalParams, d_devGlobalParams, hostWorkCounter * sizeof(*h_devGlobalParams),
-                   cudaMemcpyDeviceToHost);
+        runQuickSortGlobalKernel(
+            dataInput, dataBuffer, h_devGlobalParams, d_devGlobalParams, h_globalSeqIndexes,
+            d_globalSeqIndexes, hostWorkCounter, threadBlockCounter, tableLen
+        );
 
         // TODO generate new sequences
 
