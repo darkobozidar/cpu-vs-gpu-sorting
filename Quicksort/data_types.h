@@ -30,9 +30,29 @@ struct HostGlobalParams {
     void setDefaultParams(uint_t tableLen) {
         start = 0;
         length = tableLen;
-        oldStart = 0;
-        oldLength = tableLen;
+        oldStart = start;
+        oldLength = length;
         direction = false;
+    }
+
+    void lowerSequence(struct HostGlobalParams oldParams, struct DeviceGlobalParams deviceParams) {
+        start = oldParams.oldStart;
+        length = deviceParams.offsetLower;
+        oldStart = start;
+        oldLength = length;
+
+        direction = !oldParams.direction;
+        pivot = (deviceParams.minVal + oldParams.pivot) / 2;
+    }
+
+    void greaterSequence(struct HostGlobalParams oldParams, struct DeviceGlobalParams deviceParams) {
+        start = oldParams.oldStart + oldParams.length - deviceParams.offsetGreater;
+        length = deviceParams.offsetGreater;
+        oldStart = start;
+        oldLength = length;
+
+        direction = !oldParams.direction;
+        pivot = (oldParams.pivot + deviceParams.maxVal) / 2;
     }
 };
 typedef struct HostGlobalParams h_gparam_t;
@@ -74,6 +94,24 @@ struct LocalParams {
     // TODO enum
     // false: dataInput -> dataBuffer, true: dataBuffer -> dataInput
     bool direction;
+
+    void lowerSequence(struct HostGlobalParams oldParams, struct DeviceGlobalParams deviceParams) {
+        start = oldParams.oldStart;
+        length = deviceParams.offsetLower;
+        direction = !oldParams.direction;
+    }
+
+    void greaterSequence(struct HostGlobalParams oldParams, struct DeviceGlobalParams deviceParams) {
+        start = oldParams.oldStart + oldParams.length - deviceParams.offsetGreater;
+        length = deviceParams.offsetGreater;
+        direction = !oldParams.direction;
+    }
+
+    void fromGlobalParams(struct HostGlobalParams globalParams) {
+        start = globalParams.start;
+        length = globalParams.length;
+        direction = globalParams.direction;
+    }
 };
 typedef struct LocalParams lparam_t;
 

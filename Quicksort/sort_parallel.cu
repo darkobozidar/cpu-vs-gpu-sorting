@@ -97,14 +97,16 @@ void quickSort(el_t *hostData, el_t *dataInput, el_t *dataBuffer, h_gparam_t *h_
     h_hostGlobalParams[0].pivot = (minVal + maxVal) / 2;
 
     // Size of workstack
+    uint_t workTotal = 1;
     uint_t hostWorkCounter = 1;
+    uint_t localWorkCounter = 0;
     uint_t elemsPerThreadBlock = THREADS_PER_SORT_GLOBAL * ELEMENTS_PER_THREAD_GLOBAL;
     // Maximum number of sequences which can be generated with global quicksort
     uint_t maxSequences = tableLen / (elemsPerThreadBlock * 1);  // TODO replace 1 with constant
     cudaError_t error;
 
     // TODO if statement for initial sequence length
-    while (hostWorkCounter < maxSequences) {
+    while (workTotal < maxSequences) {
         uint_t threadBlockCounter = 0;
 
         // Store work to device
@@ -125,9 +127,39 @@ void quickSort(el_t *hostData, el_t *dataInput, el_t *dataBuffer, h_gparam_t *h_
             d_globalSeqIndexes, hostWorkCounter, threadBlockCounter, tableLen
         );
 
-        // TODO generate new sequences
+        uint_t oldHostWorkCounter = hostWorkCounter;
+        hostWorkCounter = 0;
 
-        break;
+        // Create new sub-sequences
+        for (uint_t workIdx = 0; workIdx < oldHostWorkCounter; workIdx++) {
+            h_gparam_t hostParams = h_hostGlobalParams[workIdx];
+            d_gparam_t devParams = h_devGlobalParams[workIdx];
+
+            // New subsequece (lower)
+            if (devParams.offsetLower > MIN_PARTITION_SIZE_GLOBAL) {
+                h_hostGlobalBuffer[hostWorkCounter++].lowerSequence(hostParams, devParams);
+            } else {
+                h_localParams[localWorkCounter++].lowerSequence(hostParams, devParams);
+            }
+
+            // New subsequece (greater)
+            if (devParams.offsetLower > MIN_PARTITION_SIZE_GLOBAL) {
+                h_hostGlobalBuffer[hostWorkCounter++].greaterSequence(hostParams, devParams);
+            } else {
+                h_localParams[localWorkCounter++].greaterSequence(hostParams, devParams);
+            }
+
+            workTotal += 2;
+        }
+
+        h_gparam_t *temp = h_hostGlobalParams;
+        h_hostGlobalParams = h_hostGlobalBuffer;
+        h_hostGlobalBuffer = temp;
+    }
+
+    // Add sequences which were not partitioned to min size
+    for (uint_t workIdx = 0; workIdx < hostWorkCounter; workIdx++) {
+        h_localParams[localWorkCounter++].fromGlobalParams(h_hostGlobalParams[workIdx]);
     }
 
     /*cudaMemcpy(d_localParams, h_localParams, MAX_SEQUENCES * sizeof(*d_localParams), cudaMemcpyHostToDevice);
