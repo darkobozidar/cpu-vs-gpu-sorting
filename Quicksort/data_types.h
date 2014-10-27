@@ -70,6 +70,9 @@ struct DeviceGlobalParams {
 
         offsetLower = 0;
         offsetGreater = 0;
+
+        minVal = UINT32_MAX;
+        maxVal = 0;
     }
 };
 
