@@ -9,7 +9,7 @@ typedef int32_t int_t;
 
 typedef struct Element el_t;
 typedef struct HostGlobalSequence h_glob_seq_t;
-typedef struct DeviceGlobalParams d_gparam_t;
+typedef struct DeviceGlobalSequence d_glob_seq_t;
 typedef struct LocalParams lparam_t;
 
 
@@ -30,58 +30,49 @@ struct HostGlobalSequence {
     // false: dataInput -> dataBuffer, true: dataBuffer -> dataInput
     bool direction;
 
-    void setInitSequence(uint_t tableLen, data_t pivot);
-    void setLowerSequence(h_glob_seq_t oldParams, d_gparam_t deviceParams);
-    void setGreaterSequence(h_glob_seq_t oldParams, d_gparam_t deviceParams);
+    void setInitSequence(uint_t tableLen, data_t initPivot);
+    void setLowerSequence(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev);
+    void setGreaterSequence(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev);
 };
 
-// Params for each sub-sequence used in global quicksort on device.
-struct DeviceGlobalParams {
+// Params for sequence used in global quicksort on device.
+struct DeviceGlobalSequence {
     uint_t start;
     uint_t length;
+    data_t pivot;
     // false: dataInput -> dataBuffer, true: dataBuffer -> dataInput
     bool direction;
-    // TODO use correct data type
-    data_t pivot;
+
+    // Every thread block in global quicksort kernel working on this sequence decreases this counter. This
+    // way thread blocks know, which of them is last, so it can scatter pivots.
     uint_t blockCounter;
 
+    // Counter used in global quicksort. Each thread block working on this sequence increments this counter
+    // with number of elements lower/greater than pivot in it's corresponding data. This way every thread
+    // block knows, on which offset it has to scatter it's corresponding data.
     uint_t offsetLower;
     uint_t offsetGreater;
 
-    // Can't use el_t because of avg(), which is used for pivot calculation
-    // TODO use correct data type
-    uint_t minVal;
-    uint_t maxVal;
+    // Stores min/max values of every thread block.
+    data_t minVal;
+    data_t maxVal;
 
-    void fromHostGlobalParams(h_glob_seq_t hostGlobalParams, uint_t threadBlocksPerSequence) {
-        start = hostGlobalParams.start;
-        length = hostGlobalParams.length;
-        direction = hostGlobalParams.direction;
-        pivot = hostGlobalParams.pivot;
-        blockCounter = threadBlocksPerSequence;
-
-        offsetLower = 0;
-        offsetGreater = 0;
-
-        minVal = UINT32_MAX;
-        maxVal = 0;
-    }
+    void setSequence(h_glob_seq_t globalSeqHost, uint_t threadBlocksPerSequence);
 };
 
 struct LocalParams {
     uint_t start;
     uint_t length;
-    // TODO enum
     // false: dataInput -> dataBuffer, true: dataBuffer -> dataInput
     bool direction;
 
-    void lowerSequence(h_glob_seq_t oldParams, struct DeviceGlobalParams deviceParams) {
+    void lowerSequence(h_glob_seq_t oldParams, d_glob_seq_t deviceParams) {
         start = oldParams.oldStart;
         length = deviceParams.offsetLower;
         direction = !oldParams.direction;
     }
 
-    void greaterSequence(h_glob_seq_t oldParams, struct DeviceGlobalParams deviceParams) {
+    void greaterSequence(h_glob_seq_t oldParams, d_glob_seq_t deviceParams) {
         start = oldParams.oldStart + oldParams.length - deviceParams.offsetGreater;
         length = deviceParams.offsetGreater;
         direction = !oldParams.direction;

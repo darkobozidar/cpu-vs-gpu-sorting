@@ -241,7 +241,7 @@ __device__ int_t pushWorkstack(lparam_t *workstack, int_t &workstackCounter, lpa
 
 // TODO try alignment with 32 for coalasced reading
 // Rename input/output to buffer
-__global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_gparam_t *globalParams, uint_t *seqIndexes,
+__global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_glob_seq_t *globalParams, uint_t *seqIndexes,
                                       uint_t tableLen) {
     extern __shared__ uint_t globalSortTile[];
     uint_t *minValues = globalSortTile;
@@ -250,7 +250,7 @@ __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_gparam_t *glo
     // Retrieve the parameters for current subsequence
     __shared__ uint_t workIndex;
     __shared__ uint_t localStart, localLength;
-    __shared__ d_gparam_t params;
+    __shared__ d_glob_seq_t params;
 
     if (threadIdx.x == (blockDim.x - 1)) {
         workIndex = seqIndexes[blockIdx.x];

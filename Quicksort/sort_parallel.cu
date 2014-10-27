@@ -14,11 +14,11 @@
 
 
 void memoryInitHost(h_glob_seq_t **h_hostGlobalParams, h_glob_seq_t **h_hostGlobalBuffer,
-                    d_gparam_t **h_devGlobalParams, uint_t **h_globalSeqIndexes, lparam_t **h_localParams,
+                    d_glob_seq_t **h_devGlobalParams, uint_t **h_globalSeqIndexes, lparam_t **h_localParams,
                     uint_t maxSequences) {
     *h_hostGlobalParams = new h_glob_seq_t[maxSequences];
     *h_hostGlobalBuffer = new h_glob_seq_t[maxSequences];
-    *h_devGlobalParams = new d_gparam_t[maxSequences];
+    *h_devGlobalParams = new d_glob_seq_t[maxSequences];
     *h_globalSeqIndexes = new uint_t[maxSequences];
     *h_localParams = new lparam_t[maxSequences];
 }
@@ -26,7 +26,7 @@ void memoryInitHost(h_glob_seq_t **h_hostGlobalParams, h_glob_seq_t **h_hostGlob
 /*
 Initializes device memory needed for paralel sort implementation.
 */
-void memoryInitDevice(el_t *h_input, el_t **d_dataInput, el_t **d_dataBuffer, d_gparam_t **d_globalParams,
+void memoryInitDevice(el_t *h_input, el_t **d_dataInput, el_t **d_dataBuffer, d_glob_seq_t **d_globalParams,
                       uint_t **d_globalSeqIndexes, lparam_t **d_localParams, uint_t tableLen, uint_t maxSequences) {
     cudaError_t error;
 
@@ -45,8 +45,8 @@ void memoryInitDevice(el_t *h_input, el_t **d_dataInput, el_t **d_dataBuffer, d_
     checkCudaError(error);
 }
 
-void runQuickSortGlobalKernel(el_t *input, el_t* output, d_gparam_t *h_devGlobalParams,
-                              d_gparam_t *d_devGlobalParams, uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes,
+void runQuickSortGlobalKernel(el_t *input, el_t* output, d_glob_seq_t *h_devGlobalParams,
+                              d_glob_seq_t *d_devGlobalParams, uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes,
                               uint_t hostWorkCounter, uint_t threadBlockCounter, uint_t tableLen) {
     cudaError_t error;
     LARGE_INTEGER timer;
@@ -109,7 +109,7 @@ void runPrintTableKernel(el_t *table, uint_t tableLen) {
 
 // TODO handle empty sub-blocks
 void quickSort(el_t *hostData, el_t *dataInput, el_t *dataBuffer, h_glob_seq_t *h_hostGlobalParams,
-               h_glob_seq_t *h_hostGlobalBuffer, d_gparam_t *h_devGlobalParams, d_gparam_t *d_devGlobalParams,
+               h_glob_seq_t *h_hostGlobalBuffer, d_glob_seq_t *h_devGlobalParams, d_glob_seq_t *d_devGlobalParams,
                uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes, lparam_t *h_localParams,
                lparam_t *d_localParams, uint_t tableLen, bool orderAsc) {
     // Set starting work
@@ -141,7 +141,7 @@ void quickSort(el_t *hostData, el_t *dataInput, el_t *dataBuffer, h_glob_seq_t *
             }
 
             // Store work, that thread blocks assigned to current sequence have to perform
-            h_devGlobalParams[workIdx].fromHostGlobalParams(h_hostGlobalParams[workIdx], threadBlocksPerSequence);
+            h_devGlobalParams[workIdx].setSequence(h_hostGlobalParams[workIdx], threadBlocksPerSequence);
         }
 
         runQuickSortGlobalKernel(
@@ -157,7 +157,7 @@ void quickSort(el_t *hostData, el_t *dataInput, el_t *dataBuffer, h_glob_seq_t *
         // Create new sub-sequences
         for (uint_t workIdx = 0; workIdx < oldHostWorkCounter; workIdx++) {
             h_glob_seq_t hostParams = h_hostGlobalParams[workIdx];
-            d_gparam_t devParams = h_devGlobalParams[workIdx];
+            d_glob_seq_t devParams = h_devGlobalParams[workIdx];
 
             // New subsequece (lower)
             if (devParams.offsetLower > MIN_PARTITION_SIZE_GLOBAL) {
@@ -194,7 +194,7 @@ void sortParallel(el_t *h_dataInput, el_t *h_dataOutput, uint_t tableLen, bool o
     el_t *d_dataInput, *d_dataBuffer;
     // Arrays needed for global quicksort
     h_glob_seq_t *h_hostGlobalParams, *h_hostGlobalBuffer;
-    d_gparam_t *h_devGlobalParams, *d_devGlobalParams;
+    d_glob_seq_t *h_devGlobalParams, *d_devGlobalParams;
     uint_t *h_globalSeqIndexes, *d_globalSeqIndexes;
     // Arrays needed for local quicksort
     lparam_t *h_localParams, *d_localParams;
