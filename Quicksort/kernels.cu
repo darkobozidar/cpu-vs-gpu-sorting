@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <climits>
 
 #include <cuda.h>
 #include "cuda_runtime.h"
@@ -103,9 +104,10 @@ TODO read papers about parallel reduction optimization
 */
 __device__ void minMaxReduction(uint_t *minValues, uint_t *maxValues, uint_t length) {
     extern __shared__ float partialSum[];
+    length = blockDim.x <= length ? blockDim.x : length;
 
-    for (uint_t stride = blockDim.x / 2; stride > 0; stride /= 2) {
-        if (threadIdx.x < stride && threadIdx.x + stride < length) {
+    for (uint_t stride = length / 2; stride > 0; stride /= 2) {
+        if (threadIdx.x < stride) {
             if (threadIdx.x < blockDim.x) {
                 minValues[threadIdx.x] = min(minValues[threadIdx.x], minValues[threadIdx.x + stride]);
             } else {
@@ -231,6 +233,7 @@ __device__ int_t pushWorkstack(lparam_t *workstack, int_t &workstackCounter, lpa
 
 
 // TODO try alignment with 32 for coalasced reading
+// Rename input/output to buffer
 __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_gparam_t *globalParams, uint_t *seqIndexes,
                                       uint_t tableLen) {
     extern __shared__ uint_t globalSortTile[];
@@ -247,18 +250,14 @@ __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_gparam_t *glo
         uint_t elemsPerBlock = blockDim.x * ELEMENTS_PER_THREAD_GLOBAL;
 
         params.blockCounter = atomicSub(&globalParams[workIndex].blockCounter, 1) - 1;
-        params.start += params.blockCounter * elemsPerBlock;
-        params.length = params.blockCounter > 0 ? elemsPerBlock : ((params.length - 1) % elemsPerBlock) + 1;
+        params.start += blockIdx.x * elemsPerBlock;
+        params.length = blockIdx.x != (blockDim.x - 1) ? elemsPerBlock : ((params.length - 1) % elemsPerBlock) + 1;
     }
     __syncthreads();
 
-    return;
-
-    // Initializes min/max value
-    if (threadIdx.x < params.length / 2) {
-        minValues[threadIdx.x] = input[params.start + threadIdx.x].key;
-        maxValues[threadIdx.x] = input[params.start + threadIdx.x].key;
-    }
+    // Initializes min/max values
+    minValues[threadIdx.x] = UINT32_MAX;
+    maxValues[threadIdx.x] = 0;
 
     el_t *primaryArray = params.direction ? output : input;
     el_t *bufferArray = params.direction ? input : output;
@@ -276,12 +275,17 @@ __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_gparam_t *glo
     }
     __syncthreads();
 
+    // Calculate and save min/max values, before shared memory gets overriden by scan
+    minMaxReduction(minValues, maxValues, params.length);
+    uint_t minVal = minValues[0];
+    uint_t maxVal = maxValues[0];
+
+    return;
+
     uint_t scanLower = intraBlockScan(localLower);
     __syncthreads();
     uint_t scanGreater = intraBlockScan(localGreater);
     __syncthreads();
-
-    minMaxReduction(minValues, maxValues, params.length);
 
     __shared__ uint_t globalLower, globalGreater;
     if (threadIdx.x == (blockDim.x - 1)) {
