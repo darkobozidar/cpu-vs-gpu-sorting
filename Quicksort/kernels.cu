@@ -241,7 +241,7 @@ __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_gparam_t *glo
     uint_t *maxValues = globalSortTile + blockDim.x;
 
     // Retrieve the parameters for current subsequence
-    uint_t workIndex;
+    __shared__ uint_t workIndex;
     __shared__ uint_t localStart, localLength;
     __shared__ d_gparam_t params;
 
@@ -284,6 +284,7 @@ __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_gparam_t *glo
     }
     __syncthreads();
 
+    // TODO if possible use offset global
     uint_t scanLower = intraBlockScan(localLower);
     __syncthreads();
     uint_t scanGreater = intraBlockScan(localGreater);
@@ -299,11 +300,9 @@ __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_gparam_t *glo
     uint_t indexLower = params.start + globalLower + scanLower - localLower;
     uint_t indexGreater = params.start + params.length - globalGreater - scanGreater;
 
-    return;
-
     // Scatter elements to newly generated left/right subsequences
     for (uint_t tx = threadIdx.x; tx < params.length; tx += blockDim.x) {
-        el_t temp = primaryArray[params.start + tx];
+        el_t temp = primaryArray[localStart + tx];
 
         if (temp.key < params.pivot) {
             bufferArray[indexLower++] = temp;
@@ -314,13 +313,19 @@ __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_gparam_t *glo
     __syncthreads();
 
     // Last block assigned to current sub-sequence stores pivots
-    if (params.blockCounter == 0) {
-        el_t pivot;
-        pivot.key = params.pivot;
+    if (params.blockCounter > 0) {
+        return;
+    }
 
-        for (uint_t tx = params.offsetLower + threadIdx.x; tx < params.length - params.offsetGreater; tx += blockDim.x) {
-            output[tx] = pivot;
-        }
+    el_t pivot;
+    pivot.key = params.pivot;
+
+    uint_t index = globalParams[workIndex].offsetLower + threadIdx.x;
+    uint_t end = params.length - globalParams[workIndex].offsetGreater;
+
+    while (index < end) {
+        output[index] = pivot;
+        index += blockDim.x;
     }
 }
 
