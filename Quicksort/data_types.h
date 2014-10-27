@@ -14,6 +14,15 @@ typedef struct LocalSequence loc_seq_t;
 
 
 /*
+Enum used to denote, in which direction is the data transfered to during local and global quicksort.
+*/
+enum TransferDirection {
+    PRIMARY_MEM_TO_BUFFER,
+    BUFFER_TO_PRIMARY_MEM
+};
+
+
+/*
 Key value pair used for sorting
 */
 struct Element {
@@ -31,9 +40,7 @@ struct HostGlobalSequence {
     uint_t oldStart;
     uint_t oldLength;
     data_t pivot;
-
-    // false: dataInput -> dataBuffer, true: dataBuffer -> dataInput
-    bool direction;
+    TransferDirection direction;
 
     void setInitSeq(uint_t tableLen, data_t initPivot);
     void setLowerSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev);
@@ -48,8 +55,7 @@ struct DeviceGlobalSequence {
     uint_t start;
     uint_t length;
     data_t pivot;
-    // false: dataInput -> dataBuffer, true: dataBuffer -> dataInput
-    bool direction;
+    TransferDirection direction;
 
     // Every thread block in global quicksort kernel working on this sequence decreases this counter. This
     // way thread blocks know, which of them is last, so it can scatter pivots.
@@ -74,8 +80,7 @@ Params for sequence used in LOCAL quicksort on DEVICE.
 struct LocalSequence {
     uint_t start;
     uint_t length;
-    // false: dataInput -> dataBuffer, true: dataBuffer -> dataInput
-    bool direction;
+    TransferDirection direction;
 
     void setLowerSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev);
     void setGreaterSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev);

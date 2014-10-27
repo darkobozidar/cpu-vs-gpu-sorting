@@ -1,5 +1,6 @@
 #include "data_types.h"
 
+
 /*
 Because of circular dependencies between stuctures, methods have to be implemented after structure definitons.
 */
@@ -12,7 +13,7 @@ void HostGlobalSequence::setInitSeq(uint_t tableLen, data_t initPivot) {
     oldStart = start;
     oldLength = length;
     pivot = initPivot;
-    direction = false;
+    direction = PRIMARY_MEM_TO_BUFFER;
 }
 
 void HostGlobalSequence::setLowerSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev) {
@@ -21,7 +22,7 @@ void HostGlobalSequence::setLowerSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t gl
     oldStart = start;
     oldLength = length;
     pivot = (globalSeqDev.minVal + globalSeqHost.pivot) / 2;
-    direction = !globalSeqHost.direction;
+    direction = (TransferDirection) !globalSeqHost.direction;
 }
 
 void HostGlobalSequence::setGreaterSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev) {
@@ -30,7 +31,7 @@ void HostGlobalSequence::setGreaterSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t 
     oldStart = start;
     oldLength = length;
     pivot = (globalSeqHost.pivot + globalSeqDev.maxVal) / 2;
-    direction = !globalSeqHost.direction;
+    direction = (TransferDirection) !globalSeqHost.direction;
 }
 
 
@@ -56,13 +57,13 @@ void DeviceGlobalSequence::setFromHostSeq(h_glob_seq_t globalSeqHost, uint_t thr
 void LocalSequence::setLowerSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev) {
     start = globalSeqHost.oldStart;
     length = globalSeqDev.offsetLower;
-    direction = !globalSeqHost.direction;
+    direction = (TransferDirection) !globalSeqHost.direction;
 }
 
 void LocalSequence::setGreaterSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev) {
     start = globalSeqHost.oldStart + globalSeqHost.length - globalSeqDev.offsetGreater;
     length = globalSeqDev.offsetGreater;
-    direction = !globalSeqHost.direction;
+    direction = (TransferDirection) !globalSeqHost.direction;
 }
 
 void LocalSequence::setFromGlobalSeq(h_glob_seq_t globalParams) {

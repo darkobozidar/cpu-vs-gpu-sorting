@@ -102,7 +102,7 @@ void runQuickSortLocalKernel(el_t *input, el_t *output, loc_seq_t *h_localParams
 }
 
 void runPrintTableKernel(el_t *table, uint_t tableLen) {
-    printTableKernel << <1, 1 >> >(table, tableLen);
+    printTableKernel<<<1, 1>>>(table, tableLen);
     cudaError_t error = cudaDeviceSynchronize();
     checkCudaError(error);
 }

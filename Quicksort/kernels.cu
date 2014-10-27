@@ -206,8 +206,8 @@ __device__ int_t pushWorkstack(loc_seq_t *workstack, int_t &workstackCounter, lo
                                uint_t lowerCounter, uint_t greaterCounter) {
     loc_seq_t newParams1, newParams2;
 
-    newParams1.direction = !params.direction;
-    newParams2.direction = !params.direction;
+    newParams1.direction = (TransferDirection) !params.direction;
+    newParams2.direction = (TransferDirection) !params.direction;
 
     // TODO try in-place change directly on workstack without newParams 1 and 2
     if (lowerCounter <= greaterCounter) {
@@ -369,7 +369,7 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, loc_seq_t *local
 
         if (params.length <= BITONIC_SORT_SIZE_LOCAL) {
             // Bitonic sort is executed in-place and sorted data has to be writter to output.
-            el_t *inputTemp = params.direction ? output : input;
+            el_t *inputTemp = params.direction == PRIMARY_MEM_TO_BUFFER ? input : output;
 
             normalizedBitonicSort(inputTemp, output, params, tableLen, orderAsc);
             __syncthreads();
