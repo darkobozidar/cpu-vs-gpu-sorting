@@ -238,19 +238,21 @@ __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_gparam_t *glo
     uint_t *maxValues = globalSortTile + blockDim.x;
 
     // Retrieve the parameters for current subsequence
-    uint_t workIndex = seqIndexes[blockIdx.x];
+    uint_t workIndex;
     __shared__ d_gparam_t params;
-    return;
 
-    if (threadIdx.x == 0) {
+    if (threadIdx.x == (blockDim.x - 1)) {
+        workIndex = seqIndexes[blockIdx.x];
         params = globalParams[workIndex];
-        atomicSub(&globalParams[workIndex].blockCounter, 1);
-
         uint_t elemsPerBlock = blockDim.x * ELEMENTS_PER_THREAD_GLOBAL;
+
+        params.blockCounter = atomicSub(&globalParams[workIndex].blockCounter, 1) - 1;
         params.start += params.blockCounter * elemsPerBlock;
-        params.length -= params.blockCounter > 0 ? elemsPerBlock : ((params.length - 1) % elemsPerBlock) + 1;
+        params.length = params.blockCounter > 0 ? elemsPerBlock : ((params.length - 1) % elemsPerBlock) + 1;
     }
     __syncthreads();
+
+    return;
 
     // Initializes min/max value
     if (threadIdx.x < params.length / 2) {
