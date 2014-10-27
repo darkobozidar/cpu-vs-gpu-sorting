@@ -1,7 +1,10 @@
 #include "data_types.h"
 
+/*
+Because of circular dependencies between stuctures, methods have to be implemented after structure definitons.
+*/
 
-void HostGlobalParams::setDefaultParams(uint_t tableLen) {
+void HostGlobalSequence::setDefaultParams(uint_t tableLen) {
     start = 0;
     length = tableLen;
     oldStart = start;
@@ -9,7 +12,7 @@ void HostGlobalParams::setDefaultParams(uint_t tableLen) {
     direction = false;
 }
 
-void HostGlobalParams::lowerSequence(h_gparam_t oldParams, d_gparam_t deviceParams) {
+void HostGlobalSequence::lowerSequence(h_glob_seq_t oldParams, d_gparam_t deviceParams) {
     start = oldParams.oldStart;
     length = deviceParams.offsetLower;
     oldStart = start;
@@ -19,7 +22,7 @@ void HostGlobalParams::lowerSequence(h_gparam_t oldParams, d_gparam_t devicePara
     pivot = (deviceParams.minVal + oldParams.pivot) / 2;
 }
 
-void HostGlobalParams::greaterSequence(h_gparam_t oldParams, d_gparam_t deviceParams) {
+void HostGlobalSequence::greaterSequence(h_glob_seq_t oldParams, d_gparam_t deviceParams) {
     start = oldParams.oldStart + oldParams.length - deviceParams.offsetGreater;
     length = deviceParams.offsetGreater;
     oldStart = start;

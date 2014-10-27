@@ -13,10 +13,11 @@
 #include "kernels.h"
 
 
-void memoryInitHost(h_gparam_t **h_hostGlobalParams, h_gparam_t **h_hostGlobalBuffer, d_gparam_t **h_devGlobalParams,
-                    uint_t **h_globalSeqIndexes, lparam_t **h_localParams, uint_t maxSequences) {
-    *h_hostGlobalParams = new h_gparam_t[maxSequences];
-    *h_hostGlobalBuffer = new h_gparam_t[maxSequences];
+void memoryInitHost(h_glob_seq_t **h_hostGlobalParams, h_glob_seq_t **h_hostGlobalBuffer,
+                    d_gparam_t **h_devGlobalParams, uint_t **h_globalSeqIndexes, lparam_t **h_localParams,
+                    uint_t maxSequences) {
+    *h_hostGlobalParams = new h_glob_seq_t[maxSequences];
+    *h_hostGlobalBuffer = new h_glob_seq_t[maxSequences];
     *h_devGlobalParams = new d_gparam_t[maxSequences];
     *h_globalSeqIndexes = new uint_t[maxSequences];
     *h_localParams = new lparam_t[maxSequences];
@@ -107,8 +108,8 @@ void runPrintTableKernel(el_t *table, uint_t tableLen) {
 }
 
 // TODO handle empty sub-blocks
-void quickSort(el_t *hostData, el_t *dataInput, el_t *dataBuffer, h_gparam_t *h_hostGlobalParams,
-               h_gparam_t *h_hostGlobalBuffer, d_gparam_t *h_devGlobalParams, d_gparam_t *d_devGlobalParams,
+void quickSort(el_t *hostData, el_t *dataInput, el_t *dataBuffer, h_glob_seq_t *h_hostGlobalParams,
+               h_glob_seq_t *h_hostGlobalBuffer, d_gparam_t *h_devGlobalParams, d_gparam_t *d_devGlobalParams,
                uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes, lparam_t *h_localParams,
                lparam_t *d_localParams, uint_t tableLen, bool orderAsc) {
     // Set starting work
@@ -156,7 +157,7 @@ void quickSort(el_t *hostData, el_t *dataInput, el_t *dataBuffer, h_gparam_t *h_
 
         // Create new sub-sequences
         for (uint_t workIdx = 0; workIdx < oldHostWorkCounter; workIdx++) {
-            h_gparam_t hostParams = h_hostGlobalParams[workIdx];
+            h_glob_seq_t hostParams = h_hostGlobalParams[workIdx];
             d_gparam_t devParams = h_devGlobalParams[workIdx];
 
             // New subsequece (lower)
@@ -176,7 +177,7 @@ void quickSort(el_t *hostData, el_t *dataInput, el_t *dataBuffer, h_gparam_t *h_
             workTotal++;
         }
 
-        h_gparam_t *temp = h_hostGlobalParams;
+        h_glob_seq_t *temp = h_hostGlobalParams;
         h_hostGlobalParams = h_hostGlobalBuffer;
         h_hostGlobalBuffer = temp;
     }
@@ -193,7 +194,7 @@ void sortParallel(el_t *h_dataInput, el_t *h_dataOutput, uint_t tableLen, bool o
     // Device memory to hold data
     el_t *d_dataInput, *d_dataBuffer;
     // Arrays needed for global quicksort
-    h_gparam_t *h_hostGlobalParams, *h_hostGlobalBuffer;
+    h_glob_seq_t *h_hostGlobalParams, *h_hostGlobalBuffer;
     d_gparam_t *h_devGlobalParams, *d_devGlobalParams;
     uint_t *h_globalSeqIndexes, *d_globalSeqIndexes;
     // Arrays needed for local quicksort
