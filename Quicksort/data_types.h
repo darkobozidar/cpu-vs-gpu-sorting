@@ -31,14 +31,7 @@ struct HostGlobalParams {
     // TODO use correct data type
     uint_t pivot;
 
-    void setDefaultParams(uint_t tableLen) {
-        start = 0;
-        length = tableLen;
-        oldStart = start;
-        oldLength = length;
-        direction = false;
-    }
-
+    void setDefaultParams(uint_t tableLen);
     void lowerSequence(h_gparam_t oldParams, d_gparam_t deviceParams);
     void greaterSequence(h_gparam_t oldParams, d_gparam_t deviceParams);
 };

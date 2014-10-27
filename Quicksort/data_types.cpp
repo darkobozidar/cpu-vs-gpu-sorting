@@ -1,6 +1,14 @@
 #include "data_types.h"
 
 
+void HostGlobalParams::setDefaultParams(uint_t tableLen) {
+    start = 0;
+    length = tableLen;
+    oldStart = start;
+    oldLength = length;
+    direction = false;
+}
+
 void HostGlobalParams::lowerSequence(h_gparam_t oldParams, d_gparam_t deviceParams) {
     start = oldParams.oldStart;
     length = deviceParams.offsetLower;
