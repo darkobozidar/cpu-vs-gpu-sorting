@@ -51,15 +51,15 @@ void memoryInitDevice(el_t *h_input, el_t **d_dataInput, el_t **d_dataBuffer, d_
     checkCudaError(error);
 }
 
-void runQuickSortGlobalKernel(el_t *input, el_t* output, d_glob_seq_t *h_devGlobalParams,
-                              d_glob_seq_t *d_devGlobalParams, uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes,
+void runQuickSortGlobalKernel(el_t *dataInput, el_t* dataBuffer, d_glob_seq_t *h_globalSeqHost,
+                              d_glob_seq_t *d_globalSeqHost, uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes,
                               uint_t hostWorkCounter, uint_t threadBlockCounter, uint_t tableLen) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
     startStopwatch(&timer);
 
-    error = cudaMemcpy(d_devGlobalParams, h_devGlobalParams, hostWorkCounter * sizeof(*d_devGlobalParams),
+    error = cudaMemcpy(d_globalSeqHost, h_globalSeqHost, hostWorkCounter * sizeof(*d_globalSeqHost),
                        cudaMemcpyHostToDevice);
     checkCudaError(error);
     error = cudaMemcpy(d_globalSeqIndexes, h_globalSeqIndexes, threadBlockCounter * sizeof(*d_globalSeqIndexes),
@@ -69,10 +69,10 @@ void runQuickSortGlobalKernel(el_t *input, el_t* output, d_glob_seq_t *h_devGlob
     // TODO comment shared memory size, 2 * size should be enough, because scan and min/max can be
     // performed in the same array
     quickSortGlobalKernel<<<threadBlockCounter, THREADS_PER_SORT_GLOBAL, 2 * THREADS_PER_SORT_GLOBAL>>>(
-        input, output, d_devGlobalParams, d_globalSeqIndexes, tableLen
+        dataInput, dataBuffer, d_globalSeqHost, d_globalSeqIndexes, tableLen
     );
 
-    error = cudaMemcpy(h_devGlobalParams, d_devGlobalParams, hostWorkCounter * sizeof(*h_devGlobalParams),
+    error = cudaMemcpy(h_globalSeqHost, d_globalSeqHost, hostWorkCounter * sizeof(*h_globalSeqHost),
                        cudaMemcpyDeviceToHost);
     checkCudaError(error);
 
@@ -81,7 +81,7 @@ void runQuickSortGlobalKernel(el_t *input, el_t* output, d_glob_seq_t *h_devGlob
     endStopwatch(timer, "Executing global parallel quicksort.");*/
 }
 
-void runQuickSortLocalKernel(el_t *input, el_t *output, loc_seq_t *h_localParams, loc_seq_t *d_localParams,
+void runQuickSortLocalKernel(el_t *dataInput, el_t *dataBuffer, loc_seq_t *h_localSeq, loc_seq_t *d_localSeq,
                              uint_t tableLen, uint_t numThreadBlocks, bool orderAsc) {
     cudaError_t error;
     LARGE_INTEGER timer;
@@ -89,18 +89,17 @@ void runQuickSortLocalKernel(el_t *input, el_t *output, loc_seq_t *h_localParams
     // The same shared memory array is used for counting elements greater/lower than pivot and for bitonic sort.
     // max(intra-block-scan array size, array size for bitonic sort)
     uint_t sharedMemSize = max(
-        2 * THREADS_PER_SORT_LOCAL * sizeof(uint_t), BITONIC_SORT_SIZE_LOCAL * sizeof(*input)
+        2 * THREADS_PER_SORT_LOCAL * sizeof(uint_t), BITONIC_SORT_SIZE_LOCAL * sizeof(*dataInput)
     );
     dim3 dimGrid(numThreadBlocks, 1, 1);
     dim3 dimBlock(THREADS_PER_SORT_LOCAL, 1, 1);
 
     startStopwatch(&timer);
-    error = cudaMemcpy(d_localParams, h_localParams, numThreadBlocks * sizeof(*d_localParams),
-                       cudaMemcpyHostToDevice);
+    error = cudaMemcpy(d_localSeq, h_localSeq, numThreadBlocks * sizeof(*d_localSeq), cudaMemcpyHostToDevice);
     checkCudaError(error);
 
     quickSortLocalKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
-        input, output, d_localParams, tableLen, orderAsc
+        dataInput, dataBuffer, d_localSeq, tableLen, orderAsc
     );
     /*error = cudaDeviceSynchronize();
     checkCudaError(error);
@@ -125,6 +124,7 @@ void quickSort(el_t *h_dataInput, el_t *d_dataInput, el_t *d_dataBuffer, h_glob_
     uint_t maxVal = max(max(h_dataInput[0].key, h_dataInput[tableLen / 2].key), h_dataInput[tableLen - 1].key);
     h_globalSeqHost[0].setInitSeq(tableLen, (minVal + maxVal) / 2);
 
+    // TODO change variable names
     // Size of workstack
     uint_t workTotal = 1;
     uint_t hostWorkCounter = 1;
@@ -161,6 +161,7 @@ void quickSort(el_t *h_dataInput, el_t *d_dataInput, el_t *d_dataBuffer, h_glob_
         hostWorkCounter = 0;
 
         // TODO if sequence length is > 0
+        // TODO move to separate method
         // Create new sub-sequences
         for (uint_t workIdx = 0; workIdx < oldHostWorkCounter; workIdx++) {
             h_glob_seq_t hostParams = h_globalSeqHost[workIdx];
