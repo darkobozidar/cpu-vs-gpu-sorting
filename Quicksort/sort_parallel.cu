@@ -50,7 +50,9 @@ void runQuickSortGlobalKernel(el_t *input, el_t* output, d_gparam_t *h_devGlobal
         cudaMemcpyHostToDevice);
     checkCudaError(error);
 
-    quickSortGlobalKernel<<<threadBlockCounter, THREADS_PER_SORT_GLOBAL, 4 * THREADS_PER_SORT_GLOBAL>>>(
+    // TODO comment shared memory size, 2 * size should be enough, because scan and min/max can be
+    // performed in the same array
+    quickSortGlobalKernel<<<threadBlockCounter, THREADS_PER_SORT_GLOBAL, 2 * THREADS_PER_SORT_GLOBAL>>>(
         input, output, d_devGlobalParams, d_globalSeqIndexes, tableLen
     );
 
@@ -82,7 +84,7 @@ void runQuickSortLocalKernel(el_t *input, el_t *output, lparam_t *h_localParams,
     checkCudaError(error);
 
     quickSortLocalKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
-        input, output, localParams, tableLen, orderAsc
+        input, output, d_localParams, tableLen, orderAsc
     );
     /*error = cudaDeviceSynchronize();
     checkCudaError(error);
@@ -97,6 +99,7 @@ void quickSort(el_t *hostData, el_t *dataInput, el_t *dataBuffer, h_gparam_t *h_
     // Set starting work
     uint_t minVal = min(min(hostData[0].key, hostData[tableLen / 2].key), hostData[tableLen - 1].key);
     uint_t maxVal = max(max(hostData[0].key, hostData[tableLen / 2].key), hostData[tableLen - 1].key);
+    // TODO pass pivot to constructor
     h_hostGlobalParams[0].setDefaultParams(tableLen);
     h_hostGlobalParams[0].pivot = (minVal + maxVal) / 2;
 
@@ -105,7 +108,7 @@ void quickSort(el_t *hostData, el_t *dataInput, el_t *dataBuffer, h_gparam_t *h_
     uint_t hostWorkCounter = 1;
     uint_t localWorkCounter = 0;
     uint_t elemsPerThreadBlock = THREADS_PER_SORT_GLOBAL * ELEMENTS_PER_THREAD_GLOBAL;
-    // Maximum number of sequences which can be generated with global quicksort
+    // Maximum number of sequences, which can be generated with global quicksort
     uint_t maxSequences = tableLen / (elemsPerThreadBlock * 1);  // TODO replace 1 with constant
     cudaError_t error;
 
@@ -131,34 +134,36 @@ void quickSort(el_t *hostData, el_t *dataInput, el_t *dataBuffer, h_gparam_t *h_
             d_globalSeqIndexes, hostWorkCounter, threadBlockCounter, tableLen
         );
 
-        uint_t oldHostWorkCounter = hostWorkCounter;
-        hostWorkCounter = 0;
+        break;
 
-        // Create new sub-sequences
-        for (uint_t workIdx = 0; workIdx < oldHostWorkCounter; workIdx++) {
-            h_gparam_t hostParams = h_hostGlobalParams[workIdx];
-            d_gparam_t devParams = h_devGlobalParams[workIdx];
+        //uint_t oldHostWorkCounter = hostWorkCounter;
+        //hostWorkCounter = 0;
 
-            // New subsequece (lower)
-            if (devParams.offsetLower > MIN_PARTITION_SIZE_GLOBAL) {
-                h_hostGlobalBuffer[hostWorkCounter++].lowerSequence(hostParams, devParams);
-            } else {
-                h_localParams[localWorkCounter++].lowerSequence(hostParams, devParams);
-            }
+        //// Create new sub-sequences
+        //for (uint_t workIdx = 0; workIdx < oldHostWorkCounter; workIdx++) {
+        //    h_gparam_t hostParams = h_hostGlobalParams[workIdx];
+        //    d_gparam_t devParams = h_devGlobalParams[workIdx];
 
-            // New subsequece (greater)
-            if (devParams.offsetLower > MIN_PARTITION_SIZE_GLOBAL) {
-                h_hostGlobalBuffer[hostWorkCounter++].greaterSequence(hostParams, devParams);
-            } else {
-                h_localParams[localWorkCounter++].greaterSequence(hostParams, devParams);
-            }
+        //    // New subsequece (lower)
+        //    if (devParams.offsetLower > MIN_PARTITION_SIZE_GLOBAL) {
+        //        h_hostGlobalBuffer[hostWorkCounter++].lowerSequence(hostParams, devParams);
+        //    } else {
+        //        h_localParams[localWorkCounter++].lowerSequence(hostParams, devParams);
+        //    }
 
-            workTotal += 2;
-        }
+        //    // New subsequece (greater)
+        //    if (devParams.offsetLower > MIN_PARTITION_SIZE_GLOBAL) {
+        //        h_hostGlobalBuffer[hostWorkCounter++].greaterSequence(hostParams, devParams);
+        //    } else {
+        //        h_localParams[localWorkCounter++].greaterSequence(hostParams, devParams);
+        //    }
 
-        h_gparam_t *temp = h_hostGlobalParams;
-        h_hostGlobalParams = h_hostGlobalBuffer;
-        h_hostGlobalBuffer = temp;
+        //    workTotal += 2;
+        //}
+
+        //h_gparam_t *temp = h_hostGlobalParams;
+        //h_hostGlobalParams = h_hostGlobalBuffer;
+        //h_hostGlobalBuffer = temp;
     }
 
     // Add sequences which were not partitioned to min size

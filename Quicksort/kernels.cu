@@ -101,7 +101,7 @@ other half calculates max value. Result is returned as the first element in each
 
 TODO read papers about parallel reduction optimization
 */
-__global__ void minMaxReduction(uint_t *minValues, uint_t *maxValues, uint_t length) {
+__device__ void minMaxReduction(uint_t *minValues, uint_t *maxValues, uint_t length) {
     extern __shared__ float partialSum[];
 
     for (uint_t stride = blockDim.x / 2; stride > 0; stride /= 2) {
@@ -234,14 +234,16 @@ __device__ int_t pushWorkstack(lparam_t *workstack, int_t &workstackCounter, lpa
 __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_gparam_t *globalParams, uint_t *seqIndexes,
                                       uint_t tableLen) {
     extern __shared__ uint_t globalSortTile[];
-    uint_t *minValues = globalSortTile + 2 * blockDim.x;
-    uint_t *maxValues = globalSortTile + 3 * blockDim.x;
+    uint_t *minValues = globalSortTile;
+    uint_t *maxValues = globalSortTile + blockDim.x;
 
     // Retrieve the parameters for current subsequence
     uint_t workIndex = seqIndexes[blockIdx.x];
-    __shared__ d_gparam_t params = globalParams[workIndex];
+    __shared__ d_gparam_t params;
+    return;
 
     if (threadIdx.x == 0) {
+        params = globalParams[workIndex];
         atomicSub(&globalParams[workIndex].blockCounter, 1);
 
         uint_t elemsPerBlock = blockDim.x * ELEMENTS_PER_THREAD_GLOBAL;
