@@ -116,8 +116,7 @@ void quickSort(el_t *hostData, el_t *dataInput, el_t *dataBuffer, h_glob_seq_t *
     uint_t minVal = min(min(hostData[0].key, hostData[tableLen / 2].key), hostData[tableLen - 1].key);
     uint_t maxVal = max(max(hostData[0].key, hostData[tableLen / 2].key), hostData[tableLen - 1].key);
     // TODO pass pivot to constructor
-    h_hostGlobalParams[0].setDefaultParams(tableLen);
-    h_hostGlobalParams[0].pivot = (minVal + maxVal) / 2;
+    h_hostGlobalParams[0].setInitSequence(tableLen, (minVal + maxVal) / 2);
 
     // Size of workstack
     uint_t workTotal = 1;
@@ -162,14 +161,14 @@ void quickSort(el_t *hostData, el_t *dataInput, el_t *dataBuffer, h_glob_seq_t *
 
             // New subsequece (lower)
             if (devParams.offsetLower > MIN_PARTITION_SIZE_GLOBAL) {
-                h_hostGlobalBuffer[hostWorkCounter++].lowerSequence(hostParams, devParams);
+                h_hostGlobalBuffer[hostWorkCounter++].setLowerSequence(hostParams, devParams);
             } else {
                 h_localParams[localWorkCounter++].lowerSequence(hostParams, devParams);
             }
 
             // New subsequece (greater)
             if (devParams.offsetLower > MIN_PARTITION_SIZE_GLOBAL) {
-                h_hostGlobalBuffer[hostWorkCounter++].greaterSequence(hostParams, devParams);
+                h_hostGlobalBuffer[hostWorkCounter++].setGreaterSequence(hostParams, devParams);
             } else {
                 h_localParams[localWorkCounter++].greaterSequence(hostParams, devParams);
             }

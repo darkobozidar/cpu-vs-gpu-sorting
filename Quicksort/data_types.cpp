@@ -4,30 +4,29 @@
 Because of circular dependencies between stuctures, methods have to be implemented after structure definitons.
 */
 
-void HostGlobalSequence::setDefaultParams(uint_t tableLen) {
+void HostGlobalSequence::setInitSequence(uint_t tableLen, data_t initPivot) {
     start = 0;
     length = tableLen;
     oldStart = start;
     oldLength = length;
+    pivot = initPivot;
     direction = false;
 }
 
-void HostGlobalSequence::lowerSequence(h_glob_seq_t oldParams, d_gparam_t deviceParams) {
-    start = oldParams.oldStart;
-    length = deviceParams.offsetLower;
+void HostGlobalSequence::setLowerSequence(h_glob_seq_t globalSeqHost, d_gparam_t globalSeqDev) {
+    start = globalSeqHost.oldStart;
+    length = globalSeqDev.offsetLower;
     oldStart = start;
     oldLength = length;
-
-    direction = !oldParams.direction;
-    pivot = (deviceParams.minVal + oldParams.pivot) / 2;
+    pivot = (globalSeqDev.minVal + globalSeqHost.pivot) / 2;
+    direction = !globalSeqHost.direction;
 }
 
-void HostGlobalSequence::greaterSequence(h_glob_seq_t oldParams, d_gparam_t deviceParams) {
-    start = oldParams.oldStart + oldParams.length - deviceParams.offsetGreater;
-    length = deviceParams.offsetGreater;
+void HostGlobalSequence::setGreaterSequence(h_glob_seq_t globalSeqHost, d_gparam_t globalSeqDev) {
+    start = globalSeqHost.oldStart + globalSeqHost.length - globalSeqDev.offsetGreater;
+    length = globalSeqDev.offsetGreater;
     oldStart = start;
     oldLength = length;
-
-    direction = !oldParams.direction;
-    pivot = (oldParams.pivot + deviceParams.maxVal) / 2;
+    pivot = (globalSeqHost.pivot + globalSeqDev.maxVal) / 2;
+    direction = !globalSeqHost.direction;
 }

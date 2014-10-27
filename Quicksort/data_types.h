@@ -6,12 +6,12 @@
 typedef uint32_t data_t;
 typedef uint32_t uint_t;
 typedef int32_t int_t;
-// TODO create type for key
 
 typedef struct Element el_t;
 typedef struct HostGlobalSequence h_glob_seq_t;
 typedef struct DeviceGlobalParams d_gparam_t;
 typedef struct LocalParams lparam_t;
+
 
 // Key value pair used for sorting
 struct Element {
@@ -30,9 +30,9 @@ struct HostGlobalSequence {
     // false: dataInput -> dataBuffer, true: dataBuffer -> dataInput
     bool direction;
 
-    void setDefaultParams(uint_t tableLen);
-    void lowerSequence(h_glob_seq_t oldParams, d_gparam_t deviceParams);
-    void greaterSequence(h_glob_seq_t oldParams, d_gparam_t deviceParams);
+    void setInitSequence(uint_t tableLen, data_t pivot);
+    void setLowerSequence(h_glob_seq_t oldParams, d_gparam_t deviceParams);
+    void setGreaterSequence(h_glob_seq_t oldParams, d_gparam_t deviceParams);
 };
 
 // Params for each sub-sequence used in global quicksort on device.
