@@ -6,7 +6,7 @@ Because of circular dependencies between stuctures, methods have to be implement
 
 /* HostGlobalSequence */
 
-void HostGlobalSequence::setInitSequence(uint_t tableLen, data_t initPivot) {
+void HostGlobalSequence::setInitSeq(uint_t tableLen, data_t initPivot) {
     start = 0;
     length = tableLen;
     oldStart = start;
@@ -15,7 +15,7 @@ void HostGlobalSequence::setInitSequence(uint_t tableLen, data_t initPivot) {
     direction = false;
 }
 
-void HostGlobalSequence::setLowerSequence(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev) {
+void HostGlobalSequence::setLowerSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev) {
     start = globalSeqHost.oldStart;
     length = globalSeqDev.offsetLower;
     oldStart = start;
@@ -24,7 +24,7 @@ void HostGlobalSequence::setLowerSequence(h_glob_seq_t globalSeqHost, d_glob_seq
     direction = !globalSeqHost.direction;
 }
 
-void HostGlobalSequence::setGreaterSequence(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev) {
+void HostGlobalSequence::setGreaterSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev) {
     start = globalSeqHost.oldStart + globalSeqHost.length - globalSeqDev.offsetGreater;
     length = globalSeqDev.offsetGreater;
     oldStart = start;
@@ -36,7 +36,7 @@ void HostGlobalSequence::setGreaterSequence(h_glob_seq_t globalSeqHost, d_glob_s
 
 /* DeviceGlobalSequence */
 
-void DeviceGlobalSequence::setSequence(h_glob_seq_t globalSeqHost, uint_t threadBlocksPerSequence) {
+void DeviceGlobalSequence::setFromHostSeq(h_glob_seq_t globalSeqHost, uint_t threadBlocksPerSequence) {
     start = globalSeqHost.start;
     length = globalSeqHost.length;
     direction = globalSeqHost.direction;
@@ -48,4 +48,25 @@ void DeviceGlobalSequence::setSequence(h_glob_seq_t globalSeqHost, uint_t thread
 
     minVal = UINT32_MAX;
     maxVal = 0;
+}
+
+
+/* LocalSequence */
+
+void LocalSequence::setLowerSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev) {
+    start = globalSeqHost.oldStart;
+    length = globalSeqDev.offsetLower;
+    direction = !globalSeqHost.direction;
+}
+
+void LocalSequence::setGreaterSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev) {
+    start = globalSeqHost.oldStart + globalSeqHost.length - globalSeqDev.offsetGreater;
+    length = globalSeqDev.offsetGreater;
+    direction = !globalSeqHost.direction;
+}
+
+void LocalSequence::setFromGlobalSeq(h_glob_seq_t globalParams) {
+    start = globalParams.start;
+    length = globalParams.length;
+    direction = globalParams.direction;
 }

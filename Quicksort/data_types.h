@@ -10,16 +10,21 @@ typedef int32_t int_t;
 typedef struct Element el_t;
 typedef struct HostGlobalSequence h_glob_seq_t;
 typedef struct DeviceGlobalSequence d_glob_seq_t;
-typedef struct LocalParams lparam_t;
+typedef struct LocalSequence loc_seq_t;
 
 
-// Key value pair used for sorting
+/*
+Key value pair used for sorting
+*/
 struct Element {
     data_t key;
     data_t val;
 };
 
-// Params for sequence used in global quicksort on host.
+/*
+Params for sequence used in GLOBAL quicksort on HOST.
+Host needs different params for sequence beeing partitioned than device.
+*/
 struct HostGlobalSequence {
     uint_t start;
     uint_t length;
@@ -30,12 +35,15 @@ struct HostGlobalSequence {
     // false: dataInput -> dataBuffer, true: dataBuffer -> dataInput
     bool direction;
 
-    void setInitSequence(uint_t tableLen, data_t initPivot);
-    void setLowerSequence(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev);
-    void setGreaterSequence(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev);
+    void setInitSeq(uint_t tableLen, data_t initPivot);
+    void setLowerSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev);
+    void setGreaterSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev);
 };
 
-// Params for sequence used in global quicksort on device.
+/*
+Params for sequence used in GLOBAL quicksort on DEVICE.
+Device needs different params for sequence beeing partitioned than host.
+*/
 struct DeviceGlobalSequence {
     uint_t start;
     uint_t length;
@@ -57,32 +65,21 @@ struct DeviceGlobalSequence {
     data_t minVal;
     data_t maxVal;
 
-    void setSequence(h_glob_seq_t globalSeqHost, uint_t threadBlocksPerSequence);
+    void setFromHostSeq(h_glob_seq_t globalSeqHost, uint_t threadBlocksPerSequence);
 };
 
-struct LocalParams {
+/*
+Params for sequence used in LOCAL quicksort on DEVICE.
+*/
+struct LocalSequence {
     uint_t start;
     uint_t length;
     // false: dataInput -> dataBuffer, true: dataBuffer -> dataInput
     bool direction;
 
-    void lowerSequence(h_glob_seq_t oldParams, d_glob_seq_t deviceParams) {
-        start = oldParams.oldStart;
-        length = deviceParams.offsetLower;
-        direction = !oldParams.direction;
-    }
-
-    void greaterSequence(h_glob_seq_t oldParams, d_glob_seq_t deviceParams) {
-        start = oldParams.oldStart + oldParams.length - deviceParams.offsetGreater;
-        length = deviceParams.offsetGreater;
-        direction = !oldParams.direction;
-    }
-
-    void fromGlobalParams(h_glob_seq_t globalParams) {
-        start = globalParams.start;
-        length = globalParams.length;
-        direction = globalParams.direction;
-    }
+    void setLowerSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev);
+    void setGreaterSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev);
+    void setFromGlobalSeq(h_glob_seq_t globalParams);
 };
 
 #endif

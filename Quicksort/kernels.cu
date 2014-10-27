@@ -145,7 +145,7 @@ easy to implement for input sequences of arbitrary size) and outputs them to out
 
 - TODO use quick sort kernel instead of bitonic sort
 */
-__device__ void normalizedBitonicSort(el_t *input, el_t *output, lparam_t localParams, uint_t tableLen, bool orderAsc) {
+__device__ void normalizedBitonicSort(el_t *input, el_t *output, loc_seq_t localParams, uint_t tableLen, bool orderAsc) {
     extern __shared__ el_t sortTile[];
 
     // Read data from global to shared memory.
@@ -193,7 +193,7 @@ __device__ void normalizedBitonicSort(el_t *input, el_t *output, lparam_t localP
 ////////////////////// LOCAL QUICKSORT UTILS //////////////////////
 
 
-__device__ lparam_t popWorkstack(lparam_t *workstack, int_t &workstackCounter) {
+__device__ loc_seq_t popWorkstack(loc_seq_t *workstack, int_t &workstackCounter) {
     if (threadIdx.x == 0) {
         workstackCounter--;
     }
@@ -202,9 +202,9 @@ __device__ lparam_t popWorkstack(lparam_t *workstack, int_t &workstackCounter) {
     return workstack[workstackCounter + 1];
 }
 
-__device__ int_t pushWorkstack(lparam_t *workstack, int_t &workstackCounter, lparam_t params,
+__device__ int_t pushWorkstack(loc_seq_t *workstack, int_t &workstackCounter, loc_seq_t params,
                                uint_t lowerCounter, uint_t greaterCounter) {
-    lparam_t newParams1, newParams2;
+    loc_seq_t newParams1, newParams2;
 
     newParams1.direction = !params.direction;
     newParams2.direction = !params.direction;
@@ -339,13 +339,13 @@ __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_glob_seq_t *g
 // TODO add implementation for null distributions
 // TODO in general chech if __shared__ values work faster (pivot, array1, array2, ...)
 // TODO try alignment with 32 for coalasced reading
-__global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localParams, uint_t tableLen,
+__global__ void quickSortLocalKernel(el_t *input, el_t *output, loc_seq_t *localParams, uint_t tableLen,
                                      bool orderAsc) {
     __shared__ extern uint_t localSortTile[];
 
     // Explicit stack (instead of recursion) for work to be done
     // TODO allocate explicit stack dynamically according to sub-block size
-    __shared__ lparam_t workstack[32];
+    __shared__ loc_seq_t workstack[32];
     __shared__ int_t workstackCounter;
 
     __shared__ uint_t pivotLowerOffset;
@@ -365,7 +365,7 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, lparam_t *localP
 
     while (workstackCounter >= 0) {
         // TODO try with explicit local values start, end, direction
-        lparam_t params = popWorkstack(workstack, workstackCounter);
+        loc_seq_t params = popWorkstack(workstack, workstackCounter);
 
         if (params.length <= BITONIC_SORT_SIZE_LOCAL) {
             // Bitonic sort is executed in-place and sorted data has to be writter to output.
