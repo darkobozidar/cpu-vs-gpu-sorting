@@ -44,10 +44,10 @@ void runQuickSortGlobalKernel(el_t *input, el_t* output, d_gparam_t *h_devGlobal
     startStopwatch(&timer);
 
     error = cudaMemcpy(d_devGlobalParams, h_devGlobalParams, hostWorkCounter * sizeof(*d_devGlobalParams),
-        cudaMemcpyHostToDevice);
+                       cudaMemcpyHostToDevice);
     checkCudaError(error);
     error = cudaMemcpy(d_globalSeqIndexes, h_globalSeqIndexes, threadBlockCounter * sizeof(*d_globalSeqIndexes),
-        cudaMemcpyHostToDevice);
+                       cudaMemcpyHostToDevice);
     checkCudaError(error);
 
     // TODO comment shared memory size, 2 * size should be enough, because scan and min/max can be
@@ -79,7 +79,7 @@ void runQuickSortLocalKernel(el_t *input, el_t *output, lparam_t *h_localParams,
     dim3 dimBlock(THREADS_PER_SORT_LOCAL, 1, 1);
 
     startStopwatch(&timer);
-    error = cudaMemcpy(d_localParams, h_localParams, MAX_SEQUENCES * sizeof(*d_localParams),
+    error = cudaMemcpy(d_localParams, h_localParams, numThreadBlocks * sizeof(*d_localParams),
                        cudaMemcpyHostToDevice);
     checkCudaError(error);
 
@@ -89,6 +89,12 @@ void runQuickSortLocalKernel(el_t *input, el_t *output, lparam_t *h_localParams,
     /*error = cudaDeviceSynchronize();
     checkCudaError(error);
     endStopwatch(timer, "Executing local parallel quicksort.");*/
+}
+
+void runPrintTableKernel(el_t *table, uint_t tableLen) {
+    printTableKernel << <1, 1 >> >(table, tableLen);
+    cudaError_t error = cudaDeviceSynchronize();
+    checkCudaError(error);
 }
 
 // TODO handle empty sub-blocks
@@ -109,7 +115,7 @@ void quickSort(el_t *hostData, el_t *dataInput, el_t *dataBuffer, h_gparam_t *h_
     uint_t localWorkCounter = 0;
     uint_t elemsPerThreadBlock = THREADS_PER_SORT_GLOBAL * ELEMENTS_PER_THREAD_GLOBAL;
     // Maximum number of sequences, which can be generated with global quicksort
-    uint_t maxSequences = tableLen / (elemsPerThreadBlock * 1);  // TODO replace 1 with constant
+    uint_t maxSequences = (tableLen - 1) / (MIN_PARTITION_SIZE_GLOBAL * 1) + 1;  // TODO replace 1 with constant
     cudaError_t error;
 
     // TODO if statement for initial sequence length
@@ -134,36 +140,36 @@ void quickSort(el_t *hostData, el_t *dataInput, el_t *dataBuffer, h_gparam_t *h_
             d_globalSeqIndexes, hostWorkCounter, threadBlockCounter, tableLen
         );
 
-        break;
+        runPrintTableKernel(dataBuffer, tableLen);
 
-        //uint_t oldHostWorkCounter = hostWorkCounter;
-        //hostWorkCounter = 0;
+        uint_t oldHostWorkCounter = hostWorkCounter;
+        hostWorkCounter = 0;
 
-        //// Create new sub-sequences
-        //for (uint_t workIdx = 0; workIdx < oldHostWorkCounter; workIdx++) {
-        //    h_gparam_t hostParams = h_hostGlobalParams[workIdx];
-        //    d_gparam_t devParams = h_devGlobalParams[workIdx];
+        // Create new sub-sequences
+        for (uint_t workIdx = 0; workIdx < oldHostWorkCounter; workIdx++) {
+            h_gparam_t hostParams = h_hostGlobalParams[workIdx];
+            d_gparam_t devParams = h_devGlobalParams[workIdx];
 
-        //    // New subsequece (lower)
-        //    if (devParams.offsetLower > MIN_PARTITION_SIZE_GLOBAL) {
-        //        h_hostGlobalBuffer[hostWorkCounter++].lowerSequence(hostParams, devParams);
-        //    } else {
-        //        h_localParams[localWorkCounter++].lowerSequence(hostParams, devParams);
-        //    }
+            // New subsequece (lower)
+            if (devParams.offsetLower > MIN_PARTITION_SIZE_GLOBAL) {
+                h_hostGlobalBuffer[hostWorkCounter++].lowerSequence(hostParams, devParams);
+            } else {
+                h_localParams[localWorkCounter++].lowerSequence(hostParams, devParams);
+            }
 
-        //    // New subsequece (greater)
-        //    if (devParams.offsetLower > MIN_PARTITION_SIZE_GLOBAL) {
-        //        h_hostGlobalBuffer[hostWorkCounter++].greaterSequence(hostParams, devParams);
-        //    } else {
-        //        h_localParams[localWorkCounter++].greaterSequence(hostParams, devParams);
-        //    }
+            // New subsequece (greater)
+            if (devParams.offsetLower > MIN_PARTITION_SIZE_GLOBAL) {
+                h_hostGlobalBuffer[hostWorkCounter++].greaterSequence(hostParams, devParams);
+            } else {
+                h_localParams[localWorkCounter++].greaterSequence(hostParams, devParams);
+            }
 
-        //    workTotal += 2;
-        //}
+            workTotal++;
+        }
 
-        //h_gparam_t *temp = h_hostGlobalParams;
-        //h_hostGlobalParams = h_hostGlobalBuffer;
-        //h_hostGlobalBuffer = temp;
+        h_gparam_t *temp = h_hostGlobalParams;
+        h_hostGlobalParams = h_hostGlobalBuffer;
+        h_hostGlobalBuffer = temp;
     }
 
     // Add sequences which were not partitioned to min size

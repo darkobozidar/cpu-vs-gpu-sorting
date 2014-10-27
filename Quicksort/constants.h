@@ -12,7 +12,8 @@
 // How many elements are processed by each thread in global quicksort. Has to be power of 2.
 #define ELEMENTS_PER_THREAD_GLOBAL 2
 
+// Has to be lower or equal than THREADS_PER_SORT_GLOBAL * ELEMENTS_PER_THREAD_GLOBAL
 #define THREADS_PER_SORT_LOCAL 2  // Thread block size for local quicksort. Has to be power of 2.
-#define BITONIC_SORT_SIZE_LOCAL 8 // Threshold of sub-block size, when bitonic sort is used
+#define BITONIC_SORT_SIZE_LOCAL 4 // Threshold of sub-block size, when bitonic sort is used
 
 #endif

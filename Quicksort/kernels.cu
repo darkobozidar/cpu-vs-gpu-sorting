@@ -14,6 +14,13 @@
 ///////////////////////////////////////////////////////////////////
 
 
+__global__ void printTableKernel(el_t *table, uint_t tableLen) {
+    for (uint_t i = 0; i < tableLen; i++) {
+        printf("%2d ", table[i].key);
+    }
+    printf("\n\n");
+}
+
 ////////////////////////// GENERAL UTILS //////////////////////////
 
 /*
@@ -151,7 +158,7 @@ __device__ void normalizedBitonicSort(el_t *input, el_t *output, lparam_t localP
     for (uint_t subBlockSize = 1; subBlockSize < localParams.length; subBlockSize <<= 1) {
         // Bitonic merge STEPS
         for (uint_t stride = subBlockSize; stride > 0; stride >>= 1) {
-            for (uint_t tx = threadIdx.x; tx < (tableLen / MAX_SEQUENCES) >> 1; tx += blockDim.x) {
+            for (uint_t tx = threadIdx.x; tx < localParams.length >> 1; tx += blockDim.x) {
                 uint_t indexThread = tx;
                 uint_t offset = stride;
 
@@ -301,7 +308,7 @@ __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_gparam_t *glo
     uint_t indexGreater = params.start + params.length - globalGreater - scanGreater;
 
     // Scatter elements to newly generated left/right subsequences
-    for (uint_t tx = threadIdx.x; tx < params.length; tx += blockDim.x) {
+    for (uint_t tx = threadIdx.x; tx < localLength; tx += blockDim.x) {
         el_t temp = primaryArray[localStart + tx];
 
         if (temp.key < params.pivot) {

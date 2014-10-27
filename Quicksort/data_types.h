@@ -39,8 +39,8 @@ struct HostGlobalParams {
         direction = false;
     }
 
-    /*void lowerSequence(h_gparam_t oldParams, d_gparam_t deviceParams);
-    void greaterSequence(h_gparam_t oldParams, d_gparam_t deviceParams);*/
+    void lowerSequence(h_gparam_t oldParams, d_gparam_t deviceParams);
+    void greaterSequence(h_gparam_t oldParams, d_gparam_t deviceParams);
 };
 
 // Params for each sub-sequence used in global quicksort on device.
