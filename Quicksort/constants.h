@@ -6,7 +6,7 @@
 // constant, than it stops to be partitioned by global quicksort. Has to be power of 2.
 #define MIN_PARTITION_SIZE_GLOBAL 2
 // How many threads are in each thread block when running global quicksort kernel. Has to be power of 2.
-#define THREADS_PER_SORT_GLOBAL 2
+#define THREADS_PER_SORT_GLOBAL 16
 // How many elements are processed by each thread in global quicksort. Has to be power of 2.
 #define ELEMENTS_PER_THREAD_GLOBAL 2
 

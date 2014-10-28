@@ -117,7 +117,7 @@ __device__ void minMaxReduction(uint_t *minValues, uint_t *maxValues, uint_t len
         if (threadIdx.x < stride) {
             minValues[threadIdx.x] = min(minValues[threadIdx.x], minValues[threadIdx.x + stride]);
         } else if (threadIdx.x < 2 * stride) {
-            maxValues[threadIdx.x] = max(maxValues[threadIdx.x], maxValues[threadIdx.x + stride]);
+            maxValues[threadIdx.x - stride] = max(maxValues[threadIdx.x - stride], maxValues[threadIdx.x]);
         }
         __syncthreads();
     }
