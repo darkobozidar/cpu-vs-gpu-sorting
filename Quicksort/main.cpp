@@ -36,10 +36,10 @@ int main(int argc, char** argv) {
     error = cudaHostAlloc(&outputParallel, tableLen * sizeof(*outputParallel), cudaHostAllocDefault);
     checkCudaError(error);
     /*fillTable(input, tableLen, interval);*/
-    printTable(input, tableLen);
+    /*printTable(input, tableLen);*/
 
     sortParallel(input, outputParallel, tableLen, orderAsc);
-    printTable(outputParallel, tableLen);
+    /*printTable(outputParallel, tableLen);*/
 
     printf("\n");
     outputCorrect = sortCorrect(input, tableLen);

@@ -115,11 +115,9 @@ __device__ void minMaxReduction(uint_t *minValues, uint_t *maxValues, uint_t len
 
     for (uint_t stride = length / 2; stride > 0; stride /= 2) {
         if (threadIdx.x < stride) {
-            if (threadIdx.x < blockDim.x) {
-                minValues[threadIdx.x] = min(minValues[threadIdx.x], minValues[threadIdx.x + stride]);
-            } else {
-                maxValues[threadIdx.x] = max(maxValues[threadIdx.x], maxValues[threadIdx.x + stride]);
-            }
+            minValues[threadIdx.x] = min(minValues[threadIdx.x], minValues[threadIdx.x + stride]);
+        } else if (threadIdx.x < 2 * stride) {
+            maxValues[threadIdx.x] = max(maxValues[threadIdx.x], maxValues[threadIdx.x + stride]);
         }
         __syncthreads();
     }
@@ -257,9 +255,12 @@ __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_glob_seq_t *g
         workIndex = seqIndexes[blockIdx.x];
         params = globalParams[workIndex];
 
+        // Variable "blockCounter" has to be used instead of "blockIdx.x", because "blockCounter" is limited by the
+        // number of blocks assigned to sequence, whereas "blockIdx.x" has consecutive values for all blocks in kernel.
         params.blockCounter = atomicSub(&globalParams[workIndex].blockCounter, 1) - 1;
-        localStart = params.start + params.blockCounter * elemsPerBlock;
-        localLength = params.blockCounter != 0 ? elemsPerBlock : ((params.length - 1) % elemsPerBlock) + 1;
+        uint_t blockOffset = params.blockCounter * elemsPerBlock;
+        localStart = params.start + blockOffset;
+        localLength = (params.length - blockOffset) >= elemsPerBlock ? elemsPerBlock : params.length - blockOffset;
     }
     __syncthreads();
 
@@ -307,6 +308,13 @@ __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_glob_seq_t *g
     uint_t indexLower = params.start + globalLower + scanLower - localLower;
     uint_t indexGreater = params.start + params.length - globalGreater - scanGreater;
 
+    /*if (blockIdx.x == 0) {
+        printf(
+            "(%d, %d) => (%d %d), (%d %d), (%2d %2d)\n",
+            blockIdx.x, threadIdx.x, localLower, localGreater, scanLower, scanGreater, indexLower, indexGreater
+        );
+    }*/
+
     // Scatter elements to newly generated left/right subsequences
     for (uint_t tx = threadIdx.x; tx < localLength; tx += blockDim.x) {
         el_t temp = primaryArray[localStart + tx];
@@ -327,8 +335,8 @@ __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_glob_seq_t *g
     el_t pivot;
     pivot.key = params.pivot;
 
-    uint_t index = globalParams[workIndex].offsetLower + threadIdx.x;
-    uint_t end = params.length - globalParams[workIndex].offsetGreater;
+    uint_t index = params.start + globalParams[workIndex].offsetLower + threadIdx.x;
+    uint_t end = params.start + params.length - globalParams[workIndex].offsetGreater;
 
     while (index < end) {
         output[index] = pivot;
