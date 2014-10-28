@@ -87,7 +87,7 @@ __device__ uint_t intraBlockScan(uint_t val) {
     __syncthreads();
 
     if (laneIdx == warpLen - 1) {
-        scanTile[warpIdx] = warpResult;
+        scanTile[warpIdx] = warpResult + val;
     }
     __syncthreads();
 

@@ -62,7 +62,7 @@ void runQuickSortGlobalKernel(el_t *dataInput, el_t* dataBuffer, d_glob_seq_t *h
     // performed in the same array
     // TODO comment: max(min/max, lower/greater)
     uint_t sharedMemSize = max(
-        2 * THREADS_PER_SORT_GLOBAL * sizeof(data_t), 2 * THREADS_PER_SORT_GLOBAL * sizeof(data_t)
+        2 * THREADS_PER_SORT_GLOBAL * sizeof(data_t), 2 * THREADS_PER_SORT_GLOBAL * sizeof(uint_t)
     );
     dim3 dimGrid(threadBlockCounter, 1, 1);
     dim3 dimBlock(THREADS_PER_SORT_GLOBAL, 1, 1);
