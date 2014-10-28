@@ -117,71 +117,61 @@ void quickSort(el_t *h_dataInput, el_t *d_dataInput, el_t *d_dataBuffer, h_glob_
                h_glob_seq_t *h_globalSeqHostBuffer, d_glob_seq_t *h_globalSeqDev, d_glob_seq_t *d_globalSeqDev,
                uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes, loc_seq_t *h_localSeq,
                loc_seq_t *d_localSeq, uint_t tableLen, uint_t maxSequences, bool orderAsc) {
-    // Set starting work
     // TODO parallel reduction for initial pivot
     // TODO in global quicksort there is no need to calculate min and max after it is calculated first time
     uint_t minVal = min(min(h_dataInput[0].key, h_dataInput[tableLen / 2].key), h_dataInput[tableLen - 1].key);
     uint_t maxVal = max(max(h_dataInput[0].key, h_dataInput[tableLen / 2].key), h_dataInput[tableLen - 1].key);
     h_globalSeqHost[0].setInitSeq(tableLen, (minVal + maxVal) / 2);
 
-    // TODO change variable names
-    // Size of workstack
-    uint_t workTotal = 1;
-    uint_t hostWorkCounter = 1;
-    uint_t localWorkCounter = 0;
+    uint_t numSeqGlobal = 1; // Number of sequences for GLOBAL quicksort
+    uint_t numSeqLocal = 0;  // Number of sequences for LOCAL quicksort
     uint_t elemsPerThreadBlock = THREADS_PER_SORT_GLOBAL * ELEMENTS_PER_THREAD_GLOBAL;
-    // Maximum number of sequences, which can be generated with global quicksort
     cudaError_t error;
 
     // TODO if statement for initial sequence length
-    while (workTotal < maxSequences) {
+    while (numSeqGlobal + numSeqLocal < maxSequences) {
         uint_t threadBlockCounter = 0;
 
-        // Store work to device
-        for (uint_t workIdx = 0; workIdx < hostWorkCounter; workIdx++) {
-            uint_t threadBlocksPerSequence = (h_globalSeqHost[workIdx].length - 1) / elemsPerThreadBlock + 1;
+        // Transfers host sequences to device sequences (device needs different data about sequence than host)
+        for (uint_t seqIdx = 0; seqIdx < numSeqGlobal; seqIdx++) {
+            uint_t threadBlocksPerSeq = (h_globalSeqHost[seqIdx].length - 1) / elemsPerThreadBlock + 1;
+            h_globalSeqDev[seqIdx].setFromHostSeq(h_globalSeqHost[seqIdx], threadBlocksPerSeq);
 
-            // For every thread block marks, which sequence they have to partiton (which work they have to perform)
-            for (uint_t blockIdx = 0; blockIdx < threadBlocksPerSequence; blockIdx++) {
-                h_globalSeqIndexes[threadBlockCounter++] = workIdx;
+            // For all thread blocks in current iteration marks, they are assigned to current sequence.
+            for (uint_t blockIdx = 0; blockIdx < threadBlocksPerSeq; blockIdx++) {
+                h_globalSeqIndexes[threadBlockCounter++] = seqIdx;
             }
-
-            // Store work, that thread blocks assigned to current sequence have to perform
-            h_globalSeqDev[workIdx].setFromHostSeq(h_globalSeqHost[workIdx], threadBlocksPerSequence);
         }
 
         runQuickSortGlobalKernel(
             d_dataInput, d_dataBuffer, h_globalSeqDev, d_globalSeqDev, h_globalSeqIndexes,
-            d_globalSeqIndexes, hostWorkCounter, threadBlockCounter, tableLen
+            d_globalSeqIndexes, numSeqGlobal, threadBlockCounter, tableLen
         );
 
         /*runPrintTableKernel(d_dataBuffer, tableLen);*/
 
-        uint_t oldHostWorkCounter = hostWorkCounter;
-        hostWorkCounter = 0;
+        uint_t numSeqGlobalOld = numSeqGlobal;
+        numSeqGlobal = 0;
 
+        // Creates new sub-sequences
         // TODO if sequence length is > 0
-        // TODO move to separate method
-        // Create new sub-sequences
-        for (uint_t workIdx = 0; workIdx < oldHostWorkCounter; workIdx++) {
-            h_glob_seq_t hostParams = h_globalSeqHost[workIdx];
-            d_glob_seq_t devParams = h_globalSeqDev[workIdx];
+        for (uint_t seqIdx = 0; seqIdx < numSeqGlobalOld; seqIdx++) {
+            h_glob_seq_t seqHost = h_globalSeqHost[seqIdx];
+            d_glob_seq_t seqDev = h_globalSeqDev[seqIdx];
 
             // New subsequece (lower)
-            if (devParams.offsetLower > MIN_PARTITION_SIZE_GLOBAL) {
-                h_globalSeqHostBuffer[hostWorkCounter++].setLowerSeq(hostParams, devParams);
+            if (seqDev.offsetLower > MIN_PARTITION_SIZE_GLOBAL) {
+                h_globalSeqHostBuffer[numSeqGlobal++].setLowerSeq(seqHost, seqDev);
             } else {
-                h_localSeq[localWorkCounter++].setLowerSeq(hostParams, devParams);
+                h_localSeq[numSeqLocal++].setLowerSeq(seqHost, seqDev);
             }
 
             // New subsequece (greater)
-            if (devParams.offsetLower > MIN_PARTITION_SIZE_GLOBAL) {
-                h_globalSeqHostBuffer[hostWorkCounter++].setGreaterSeq(hostParams, devParams);
+            if (seqDev.offsetLower > MIN_PARTITION_SIZE_GLOBAL) {
+                h_globalSeqHostBuffer[numSeqGlobal++].setGreaterSeq(seqHost, seqDev);
             } else {
-                h_localSeq[localWorkCounter++].setGreaterSeq(hostParams, devParams);
+                h_localSeq[numSeqLocal++].setGreaterSeq(seqHost, seqDev);
             }
-
-            workTotal++;
         }
 
         h_glob_seq_t *temp = h_globalSeqHost;
@@ -189,13 +179,13 @@ void quickSort(el_t *h_dataInput, el_t *d_dataInput, el_t *d_dataBuffer, h_glob_
         h_globalSeqHostBuffer = temp;
     }
 
-    // Add sequences which were not partitioned to min size
-    for (uint_t workIdx = 0; workIdx < hostWorkCounter; workIdx++) {
-        h_localSeq[localWorkCounter++].setFromGlobalSeq(h_globalSeqHost[workIdx]);
+    // Adds sequences which were not partitioned by global quicksort to sequences for local quicksort
+    for (uint_t seqIdx = 0; seqIdx < numSeqGlobal; seqIdx++) {
+        h_localSeq[numSeqLocal++].setFromGlobalSeq(h_globalSeqHost[seqIdx]);
     }
 
     runQuickSortLocalKernel(
-        d_dataInput, d_dataBuffer, h_localSeq, d_localSeq, tableLen, workTotal, orderAsc
+        d_dataInput, d_dataBuffer, h_localSeq, d_localSeq, tableLen, numSeqGlobal + numSeqLocal, orderAsc
     );
 }
 
@@ -213,7 +203,7 @@ void sortParallel(el_t *h_dataInput, el_t *h_dataOutput, uint_t tableLen, bool o
     loc_seq_t *h_localSeq, *d_localSeq;
 
     // Maximum number of sequneces which can get generated by global quicksort. In global quicksort sequences
-    // are generated untill total number of sequences is lower than tableLen / MIN_PARTITION_SIZE_GLOBAL.
+    // are generated untill total number of sequences is lower than: tableLen / MIN_PARTITION_SIZE_GLOBAL.
     uint_t maxSequences = 2 * tableLen / MIN_PARTITION_SIZE_GLOBAL - 2;
     // Max number of all thread blocks in GLOBAL quicksort. TODO verify constant 2.
     uint_t maxNumThreadBlocks = 2 * tableLen / (THREADS_PER_SORT_GLOBAL * ELEMENTS_PER_THREAD_GLOBAL);
