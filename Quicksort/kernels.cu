@@ -18,7 +18,7 @@ __global__ void printTableKernel(el_t *table, uint_t tableLen) {
     for (uint_t i = 0; i < tableLen; i++) {
         printf("%2d ", table[i].key);
     }
-    printf("\n\n");
+    printf("\n");
 }
 
 ////////////////////////// GENERAL UTILS //////////////////////////
@@ -253,13 +253,13 @@ __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_glob_seq_t *g
     __shared__ d_glob_seq_t params;
 
     if (threadIdx.x == (blockDim.x - 1)) {
+        uint_t elemsPerBlock = blockDim.x * ELEMENTS_PER_THREAD_GLOBAL;
         workIndex = seqIndexes[blockIdx.x];
         params = globalParams[workIndex];
-        uint_t elemsPerBlock = blockDim.x * ELEMENTS_PER_THREAD_GLOBAL;
 
         params.blockCounter = atomicSub(&globalParams[workIndex].blockCounter, 1) - 1;
-        localStart = params.start + blockIdx.x * elemsPerBlock;
-        localLength = blockIdx.x != (blockDim.x - 1) ? elemsPerBlock : ((params.length - 1) % elemsPerBlock) + 1;
+        localStart = params.start + params.blockCounter * elemsPerBlock;
+        localLength = params.blockCounter != 0 ? elemsPerBlock : ((params.length - 1) % elemsPerBlock) + 1;
     }
     __syncthreads();
 
@@ -267,14 +267,14 @@ __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_glob_seq_t *g
     minValues[threadIdx.x] = UINT32_MAX;
     maxValues[threadIdx.x] = 0;
 
-    el_t *primaryArray = params.direction ? output : input;
-    el_t *bufferArray = params.direction ? input : output;
+    el_t *primaryArray = params.direction == PRIMARY_MEM_TO_BUFFER ? input : output;
+    el_t *bufferArray = params.direction == BUFFER_TO_PRIMARY_MEM ? input : output;
 
     uint_t localLower = 0;
     uint_t localGreater = 0;
 
     for (uint_t tx = threadIdx.x; tx < localLength; tx += blockDim.x) {
-        el_t temp = input[localStart + tx];
+        el_t temp = primaryArray[localStart + tx];
         localLower += temp.key < params.pivot;
         localGreater += temp.key > params.pivot;
 

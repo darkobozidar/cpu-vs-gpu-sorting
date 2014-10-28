@@ -40,8 +40,8 @@ void HostGlobalSequence::setGreaterSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t 
 void DeviceGlobalSequence::setFromHostSeq(h_glob_seq_t globalSeqHost, uint_t threadBlocksPerSequence) {
     start = globalSeqHost.start;
     length = globalSeqHost.length;
-    direction = globalSeqHost.direction;
     pivot = globalSeqHost.pivot;
+    direction = globalSeqHost.direction;
     blockCounter = threadBlocksPerSequence;
 
     offsetLower = 0;
