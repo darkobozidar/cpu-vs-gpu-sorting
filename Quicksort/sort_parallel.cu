@@ -30,15 +30,20 @@ void memoryInitHost(h_glob_seq_t **h_globalSeqHost, h_glob_seq_t **h_globalSeqHo
 /*
 Initializes DEVICE memory needed for paralel sort implementation.
 */
-void memoryInitDevice(el_t *h_input, el_t **d_dataInput, el_t **d_dataBuffer, d_glob_seq_t **d_globalSeqDev,
-                      uint_t **d_globalSeqIndexes, loc_seq_t **d_localSeq, uint_t tableLen,
-                      uint_t maxNumSequences, uint_t maxNumThreadBlocks) {
+void memoryInitDevice(el_t *h_input, el_t **d_dataInput, el_t **d_dataBuffer, data_t **d_minMaxBuffer,
+                      d_glob_seq_t **d_globalSeqDev, uint_t **d_globalSeqIndexes, loc_seq_t **d_localSeq,
+                      uint_t tableLen, uint_t maxNumSequences, uint_t maxNumThreadBlocks) {
+    // Number of elements produced by first reduction
+    uint_t minMaxBufferLength = (tableLen - 1) / (THREADS_PER_REDUCTION * ELEMENTS_PER_THREAD_REDUCTION) + 1;
     cudaError_t error;
 
     // Data memory allocation
     error = cudaMalloc(d_dataInput, tableLen * sizeof(**d_dataInput));
     checkCudaError(error);
     error = cudaMalloc(d_dataBuffer, tableLen * sizeof(**d_dataBuffer));
+    checkCudaError(error);
+    // Min/Max reduction memory allocation
+    error = cudaMalloc(d_minMaxBuffer, minMaxBufferLength * sizeof(**d_minMaxBuffer));
     checkCudaError(error);
     // Sequence metadata memory allocation
     error = cudaMalloc(d_globalSeqDev, maxNumSequences * sizeof(**d_globalSeqDev));
@@ -50,6 +55,20 @@ void memoryInitDevice(el_t *h_input, el_t **d_dataInput, el_t **d_dataBuffer, d_
 
     error = cudaMemcpy(*d_dataInput, h_input, tableLen * sizeof(**d_dataInput), cudaMemcpyHostToDevice);
     checkCudaError(error);
+}
+
+uint_t runMinMaxReductionKernel(data_t *primaryArray, data_t *bufferArray, uint_t tableLen, bool firstRun) {
+    // Half of the array for min values and the other half for max values
+    uint_t sharedMemSize = 2 * THREADS_PER_REDUCTION * sizeof(data_t);
+
+    dim3 dimGrid((tableLen - 1) / (THREADS_PER_REDUCTION * ELEMENTS_PER_THREAD_REDUCTION) + 1, 1, 1);
+    dim3 dimBlock(THREADS_PER_REDUCTION, 1, 1);
+
+    minMaxReductionKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
+        primaryArray, bufferArray, tableLen, firstRun
+    );
+
+    return dimGrid.x;
 }
 
 void runQuickSortGlobalKernel(el_t *dataInput, el_t* dataBuffer, d_glob_seq_t *h_globalSeqHost,
@@ -120,35 +139,65 @@ void runPrintTableKernel(el_t *table, uint_t tableLen) {
     checkCudaError(error);
 }
 
-void runMinMaxReductionKernel() {
-
-}
-
-void minMaxReduciton(el_t *d_dataInput, el_t *d_dataBuffer, data_t &minVal, data_t &maxVal, uint_t tableLen) {
+void minMaxReduction(data_t *h_dataInput, data_t *d_dataInput, data_t *d_dataBuffer, data_t *h_minMaxValues,
+                     data_t *d_minMaxBuffer, uint_t tableLen, data_t &minVal, data_t &maxVal) {
     // Number of min/max values
     uint_t numValues = tableLen;
+    TransferDirection direction = BUFFER_TO_PRIMARY_MEM;
 
-    while (numValues < THRESHOLD_REDUCTION) {
-        // Half of the array for min values and the other half for max values
-        uint_t sharedMemSize = 2 * THREADS_PER_REDUCTION * sizeof(data_t);
+    data_t *primaryArray = d_dataInput;
+    data_t *bufferArray = d_dataBuffer;
+    bool didKernelExecute = FALSE;
 
-        dim3 dimGrid((numValues - 1) / (THREADS_PER_REDUCTION * ELEMENTS_PER_THREAD_REDUCTION) + 1, 1, 1);
-        dim3 dimBlock(THREADS_PER_REDUCTION, 1, 1);
+    while (numValues > THRESHOLD_REDUCTION) {
+        numValues = runMinMaxReductionKernel(primaryArray, bufferArray, numValues, !didKernelExecute);
 
+        direction != direction;
+        didKernelExecute = TRUE;
 
-        numValues = dimGrid.x;
+        primaryArray = direction == PRIMARY_MEM_TO_BUFFER ? d_dataBuffer : d_minMaxBuffer;
+        primaryArray = direction == BUFFER_TO_PRIMARY_MEM ? d_dataBuffer : d_minMaxBuffer;
+    }
+
+    data_t *minValues, *maxValues;
+
+    if (didKernelExecute) {
+        cudaError_t error = cudaMemcpy(
+            h_minMaxValues, primaryArray, 2 * numValues * sizeof(*primaryArray), cudaMemcpyDeviceToHost
+            );
+        checkCudaError(error);
+
+        minValues = h_minMaxValues;
+        maxValues = h_minMaxValues + numValues;
+    } else {
+        minValues = h_dataInput;
+        maxValues = h_dataInput;
+    }
+
+    // Finnishes reduction on host
+    // TODO use constants for different data types
+    minVal = UINT32_MAX;
+    maxVal = 0;
+
+    for (uint_t i = 0; i < numValues; i++) {
+        minVal = min(minVal, minValues[i]);
+        maxVal = max(maxVal, maxValues[i]);
     }
 }
 
 // TODO handle empty sub-blocks
-void quickSort(el_t *h_dataInput, el_t *d_dataInput, el_t *d_dataBuffer, h_glob_seq_t *h_globalSeqHost,
-               h_glob_seq_t *h_globalSeqHostBuffer, d_glob_seq_t *h_globalSeqDev, d_glob_seq_t *d_globalSeqDev,
-               uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes, loc_seq_t *h_localSeq,
-               loc_seq_t *d_localSeq, uint_t tableLen, bool orderAsc) {
+void quickSort(el_t *h_dataInput, el_t *d_dataInput, el_t *d_dataBuffer, data_t *h_minMaxValues,
+               data_t *d_minMaxBuffer, h_glob_seq_t *h_globalSeqHost, h_glob_seq_t *h_globalSeqHostBuffer,
+               d_glob_seq_t *h_globalSeqDev, d_glob_seq_t *d_globalSeqDev, uint_t *h_globalSeqIndexes,
+               uint_t *d_globalSeqIndexes, loc_seq_t *h_localSeq, loc_seq_t *d_localSeq, uint_t tableLen,
+               bool orderAsc) {
     // TODO parallel reduction for initial pivot
     // TODO in global quicksort there is no need to calculate min and max after it is calculated first time
-    uint_t minVal = min(min(h_dataInput[0].key, h_dataInput[tableLen / 2].key), h_dataInput[tableLen - 1].key);
-    uint_t maxVal = max(max(h_dataInput[0].key, h_dataInput[tableLen / 2].key), h_dataInput[tableLen - 1].key);
+    data_t minVal, maxVal;
+    minMaxReduction(
+        (data_t*)h_dataInput, (data_t*)d_dataInput, (data_t*)d_dataBuffer, h_minMaxValues, d_minMaxBuffer,
+        tableLen, minVal, maxVal
+    );
     h_globalSeqHost[0].setInitSeq(tableLen, (minVal + maxVal) / 2);
 
     uint_t numSeqGlobal = 1; // Number of sequences for GLOBAL quicksort
@@ -176,15 +225,6 @@ void quickSort(el_t *h_dataInput, el_t *d_dataInput, el_t *d_dataBuffer, h_glob_
             d_dataInput, d_dataBuffer, h_globalSeqDev, d_globalSeqDev, h_globalSeqIndexes,
             d_globalSeqIndexes, numSeqGlobal, threadBlockCounter, tableLen
         );
-
-        /*printf("-----------------------------------\n");
-        for (uint_t seqIdx = 0; seqIdx < numSeqGlobal; seqIdx++) {
-            printf("%2d ", h_globalSeqHost[seqIdx].pivot);
-        }
-        printf("\n");
-        runPrintTableKernel(d_dataInput, tableLen);
-        runPrintTableKernel(d_dataBuffer, tableLen);
-        printf("\n-----------------------------------\n");*/
 
         uint_t numSeqGlobalOld = numSeqGlobal;
         numSeqGlobal = 0;
@@ -228,6 +268,11 @@ void quickSort(el_t *h_dataInput, el_t *d_dataInput, el_t *d_dataBuffer, h_glob_
 void sortParallel(el_t *h_dataInput, el_t *h_dataOutput, uint_t tableLen, bool orderAsc) {
     // Data memory
     el_t *d_dataInput, *d_dataBuffer;
+    // When initial min/max parallel reduction reduces data to threashold, min/max values are coppied to host
+    // and reduction is finnished on host. Multiplier "2" is used because of min and max values.
+    data_t h_minMaxValues[2 * THRESHOLD_REDUCTION];
+    // Buffer for initial parallel min/max reduction
+    data_t *d_minMaxBuffer;
     // Sequences metadata for GLOBAL quicksort on HOST
     h_glob_seq_t *h_globalSeqHost, *h_globalSeqHostBuffer;
     // Sequences metadata for GLOBAL quicksort on DEVICE
@@ -253,14 +298,15 @@ void sortParallel(el_t *h_dataInput, el_t *h_dataOutput, uint_t tableLen, bool o
         maxNumSequences, maxNumThreadBlocks
     );
     memoryInitDevice(
-        h_dataInput, &d_dataInput, &d_dataBuffer, &d_globalSeqDev, &d_globalSeqIndexes, &d_localSeq,
-        tableLen, maxNumSequences, maxNumThreadBlocks
+        h_dataInput, &d_dataInput, &d_dataBuffer, &d_minMaxBuffer, &d_globalSeqDev, &d_globalSeqIndexes,
+        &d_localSeq, tableLen, maxNumSequences, maxNumThreadBlocks
     );
 
     startStopwatch(&timer);
     quickSort(
-        h_dataInput, d_dataInput, d_dataBuffer, h_globalSeqHost, h_globalSeqHostBuffer, h_globalSeqDev,
-        d_globalSeqDev, h_globalSeqIndexes, d_globalSeqIndexes, h_localSeq, d_localSeq, tableLen, orderAsc
+        h_dataInput, d_dataInput, d_dataBuffer, h_minMaxValues, d_minMaxBuffer, h_globalSeqHost,
+        h_globalSeqHostBuffer, h_globalSeqDev, d_globalSeqDev, h_globalSeqIndexes, d_globalSeqIndexes,
+        h_localSeq, d_localSeq, tableLen, orderAsc
     );
 
     error = cudaDeviceSynchronize();
