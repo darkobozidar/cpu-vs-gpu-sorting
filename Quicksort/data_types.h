@@ -27,7 +27,6 @@ Key value pair used for sorting
 */
 struct Element {
     data_t key;
-    data_t val;
 };
 
 /*

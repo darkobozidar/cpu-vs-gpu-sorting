@@ -51,7 +51,6 @@ Keys are filled with random numbers and values are filled with consecutive naumb
 void fillTable(el_t *table, uint_t tableLen, uint_t interval) {
     for (uint_t i = 0; i < tableLen; i++) {
         table[i].key = rand() % interval;
-        table[i].val = i;
     }
 }
 
@@ -70,12 +69,6 @@ void printTable(el_t *table, uint_t startIndex, uint_t endIndex) {
     for (uint_t i = startIndex; i <= endIndex; i++) {
         char* separator = i == endIndex ? "" : ", ";
         printf("%2d%s", table[i].key, separator);
-    }
-    printf("\n\n");
-
-    for (uint_t i = startIndex; i <= endIndex; i++) {
-        char* separator = i == endIndex ? "" : ", ";
-        printf("%2d%s", table[i].val, separator);
     }
     printf("\n\n");
 }

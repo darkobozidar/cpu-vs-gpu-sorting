@@ -120,6 +120,26 @@ void runPrintTableKernel(el_t *table, uint_t tableLen) {
     checkCudaError(error);
 }
 
+void runMinMaxReductionKernel() {
+
+}
+
+void minMaxReduciton(el_t *d_dataInput, el_t *d_dataBuffer, data_t &minVal, data_t &maxVal, uint_t tableLen) {
+    // Number of min/max values
+    uint_t numValues = tableLen;
+
+    while (numValues < THRESHOLD_REDUCTION) {
+        // Half of the array for min values and the other half for max values
+        uint_t sharedMemSize = 2 * THREADS_PER_REDUCTION * sizeof(data_t);
+
+        dim3 dimGrid((numValues - 1) / (THREADS_PER_REDUCTION * ELEMENTS_PER_THREAD_REDUCTION) + 1, 1, 1);
+        dim3 dimBlock(THREADS_PER_REDUCTION, 1, 1);
+
+
+        numValues = dimGrid.x;
+    }
+}
+
 // TODO handle empty sub-blocks
 void quickSort(el_t *h_dataInput, el_t *d_dataInput, el_t *d_dataBuffer, h_glob_seq_t *h_globalSeqHost,
                h_glob_seq_t *h_globalSeqHostBuffer, d_glob_seq_t *h_globalSeqDev, d_glob_seq_t *d_globalSeqDev,

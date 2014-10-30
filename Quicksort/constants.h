@@ -7,7 +7,8 @@
 #define THREADS_PER_REDUCTION 2
 // How many elements are processed by each thread in min/max reduction. Has to be power of 2.
 #define ELEMENTS_PER_THREAD_REDUCTION 2
-
+// Threashold when reduction on device stops and result is coppied to host. Reduction is finnished on host.
+#define THRESHOLD_REDUCTION 2
 
 /* ---------------- GLOBAL QUICKSORT ---------------- */
 
