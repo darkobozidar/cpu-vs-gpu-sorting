@@ -57,9 +57,15 @@ struct DeviceGlobalSequence {
     data_t pivot;
     TransferDirection direction;
 
-    // Every thread block in global quicksort kernel working on this sequence decreases this counter. This
-    // way thread blocks know, which of them is last, so it can scatter pivots.
-    uint_t blockCounter;
+    // Holds the index of the first thread block assigned to this sequence. Multiple thread blocks can be
+    // partitioning the same sequence, which length is not necessarily multiple of thread block length. It
+    // is used to calculate the local thread block indexes for sequence and consequently which chunk of data
+    // is assigned to current block.
+    uint_t startThreadBlockIdx;
+    // Holds the number of thread blocks assigned to this sequence. When thread blocks finish with execution
+    // of global quicksort, they decrease this counter. This way eash thread block assigned to this sequence
+    // knows, if it finnished last with the execution of kernel, so it can scatter pivots.
+    uint_t threadBlockCounter;
 
     // Counter used in global quicksort. Each thread block working on this sequence increments this counter
     // with number of elements lower/greater than pivot in it's corresponding data. This way every thread
@@ -71,7 +77,7 @@ struct DeviceGlobalSequence {
     data_t minVal;
     data_t maxVal;
 
-    void setFromHostSeq(h_glob_seq_t globalSeqHost, uint_t threadBlocksPerSequence);
+    void setFromHostSeq(h_glob_seq_t globalSeqHost, uint_t startThreadBlock, uint_t threadBlocksPerSequence);
 };
 
 /*

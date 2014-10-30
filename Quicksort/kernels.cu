@@ -224,7 +224,7 @@ __device__ int_t pushWorkstack(loc_seq_t *workstack, int_t &workstackCounter, lo
     if (newParams1.length > 0) {
         workstack[++workstackCounter] = newParams1;
     }
-    if (newParams1.length > 0) {
+    if (newParams2.length > 0) {
         workstack[++workstackCounter] = newParams2;
     }
 
@@ -251,16 +251,16 @@ __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_glob_seq_t *g
     __shared__ d_glob_seq_t params;
 
     if (threadIdx.x == (blockDim.x - 1)) {
-        uint_t elemsPerBlock = blockDim.x * ELEMENTS_PER_THREAD_GLOBAL;
         workIndex = seqIndexes[blockIdx.x];
         params = globalParams[workIndex];
+        uint_t elemsPerBlock = blockDim.x * ELEMENTS_PER_THREAD_GLOBAL;
+        uint_t localBlockIdx = blockIdx.x - params.startThreadBlockIdx;
 
-        // Variable "blockCounter" has to be used instead of "blockIdx.x", because "blockCounter" is limited by the
-        // number of blocks assigned to sequence, whereas "blockIdx.x" has consecutive values for all blocks in kernel.
-        params.blockCounter = atomicSub(&globalParams[workIndex].blockCounter, 1) - 1;
-        uint_t blockOffset = params.blockCounter * elemsPerBlock;
-        localStart = params.start + blockOffset;
-        localLength = (params.length - blockOffset) >= elemsPerBlock ? elemsPerBlock : params.length - blockOffset;
+        // Params.threadBlockCounter cannot be used, because it can get modified by other blocks.
+        uint_t offset = localBlockIdx * elemsPerBlock;
+        localStart = params.start + offset;
+        localLength = offset + elemsPerBlock <= params.length ? elemsPerBlock : params.length - offset;
+        /*printf("%d %d\n", localStart, localLength);*/
     }
     __syncthreads();
 
@@ -308,13 +308,6 @@ __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_glob_seq_t *g
     uint_t indexLower = params.start + globalLower + scanLower - localLower;
     uint_t indexGreater = params.start + params.length - globalGreater - scanGreater;
 
-    /*if (blockIdx.x == 0) {
-        printf(
-            "(%d, %d) => (%d %d), (%d %d), (%2d %2d)\n",
-            blockIdx.x, threadIdx.x, localLower, localGreater, scanLower, scanGreater, indexLower, indexGreater
-        );
-    }*/
-
     // Scatter elements to newly generated left/right subsequences
     for (uint_t tx = threadIdx.x; tx < localLength; tx += blockDim.x) {
         el_t temp = primaryArray[localStart + tx];
@@ -327,8 +320,14 @@ __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_glob_seq_t *g
     }
     __syncthreads();
 
-    // Last block assigned to current sub-sequence stores pivots
-    if (params.blockCounter > 0) {
+    // Atomic sub has to be executed at the end of the kernel, after scattering of elements has been completed.
+    if (threadIdx.x == (blockDim.x - 1)) {
+        params.threadBlockCounter = atomicSub(&globalParams[workIndex].threadBlockCounter, 1) - 1;
+    }
+    __syncthreads();
+
+    // Last block assigned to current sub-sequence stores pivots.
+    if (params.threadBlockCounter > 0) {
         return;
     }
 
@@ -372,6 +371,7 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, loc_seq_t *local
     }
 
     while (workstackCounter >= 0) {
+        __syncthreads();
         // TODO try with explicit local values start, end, direction
         loc_seq_t params = popWorkstack(workstack, workstackCounter);
 
