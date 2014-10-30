@@ -236,6 +236,37 @@ __device__ int_t pushWorkstack(loc_seq_t *workstack, int_t &workstackCounter, lo
 ///////////////////////////// KERNELS /////////////////////////////
 ///////////////////////////////////////////////////////////////////
 
+// Use C++ template for first run parameter
+__global__ void minMaxReductionKernel(data_t *input, data_t *output, uint_t tableLen, bool firstRun) {
+    extern __shared__ data_t rudictionTile[];
+    data_t *minValues = rudictionTile;
+    data_t *maxValues = rudictionTile + blockDim.x;
+    data_t minVal = UINT32_MAX;
+    data_t maxVal = 0;
+
+    uint_t elemsPerBlock = blockDim.x * ELEMENTS_PER_THREAD_REDUCTION;
+    uint_t offset = blockIdx.x * elemsPerBlock;
+    uint_t dataBlockLength = offset + elemsPerBlock <= tableLen ? elemsPerBlock : tableLen - offset;
+
+    // If first run of this kernel array "input" contains input data. In other runs it contains min
+    // values in the first half of the array and max values in the second half.
+    data_t *inputMin = input;
+    data_t *inputMax = firstRun ? input : input + gridDim.x * elemsPerBlock;
+
+    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += blockDim.x) {
+        minVal = min(minVal, inputMin[offset + tx]);
+        maxVal = max(maxVal, inputMax[offset + tx]);
+    }
+    minValues[threadIdx.x] = minVal;
+    maxValues[threadIdx.x] = maxVal;
+
+    __syncthreads();
+    minMaxReduction(minValues, maxValues, dataBlockLength);
+
+    // Output min and max value
+    output[blockIdx.x] = minValues[0];
+    output[gridDim.x + blockIdx.x] = maxValues[0];
+}
 
 // TODO try alignment with 32 for coalasced reading
 // Rename input/output to buffer
