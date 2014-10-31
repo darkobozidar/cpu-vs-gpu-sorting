@@ -137,11 +137,11 @@ easy to implement for input sequences of arbitrary size) and outputs them to out
 - TODO use quick sort kernel instead of bitonic sort
 */
 __device__ void normalizedBitonicSort(el_t *input, el_t *output, loc_seq_t localParams, bool orderAsc) {
-    extern __shared__ el_t sortTile[];
+    extern __shared__ el_t bitonicSortTile[];
 
     // Read data from global to shared memory.
     for (uint_t tx = threadIdx.x; tx < localParams.length; tx += blockDim.x) {
-        sortTile[tx] = input[localParams.start + tx];
+        bitonicSortTile[tx] = input[localParams.start + tx];
     }
     __syncthreads();
 
@@ -168,7 +168,7 @@ __device__ void normalizedBitonicSort(el_t *input, el_t *output, loc_seq_t local
                     break;
                 }
 
-                compareExchange(&sortTile[index], &sortTile[index + offset], orderAsc);
+                compareExchange(&bitonicSortTile[index], &bitonicSortTile[index + offset], orderAsc);
             }
             __syncthreads();
         }
@@ -176,13 +176,12 @@ __device__ void normalizedBitonicSort(el_t *input, el_t *output, loc_seq_t local
 
     // Store data from shared to global memory
     for (uint_t tx = threadIdx.x; tx < localParams.length; tx += blockDim.x) {
-        output[localParams.start + tx] = sortTile[tx];
+        output[localParams.start + tx] = bitonicSortTile[tx];
     }
 }
 
 
 ////////////////////// LOCAL QUICKSORT UTILS //////////////////////
-
 
 __device__ loc_seq_t popWorkstack(loc_seq_t *workstack, int_t &workstackCounter) {
     if (threadIdx.x == 0) {
@@ -200,7 +199,7 @@ __device__ int_t pushWorkstack(loc_seq_t *workstack, int_t &workstackCounter, lo
     newParams1.direction = (TransferDirection) !params.direction;
     newParams2.direction = (TransferDirection) !params.direction;
 
-    // TODO try in-place change directly on workstack without newParams 1 and 2
+    // TODO try in-place change directly on workstack without newParams 1 and 2 - if not possible move to struct construcor
     if (lowerCounter <= greaterCounter) {
         newParams1.start = params.start + params.length - greaterCounter;
         newParams1.length = greaterCounter;
@@ -346,7 +345,6 @@ __global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_
             bufferArray[indexGreater++] = temp;
         }
     }
-    __syncthreads();
 
     // Atomic sub has to be executed at the end of the kernel - after scattering of elements has been completed
     if (threadIdx.x == (blockDim.x - 1)) {
@@ -373,8 +371,6 @@ __global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_
 // TODO in general chech if __shared__ values work faster (pivot, array1, array2, ...)
 // TODO try alignment with 32 for coalasced reading
 __global__ void quickSortLocalKernel(el_t *dataInput, el_t *dataBuffer, loc_seq_t *sequences, bool orderAsc) {
-    __shared__ extern uint_t localSortTile[];
-
     // Explicit stack (instead of recursion), which holds sequences, which need to be processed.
     // TODO allocate explicit stack dynamically according to sub-block size
     __shared__ loc_seq_t workstack[32];
@@ -422,7 +418,6 @@ __global__ void quickSortLocalKernel(el_t *dataInput, el_t *dataBuffer, loc_seq_
             localLower += temp.key < pivot;
             localGreater += temp.key > pivot;
         }
-        __syncthreads();
 
         // Calculates global offsets for each thread with inclusive scan
         uint_t globalLower = intraBlockScan(localLower);
@@ -443,7 +438,6 @@ __global__ void quickSortLocalKernel(el_t *dataInput, el_t *dataBuffer, loc_seq_
                 bufferArray[indexGreater++] = temp;
             }
         }
-        __syncthreads();
 
         // Pushes new subsequences on explicit stack and broadcast pivot offsets into shared memory
         if (threadIdx.x == (blockDim.x - 1)) {
