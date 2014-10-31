@@ -52,6 +52,7 @@ void fillTable(el_t *table, uint_t tableLen, uint_t interval) {
     for (uint_t i = 0; i < tableLen; i++) {
         // TODO look for better solution
         table[i].key = interval * ((double)rand() / ((double)RAND_MAX + 1));
+        table[i].val = i;
     }
 }
 

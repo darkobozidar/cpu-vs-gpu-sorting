@@ -254,8 +254,8 @@ __global__ void minMaxReductionKernel(data_t *input, data_t *output, uint_t tabl
     data_t *inputMax = firstRun ? input : input + gridDim.x * elemsPerBlock;
 
     for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += blockDim.x) {
-        minVal = min(minVal, inputMin[offset + tx]);
-        maxVal = max(maxVal, inputMax[offset + tx]);
+        minVal = min(minVal, firstRun ? ((el_t*)inputMin)[offset + tx].key : inputMin[offset + tx]);
+        maxVal = max(maxVal, firstRun ? ((el_t*)inputMax)[offset + tx].key : inputMax[offset + tx]);
     }
     minValues[threadIdx.x] = minVal;
     maxValues[threadIdx.x] = maxVal;
