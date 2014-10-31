@@ -269,52 +269,49 @@ __global__ void minMaxReductionKernel(data_t *input, data_t *output, uint_t tabl
 }
 
 // TODO try alignment with 32 for coalasced reading
-// Rename input/output to buffer
-__global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_glob_seq_t *globalParams, uint_t *seqIndexes,
-                                      uint_t tableLen) {
+__global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_seq_t *sequences, uint_t *seqIndexes) {
     extern __shared__ uint_t globalSortTile[];
     data_t *minValues = globalSortTile;
     data_t *maxValues = globalSortTile + blockDim.x;
 
-    // Retrieve the parameters for current subsequence
-    __shared__ uint_t workIndex;
+    // Index of sequence, which this thread block is partitioning
+    __shared__ uint_t seqIdx;
+    // Start and length of the data assigned to this thread block
     __shared__ uint_t localStart, localLength;
-    __shared__ d_glob_seq_t params;
+    __shared__ d_glob_seq_t sequence;
 
     if (threadIdx.x == (blockDim.x - 1)) {
-        workIndex = seqIndexes[blockIdx.x];
-        params = globalParams[workIndex];
+        seqIdx = seqIndexes[blockIdx.x];
+        sequence = sequences[seqIdx];
         uint_t elemsPerBlock = blockDim.x * ELEMENTS_PER_THREAD_GLOBAL;
-        uint_t localBlockIdx = blockIdx.x - params.startThreadBlockIdx;
+        uint_t localBlockIdx = blockIdx.x - sequence.startThreadBlockIdx;
 
         // Params.threadBlockCounter cannot be used, because it can get modified by other blocks.
         uint_t offset = localBlockIdx * elemsPerBlock;
-        localStart = params.start + offset;
-        localLength = offset + elemsPerBlock <= params.length ? elemsPerBlock : params.length - offset;
+        localStart = sequence.start + offset;
+        localLength = offset + elemsPerBlock <= sequence.length ? elemsPerBlock : sequence.length - offset;
         /*printf("%d %d\n", localStart, localLength);*/
     }
     __syncthreads();
 
-    el_t *primaryArray = params.direction == PRIMARY_MEM_TO_BUFFER ? input : output;
-    el_t *bufferArray = params.direction == BUFFER_TO_PRIMARY_MEM ? input : output;
+    el_t *primaryArray = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataInput : dataBuffer;
+    el_t *bufferArray = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataInput : dataBuffer;
 
     // Initializes min/max values. TODO use constant for different data type
-    data_t minVal = UINT32_MAX;
-    data_t maxVal = 0;
-
-    uint_t localLower = 0;
-    uint_t localGreater = 0;
+    data_t minVal = UINT32_MAX, maxVal = 0;
+    // Number of elements lower/greater than pivot (local for thread)
+    uint_t localLower = 0, localGreater = 0;
 
     for (uint_t tx = threadIdx.x; tx < localLength; tx += blockDim.x) {
         el_t temp = primaryArray[localStart + tx];
-        localLower += temp.key < params.pivot;
-        localGreater += temp.key > params.pivot;
+        localLower += temp.key < sequence.pivot;
+        localGreater += temp.key > sequence.pivot;
 
         // Max value is calculated for "lower" sequence and min value is calculated for "greater" sequence.
         // Min for lower sequence and max of greater sequence (min and max of currently partitioned
         // sequence) were already calculated on host.
-        maxVal = max(maxVal, temp.key < params.pivot ? temp.key : 0);
-        minVal = min(minVal, temp.key > params.pivot ? temp.key : UINT32_MAX);
+        maxVal = max(maxVal, temp.key < sequence.pivot ? temp.key : 0);
+        minVal = min(minVal, temp.key > sequence.pivot ? temp.key : UINT32_MAX);
     }
 
     minValues[threadIdx.x] = minVal;
@@ -324,58 +321,59 @@ __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_glob_seq_t *g
     // Calculates and saves min/max values, before shared memory gets overriden by scan
     minMaxReduction(minValues, maxValues, localLength);
     if (threadIdx.x == (blockDim.x - 1)) {
-        atomicMin(&globalParams[workIndex].greaterSeqMinVal, minValues[0]);
-        atomicMax(&globalParams[workIndex].lowerSeqMaxVal, maxValues[0]);
+        atomicMin(&sequences[seqIdx].greaterSeqMinVal, minValues[0]);
+        atomicMax(&sequences[seqIdx].lowerSeqMaxVal, maxValues[0]);
     }
     __syncthreads();
 
-    // TODO if possible use offset global
+    // Calculates number of elements lower/greater than pivot inside whole thread blocks
     uint_t scanLower = intraBlockScan(localLower);
     __syncthreads();
     uint_t scanGreater = intraBlockScan(localGreater);
     __syncthreads();
 
+    // Calculates number of elements lower/greater than pivot for all thread blocks processing this sequence
     __shared__ uint_t globalLower, globalGreater;
     if (threadIdx.x == (blockDim.x - 1)) {
-        globalLower = atomicAdd(&globalParams[workIndex].offsetLower, scanLower);
-        globalGreater = atomicAdd(&globalParams[workIndex].offsetGreater, scanGreater);
+        globalLower = atomicAdd(&sequences[seqIdx].offsetLower, scanLower);
+        globalGreater = atomicAdd(&sequences[seqIdx].offsetGreater, scanGreater);
     }
     __syncthreads();
 
-    uint_t indexLower = params.start + globalLower + scanLower - localLower;
-    uint_t indexGreater = params.start + params.length - globalGreater - scanGreater;
+    uint_t indexLower = sequence.start + globalLower + scanLower - localLower;
+    uint_t indexGreater = sequence.start + sequence.length - globalGreater - scanGreater;
 
-    // Scatter elements to newly generated left/right subsequences
+    // Scatters elements to newly generated left/right subsequences
     for (uint_t tx = threadIdx.x; tx < localLength; tx += blockDim.x) {
         el_t temp = primaryArray[localStart + tx];
 
-        if (temp.key < params.pivot) {
+        if (temp.key < sequence.pivot) {
             bufferArray[indexLower++] = temp;
-        } else if (temp.key > params.pivot) {
+        } else if (temp.key > sequence.pivot) {
             bufferArray[indexGreater++] = temp;
         }
     }
     __syncthreads();
 
-    // Atomic sub has to be executed at the end of the kernel, after scattering of elements has been completed.
+    // Atomic sub has to be executed at the end of the kernel - after scattering of elements has been completed
     if (threadIdx.x == (blockDim.x - 1)) {
-        params.threadBlockCounter = atomicSub(&globalParams[workIndex].threadBlockCounter, 1) - 1;
+        sequence.threadBlockCounter = atomicSub(&sequences[seqIdx].threadBlockCounter, 1) - 1;
     }
     __syncthreads();
 
-    // Last block assigned to current sub-sequence stores pivots.
-    if (params.threadBlockCounter > 0) {
+    // Last block assigned to current sub-sequence stores pivots
+    if (sequence.threadBlockCounter > 0) {
         return;
     }
 
     el_t pivot;
-    pivot.key = params.pivot;
+    pivot.key = sequence.pivot;
 
-    uint_t index = params.start + globalParams[workIndex].offsetLower + threadIdx.x;
-    uint_t end = params.start + params.length - globalParams[workIndex].offsetGreater;
+    uint_t index = sequence.start + sequences[seqIdx].offsetLower + threadIdx.x;
+    uint_t end = sequence.start + sequence.length - sequences[seqIdx].offsetGreater;
 
     while (index < end) {
-        output[index] = pivot;
+        dataBuffer[index] = pivot;
         index += blockDim.x;
     }
 }

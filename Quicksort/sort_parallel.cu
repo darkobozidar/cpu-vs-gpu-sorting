@@ -80,7 +80,7 @@ uint_t runMinMaxReductionKernel(data_t *primaryArray, data_t *bufferArray, uint_
 
 void runQuickSortGlobalKernel(el_t *dataInput, el_t* dataBuffer, d_glob_seq_t *h_globalSeqHost,
                               d_glob_seq_t *d_globalSeqHost, uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes,
-                              uint_t numSeqGlobal, uint_t threadBlockCounter, uint_t tableLen) {
+                              uint_t numSeqGlobal, uint_t threadBlockCounter) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
@@ -103,7 +103,7 @@ void runQuickSortGlobalKernel(el_t *dataInput, el_t* dataBuffer, d_glob_seq_t *h
     checkCudaError(error);
 
     quickSortGlobalKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
-        dataInput, dataBuffer, d_globalSeqHost, d_globalSeqIndexes, tableLen
+        dataInput, dataBuffer, d_globalSeqHost, d_globalSeqIndexes
     );
 
     error = cudaMemcpy(h_globalSeqHost, d_globalSeqHost, numSeqGlobal * sizeof(*h_globalSeqHost),
@@ -235,7 +235,7 @@ el_t* quickSort(el_t *h_dataInput, el_t *d_dataInput, el_t *d_dataBuffer, data_t
 
         runQuickSortGlobalKernel(
             d_dataInput, d_dataBuffer, h_globalSeqDev, d_globalSeqDev, h_globalSeqIndexes,
-            d_globalSeqIndexes, numSeqGlobal, threadBlockCounter, tableLen
+            d_globalSeqIndexes, numSeqGlobal, threadBlockCounter
         );
 
         uint_t numSeqGlobalOld = numSeqGlobal;
