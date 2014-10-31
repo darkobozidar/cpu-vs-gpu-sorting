@@ -53,9 +53,8 @@ void DeviceGlobalSequence::setFromHostSeq(h_glob_seq_t globalSeqHost, uint_t sta
     offsetLower = 0;
     offsetGreater = 0;
 
-    // TODO use constant for different data types
-    greaterSeqMinVal = UINT32_MAX;
-    lowerSeqMaxVal = 0;
+    greaterSeqMinVal = MAX_VAL;
+    lowerSeqMaxVal = MIN_VAL;
 }
 
 

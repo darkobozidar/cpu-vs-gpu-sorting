@@ -8,6 +8,9 @@ typedef int32_t int_t;
 
 // Data type used for input elements
 typedef uint32_t data_t;
+// Min and max values for defined data type
+#define MIN_VAL 0
+#define MAX_VAL UINT32_MAX
 
 typedef struct Element el_t;
 typedef struct HostGlobalSequence h_glob_seq_t;

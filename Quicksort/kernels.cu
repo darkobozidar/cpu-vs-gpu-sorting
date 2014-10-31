@@ -233,8 +233,8 @@ __global__ void minMaxReductionKernel(data_t *input, data_t *output, uint_t tabl
     extern __shared__ data_t rudictionTile[];
     data_t *minValues = rudictionTile;
     data_t *maxValues = rudictionTile + blockDim.x;
-    data_t minVal = UINT32_MAX;
-    data_t maxVal = 0;
+    data_t minVal = MAX_VAL;
+    data_t maxVal = MIN_VAL;
 
     uint_t elemsPerBlock = blockDim.x * ELEMENTS_PER_THREAD_REDUCTION;
     uint_t offset = blockIdx.x * elemsPerBlock;
@@ -288,8 +288,8 @@ __global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_
     el_t *primaryArray = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataInput : dataBuffer;
     el_t *bufferArray = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataInput : dataBuffer;
 
-    // Initializes min/max values. TODO use constant for different data type
-    data_t minVal = UINT32_MAX, maxVal = 0;
+    // Initializes min/max values.
+    data_t minVal = MAX_VAL, maxVal = MIN_VAL;
     // Number of elements lower/greater than pivot (local for thread)
     uint_t localLower = 0, localGreater = 0;
 
@@ -302,8 +302,8 @@ __global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_
         // Max value is calculated for "lower" sequence and min value is calculated for "greater" sequence.
         // Min for lower sequence and max of greater sequence (min and max of currently partitioned
         // sequence) were already calculated on host.
-        maxVal = max(maxVal, temp.key < sequence.pivot ? temp.key : 0);
-        minVal = min(minVal, temp.key > sequence.pivot ? temp.key : UINT32_MAX);
+        maxVal = max(maxVal, temp.key < sequence.pivot ? temp.key : MIN_VAL);
+        minVal = min(minVal, temp.key > sequence.pivot ? temp.key : MAX_VAL);
     }
 
     minValues[threadIdx.x] = minVal;
@@ -390,7 +390,7 @@ __global__ void quickSortLocalKernel(el_t *dataInput, el_t *dataBuffer, loc_seq_
         __syncthreads();
         loc_seq_t sequence = popWorkstack(workstack, workstackCounter);
 
-        if (sequence.length <= BITONIC_SORT_SIZE_LOCAL) {
+        if (sequence.length <= THRESHOLD_BITONIC_SORT_LOCAL) {
             // Bitonic sort is executed in-place and sorted data has to be writter to output.
             el_t *inputTemp = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataInput : dataBuffer;
             normalizedBitonicSort(inputTemp, dataBuffer, sequence, orderAsc);

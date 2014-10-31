@@ -27,9 +27,6 @@
 // It is reasonable that is is lower than "THREADS_PER_SORT_GLOBAL * ELEMENTS_PER_THREAD_GLOBAL".
 #define THREADS_PER_SORT_LOCAL 256
 // Threshold for sequence size in local quick sort, when bitonic sort is used.
-// TODO rename to threashold
-#define BITONIC_SORT_SIZE_LOCAL 512
-
-// TODO min-max val depending on data type
+#define THRESHOLD_BITONIC_SORT_LOCAL 512
 
 #endif

@@ -126,7 +126,7 @@ void runQuickSortLocalKernel(el_t *dataInput, el_t *dataBuffer, loc_seq_t *h_loc
     // The same shared memory array is used for counting elements greater/lower than pivot and for bitonic sort.
     // max(intra-block scan array size, array size for bitonic sort)
     uint_t sharedMemSize = max(
-        2 * THREADS_PER_SORT_LOCAL * sizeof(uint_t), BITONIC_SORT_SIZE_LOCAL * sizeof(*dataInput)
+        2 * THREADS_PER_SORT_LOCAL * sizeof(uint_t), THRESHOLD_BITONIC_SORT_LOCAL * sizeof(*dataInput)
     );
     dim3 dimGrid(numThreadBlocks, 1, 1);
     dim3 dimBlock(THREADS_PER_SORT_LOCAL, 1, 1);
@@ -185,9 +185,8 @@ void minMaxReduction(data_t *h_dataInput, data_t *d_dataInput, data_t *d_dataBuf
     }
 
     // Finnishes reduction on host
-    // TODO use constants for different data types
-    minVal = UINT32_MAX;
-    maxVal = 0;
+    minVal = MAX_VAL;
+    maxVal = MIN_VAL;
 
     for (uint_t i = 0; i < numValues; i++) {
         minVal = min(minVal, minValues[i]);
