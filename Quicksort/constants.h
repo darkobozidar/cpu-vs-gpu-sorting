@@ -23,8 +23,8 @@
 
 /* ----------------- LOCAL QUICKSORT ---------------- */
 
-// How many threads are in each thread block when running local quicksort kernel. Has to be power of 2
-// and lower or equal than THREADS_PER_SORT_GLOBAL * ELEMENTS_PER_THREAD_GLOBAL.
+// How many threads are in each thread block when running local quicksort kernel. Has to be power of 2.
+// It is reasonable that is is lower than "THREADS_PER_SORT_GLOBAL * ELEMENTS_PER_THREAD_GLOBAL".
 #define THREADS_PER_SORT_LOCAL 256
 // Threshold for sequence size in local quick sort, when bitonic sort is used.
 // TODO rename to threashold

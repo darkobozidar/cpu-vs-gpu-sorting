@@ -78,15 +78,18 @@ uint_t runMinMaxReductionKernel(data_t *primaryArray, data_t *bufferArray, uint_
     return dimGrid.x;
 }
 
+/*
+Runs global quicksort and coppies required data to and from device.
+*/
 void runQuickSortGlobalKernel(el_t *dataInput, el_t* dataBuffer, d_glob_seq_t *h_globalSeqHost,
                               d_glob_seq_t *d_globalSeqHost, uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes,
                               uint_t numSeqGlobal, uint_t threadBlockCounter) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
-    // TODO comment shared memory size, 2 * size should be enough, because scan and min/max can be
-    // performed in the same array
-    // TODO comment: max(min/max, lower/greater)
+    // 1. arg: Size of array for calculation of min/max value ("2" because of MIN and MAX)
+    // 2. arg: Size of array needed to perform scan of counters for number of elements lower/greater than
+    //         pivot ("2" because of intra-warp scan).
     uint_t sharedMemSize = max(
         2 * THREADS_PER_SORT_GLOBAL * sizeof(data_t), 2 * THREADS_PER_SORT_GLOBAL * sizeof(uint_t)
     );

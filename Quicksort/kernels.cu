@@ -290,7 +290,6 @@ __global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_
         uint_t offset = localBlockIdx * elemsPerBlock;
         localStart = sequence.start + offset;
         localLength = offset + elemsPerBlock <= sequence.length ? elemsPerBlock : sequence.length - offset;
-        /*printf("%d %d\n", localStart, localLength);*/
     }
     __syncthreads();
 
@@ -302,6 +301,7 @@ __global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_
     // Number of elements lower/greater than pivot (local for thread)
     uint_t localLower = 0, localGreater = 0;
 
+    // Counts the number of elements lower/greater than pivot and finds min/max
     for (uint_t tx = threadIdx.x; tx < localLength; tx += blockDim.x) {
         el_t temp = primaryArray[localStart + tx];
         localLower += temp.key < sequence.pivot;
@@ -362,19 +362,18 @@ __global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_
     __syncthreads();
 
     // Last block assigned to current sub-sequence stores pivots
-    if (sequence.threadBlockCounter > 0) {
-        return;
-    }
+    if (sequence.threadBlockCounter == 0) {
+        el_t pivot;
+        pivot.key = sequence.pivot;
 
-    el_t pivot;
-    pivot.key = sequence.pivot;
+        uint_t index = sequence.start + sequences[seqIdx].offsetLower + threadIdx.x;
+        uint_t end = sequence.start + sequence.length - sequences[seqIdx].offsetGreater;
 
-    uint_t index = sequence.start + sequences[seqIdx].offsetLower + threadIdx.x;
-    uint_t end = sequence.start + sequence.length - sequences[seqIdx].offsetGreater;
-
-    while (index < end) {
-        dataBuffer[index] = pivot;
-        index += blockDim.x;
+        // Pivots have to be stored in output array, because they won't be moved anymore
+        while (index < end) {
+            dataBuffer[index] = pivot;
+            index += blockDim.x;
+        }
     }
 }
 
