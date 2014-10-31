@@ -26,17 +26,10 @@ __global__ void printTableKernel(el_t *table, uint_t tableLen) {
 /*
 http://stackoverflow.com/questions/1582356/fastest-way-of-finding-the-middle-value-of-a-triple
 */
-__device__ el_t getMedian(el_t a, el_t b, el_t c) {
-    uint_t maxVal = max(max(a.key, b.key), c.key);
-    uint_t minVal = min(min(a.key, b.key), c.key);
-    uint_t median = a.key ^ b.key ^ c.key ^ maxVal ^ minVal;
-
-    if (median == a.key) {
-        return a;
-    } else if (median == b.key) {
-        return b;
-    }
-    return c;
+__device__ data_t getMedian(data_t a, data_t b, data_t c) {
+    data_t maxVal = max(max(a, b), c);
+    data_t minVal = min(min(a, b), c);
+    return a ^ b ^ c ^ maxVal ^ minVal;
 }
 
 
@@ -143,7 +136,7 @@ easy to implement for input sequences of arbitrary size) and outputs them to out
 
 - TODO use quick sort kernel instead of bitonic sort
 */
-__device__ void normalizedBitonicSort(el_t *input, el_t *output, loc_seq_t localParams, uint_t tableLen, bool orderAsc) {
+__device__ void normalizedBitonicSort(el_t *input, el_t *output, loc_seq_t localParams, bool orderAsc) {
     extern __shared__ el_t sortTile[];
 
     // Read data from global to shared memory.
@@ -379,61 +372,55 @@ __global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_
 
 // TODO in general chech if __shared__ values work faster (pivot, array1, array2, ...)
 // TODO try alignment with 32 for coalasced reading
-__global__ void quickSortLocalKernel(el_t *input, el_t *output, loc_seq_t *localParams, uint_t tableLen,
-                                     bool orderAsc) {
+__global__ void quickSortLocalKernel(el_t *dataInput, el_t *dataBuffer, loc_seq_t *sequences, bool orderAsc) {
     __shared__ extern uint_t localSortTile[];
 
-    // Explicit stack (instead of recursion) for work to be done
+    // Explicit stack (instead of recursion), which holds sequences, which need to be processed.
     // TODO allocate explicit stack dynamically according to sub-block size
     __shared__ loc_seq_t workstack[32];
     __shared__ int_t workstackCounter;
 
-    __shared__ uint_t pivotLowerOffset;
-    __shared__ uint_t pivotGreaterOffset;
-    __shared__ el_t pivot;
+    // Global offset for scattering of pivots
+    __shared__ uint_t pivotLowerOffset, pivotGreaterOffset;
+    __shared__ data_t pivot;
 
     if (threadIdx.x == 0) {
-        workstack[0] = localParams[blockIdx.x];
+        workstack[0] = sequences[blockIdx.x];
         workstackCounter = 0;
     }
     __syncthreads();
 
     while (workstackCounter >= 0) {
         __syncthreads();
-        // TODO try with explicit local values start, end, direction
-        loc_seq_t params = popWorkstack(workstack, workstackCounter);
+        loc_seq_t sequence = popWorkstack(workstack, workstackCounter);
 
-        if (params.length <= BITONIC_SORT_SIZE_LOCAL) {
+        if (sequence.length <= BITONIC_SORT_SIZE_LOCAL) {
             // Bitonic sort is executed in-place and sorted data has to be writter to output.
-            el_t *inputTemp = params.direction == PRIMARY_MEM_TO_BUFFER ? input : output;
-
-            normalizedBitonicSort(inputTemp, output, params, tableLen, orderAsc);
-            __syncthreads();
+            el_t *inputTemp = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataInput : dataBuffer;
+            normalizedBitonicSort(inputTemp, dataBuffer, sequence, orderAsc);
 
             continue;
         }
 
-        // In order not to spoil references *input and *output, additional 2 local references are used
-        el_t *primaryArray = params.direction ? output : input;
-        el_t *bufferArray = params.direction ? input : output;
+        el_t *primaryArray = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataInput : dataBuffer;
+        el_t *bufferArray = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataInput : dataBuffer;
 
         if (threadIdx.x == 0) {
             pivot = getMedian(
-                primaryArray[params.start], primaryArray[params.start + (params.length / 2)],
-                primaryArray[params.start + params.length - 1]
+                primaryArray[sequence.start].key, primaryArray[sequence.start + (sequence.length / 2)].key,
+                primaryArray[sequence.start + sequence.length - 1].key
             );
         }
         __syncthreads();
 
-        // Counter of number of elements, which are lower/greater than pivot
-        uint_t localLower = 0;
-        uint_t localGreater = 0;
+        // Counters for number of elements lower/greater than pivot
+        uint_t localLower = 0, localGreater = 0;
 
         // Every thread counts the number of elements lower/greater than pivot
-        for (uint_t tx = threadIdx.x; tx < params.length; tx += blockDim.x) {
-            el_t temp = primaryArray[params.start + tx];
-            localLower += temp.key < pivot.key;
-            localGreater += temp.key > pivot.key;
+        for (uint_t tx = threadIdx.x; tx < sequence.length; tx += blockDim.x) {
+            el_t temp = primaryArray[sequence.start + tx];
+            localLower += temp.key < pivot;
+            localGreater += temp.key > pivot;
         }
         __syncthreads();
 
@@ -443,33 +430,36 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, loc_seq_t *local
         uint_t globalGreater = intraBlockScan(localGreater);
         __syncthreads();
 
-        uint_t indexLower = params.start + (globalLower - localLower);
-        uint_t indexGreater = params.start + params.length - globalGreater;
+        uint_t indexLower = sequence.start + globalLower - localLower;
+        uint_t indexGreater = sequence.start + sequence.length - globalGreater;
 
         // Scatter elements to newly generated left/right subsequences
-        for (uint_t tx = threadIdx.x; tx < params.length; tx += blockDim.x) {
-            el_t temp = primaryArray[params.start + tx];
+        for (uint_t tx = threadIdx.x; tx < sequence.length; tx += blockDim.x) {
+            el_t temp = primaryArray[sequence.start + tx];
 
-            if (temp.key < pivot.key) {
+            if (temp.key < pivot) {
                 bufferArray[indexLower++] = temp;
-            } else if (temp.key > pivot.key) {
+            } else if (temp.key > pivot) {
                 bufferArray[indexGreater++] = temp;
             }
         }
         __syncthreads();
 
-        // Add new subsequences on explicit stack and broadcast pivot offsets into shared memory
+        // Pushes new subsequences on explicit stack and broadcast pivot offsets into shared memory
         if (threadIdx.x == (blockDim.x - 1)) {
-            pushWorkstack(workstack, workstackCounter, params, globalLower, globalGreater);
+            pushWorkstack(workstack, workstackCounter, sequence, globalLower, globalGreater);
 
             pivotLowerOffset = globalLower;
             pivotGreaterOffset = globalGreater;
         }
         __syncthreads();
 
-        // Scatter pivots to output array
-        for (uint_t tx = pivotLowerOffset + threadIdx.x; tx < params.length - pivotGreaterOffset; tx += blockDim.x) {
-            output[params.start + tx] = pivot;
+        // Scatters the pivots to output array. Pivots have to be stored in output array, because they won't be moved anymore
+        el_t pivotEl;
+        pivotEl.key = pivot;
+
+        for (uint_t tx = pivotLowerOffset + threadIdx.x; tx < sequence.length - pivotGreaterOffset; tx += blockDim.x) {
+            dataBuffer[sequence.start + tx] = pivotEl;
         }
     }
 }

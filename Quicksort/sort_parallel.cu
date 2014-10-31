@@ -119,7 +119,7 @@ void runQuickSortGlobalKernel(el_t *dataInput, el_t* dataBuffer, d_glob_seq_t *h
 }
 
 void runQuickSortLocalKernel(el_t *dataInput, el_t *dataBuffer, loc_seq_t *h_localSeq, loc_seq_t *d_localSeq,
-                             uint_t tableLen, uint_t numThreadBlocks, bool orderAsc) {
+                             uint_t numThreadBlocks, bool orderAsc) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
@@ -136,7 +136,7 @@ void runQuickSortLocalKernel(el_t *dataInput, el_t *dataBuffer, loc_seq_t *h_loc
     checkCudaError(error);
 
     quickSortLocalKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
-        dataInput, dataBuffer, d_localSeq, tableLen, orderAsc
+        dataInput, dataBuffer, d_localSeq, orderAsc
     );
     /*error = cudaDeviceSynchronize();
     checkCudaError(error);
@@ -277,7 +277,7 @@ el_t* quickSort(el_t *h_dataInput, el_t *d_dataInput, el_t *d_dataBuffer, data_t
         h_localSeq[numSeqLocal++].setFromGlobalSeq(h_globalSeqHost[seqIdx]);
     }
     runQuickSortLocalKernel(
-        d_dataInput, d_dataBuffer, h_localSeq, d_localSeq, tableLen, numSeqLocal, orderAsc
+        d_dataInput, d_dataBuffer, h_localSeq, d_localSeq, numSeqLocal, orderAsc
     );
 
     return d_dataBuffer;
