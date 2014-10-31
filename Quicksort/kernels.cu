@@ -273,8 +273,8 @@ __global__ void minMaxReductionKernel(data_t *input, data_t *output, uint_t tabl
 __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_glob_seq_t *globalParams, uint_t *seqIndexes,
                                       uint_t tableLen) {
     extern __shared__ uint_t globalSortTile[];
-    uint_t *minValues = globalSortTile;
-    uint_t *maxValues = globalSortTile + blockDim.x;
+    data_t *minValues = globalSortTile;
+    data_t *maxValues = globalSortTile + blockDim.x;
 
     // Retrieve the parameters for current subsequence
     __shared__ uint_t workIndex;
@@ -321,7 +321,7 @@ __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_glob_seq_t *g
     maxValues[threadIdx.x] = maxVal;
     __syncthreads();
 
-    // Calculate and save min/max values, before shared memory gets overriden by scan
+    // Calculates and saves min/max values, before shared memory gets overriden by scan
     minMaxReduction(minValues, maxValues, localLength);
     if (threadIdx.x == (blockDim.x - 1)) {
         atomicMin(&globalParams[workIndex].greaterSeqMinVal, minValues[0]);
@@ -380,7 +380,6 @@ __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_glob_seq_t *g
     }
 }
 
-// TODO add implementation for null distributions
 // TODO in general chech if __shared__ values work faster (pivot, array1, array2, ...)
 // TODO try alignment with 32 for coalasced reading
 __global__ void quickSortLocalKernel(el_t *input, el_t *output, loc_seq_t *localParams, uint_t tableLen,
@@ -401,11 +400,6 @@ __global__ void quickSortLocalKernel(el_t *input, el_t *output, loc_seq_t *local
         workstackCounter = 0;
     }
     __syncthreads();
-
-    // TODO handle this on host (if possible in null distributions)
-    if (workstack[0].length == 0) {
-        return;
-    }
 
     while (workstackCounter >= 0) {
         __syncthreads();

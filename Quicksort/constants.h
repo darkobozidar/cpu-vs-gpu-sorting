@@ -16,10 +16,9 @@
 #define THREADS_PER_SORT_GLOBAL 2
 // How many elements are processed by each thread in global quicksort. Has to be power of 2.
 #define ELEMENTS_PER_THREAD_GLOBAL 2
-// Minimum size until sequence can still get partitioned. When sequence's length is lower or equal to this
+// Threshold size until sequence can still get partitioned. When sequence's length is lower or equal to this
 // constant, than it stops to be partitioned by global quicksort. Has to be power of 2.
-// TODO rename to threashold
-#define MIN_PARTITION_SIZE_GLOBAL 2
+#define THRESHOLD_PARTITION_SIZE_GLOBAL 2
 
 
 /* ----------------- LOCAL QUICKSORT ---------------- */
