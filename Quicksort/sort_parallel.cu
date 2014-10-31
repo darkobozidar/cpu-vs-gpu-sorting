@@ -59,14 +59,21 @@ void memoryInitDevice(el_t *h_input, el_t **d_dataInput, el_t **d_dataBuffer, da
 
 uint_t runMinMaxReductionKernel(data_t *primaryArray, data_t *bufferArray, uint_t tableLen, bool firstRun) {
     // Half of the array for min values and the other half for max values
-    uint_t sharedMemSize = 2 * THREADS_PER_REDUCTION * sizeof(data_t);
+    cudaError_t error;
+    LARGE_INTEGER timer;
 
+    uint_t sharedMemSize = 2 * THREADS_PER_REDUCTION * sizeof(data_t);
     dim3 dimGrid((tableLen - 1) / (THREADS_PER_REDUCTION * ELEMENTS_PER_THREAD_REDUCTION) + 1, 1, 1);
     dim3 dimBlock(THREADS_PER_REDUCTION, 1, 1);
 
+    startStopwatch(&timer);
     minMaxReductionKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
         primaryArray, bufferArray, tableLen, firstRun
     );
+
+    /*error = cudaDeviceSynchronize();
+    checkCudaError(error);
+    endStopwatch(timer, "Executing global parallel min/max reduction.");*/
 
     return dimGrid.x;
 }

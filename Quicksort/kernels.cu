@@ -295,27 +295,30 @@ __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_glob_seq_t *g
     }
     __syncthreads();
 
-    // Initializes min/max values. TODO use constant for different data type
-    minValues[threadIdx.x] = UINT32_MAX;
-    maxValues[threadIdx.x] = 0;
-
     el_t *primaryArray = params.direction == PRIMARY_MEM_TO_BUFFER ? input : output;
     el_t *bufferArray = params.direction == BUFFER_TO_PRIMARY_MEM ? input : output;
+
+    // Initializes min/max values. TODO use constant for different data type
+    data_t minVal = UINT32_MAX;
+    data_t maxVal = 0;
 
     uint_t localLower = 0;
     uint_t localGreater = 0;
 
     for (uint_t tx = threadIdx.x; tx < localLength; tx += blockDim.x) {
         el_t temp = primaryArray[localStart + tx];
+        localLower += temp.key < params.pivot;
+        localGreater += temp.key > params.pivot;
 
-        if (temp.key < params.pivot) {
-            localLower++;
-            maxValues[threadIdx.x] = max(maxValues[threadIdx.x], temp.key);
-        } else if (temp.key > params.pivot) {
-            localGreater++;
-            minValues[threadIdx.x] = min(minValues[threadIdx.x], temp.key);
-        }
+        // Max value is calculated for "lower" sequence and min value is calculated for "greater" sequence.
+        // Min for lower sequence and max of greater sequence (min and max of currently partitioned
+        // sequence) were already calculated on host.
+        maxVal = max(maxVal, temp.key < params.pivot ? temp.key : 0);
+        minVal = min(minVal, temp.key > params.pivot ? temp.key : UINT32_MAX);
     }
+
+    minValues[threadIdx.x] = minVal;
+    maxValues[threadIdx.x] = maxVal;
     __syncthreads();
 
     // Calculate and save min/max values, before shared memory gets overriden by scan
