@@ -200,6 +200,9 @@ el_t* quickSort(el_t *h_dataInput, el_t *d_dataInput, el_t *d_dataBuffer, data_t
                 d_glob_seq_t *h_globalSeqDev, d_glob_seq_t *d_globalSeqDev, uint_t *h_globalSeqIndexes,
                 uint_t *d_globalSeqIndexes, loc_seq_t *h_localSeq, loc_seq_t *d_localSeq, uint_t tableLen,
                 bool orderAsc) {
+    // Because a lot of empty sequences can be generated, this counter is used to keep track of all
+    // generated sequences.
+    uint_t numSeqAll = 1;
     uint_t numSeqGlobal = 1; // Number of sequences for GLOBAL quicksort
     uint_t numSeqLocal = 0;  // Number of sequences for LOCAL quicksort
     uint_t numSeqLimit = (tableLen - 1) / THRESHOLD_PARTITION_SIZE_GLOBAL + 1;
@@ -261,13 +264,15 @@ el_t* quickSort(el_t *h_dataInput, el_t *d_dataInput, el_t *d_dataBuffer, data_t
             } else if (seqDev.offsetGreater > 0) {
                 h_localSeq[numSeqLocal++].setGreaterSeq(seqHost, seqDev);
             }
+
+            numSeqAll++;
         }
 
         h_glob_seq_t *temp = h_globalSeqHost;
         h_globalSeqHost = h_globalSeqHostBuffer;
         h_globalSeqHostBuffer = temp;
 
-        generateSequences &= numSeqGlobal + numSeqLocal < numSeqLimit && numSeqGlobal > 0;
+        generateSequences &= numSeqAll < numSeqLimit && numSeqGlobal > 0;
     }
 
     // LOCAL QUICKSORT

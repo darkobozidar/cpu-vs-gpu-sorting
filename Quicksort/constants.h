@@ -1,6 +1,7 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
+
 /* ---------------- MIN/MAX REDUCTION --------------- */
 
 // How many threads are in each thread block when running min/max reduction. Has to be power of 2.
@@ -9,6 +10,7 @@
 #define ELEMENTS_PER_THREAD_REDUCTION 32
 // Threashold when reduction on device stops and result is coppied to host. Reduction is finnished on host.
 #define THRESHOLD_REDUCTION (1 << 12)
+
 
 /* ---------------- GLOBAL QUICKSORT ---------------- */
 
