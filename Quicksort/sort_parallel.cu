@@ -193,25 +193,27 @@ void minMaxReduction(data_t *h_dataInput, data_t *d_dataInput, data_t *d_dataBuf
 }
 
 // TODO handle empty sub-blocks
-void quickSort(el_t *h_dataInput, el_t *d_dataInput, el_t *d_dataBuffer, data_t *h_minMaxValues,
-               data_t *d_minMaxBuffer, h_glob_seq_t *h_globalSeqHost, h_glob_seq_t *h_globalSeqHostBuffer,
-               d_glob_seq_t *h_globalSeqDev, d_glob_seq_t *d_globalSeqDev, uint_t *h_globalSeqIndexes,
-               uint_t *d_globalSeqIndexes, loc_seq_t *h_localSeq, loc_seq_t *d_localSeq, uint_t tableLen,
-               bool orderAsc) {
-    // TODO parallel reduction for initial pivot
-    // TODO in global quicksort there is no need to calculate min and max after it is calculated first time
-    data_t minVal, maxVal;
-    minMaxReduction(
-        (data_t*)h_dataInput, (data_t*)d_dataInput, (data_t*)d_dataBuffer, h_minMaxValues, d_minMaxBuffer,
-        tableLen, minVal, maxVal
-    );
-    h_globalSeqHost[0].setInitSeq(tableLen, minVal, maxVal);
-
+el_t* quickSort(el_t *h_dataInput, el_t *d_dataInput, el_t *d_dataBuffer, data_t *h_minMaxValues,
+                data_t *d_minMaxBuffer, h_glob_seq_t *h_globalSeqHost, h_glob_seq_t *h_globalSeqHostBuffer,
+                d_glob_seq_t *h_globalSeqDev, d_glob_seq_t *d_globalSeqDev, uint_t *h_globalSeqIndexes,
+                uint_t *d_globalSeqIndexes, loc_seq_t *h_localSeq, loc_seq_t *d_localSeq, uint_t tableLen,
+                bool orderAsc) {
     uint_t numSeqGlobal = 1; // Number of sequences for GLOBAL quicksort
     uint_t numSeqLocal = 0;  // Number of sequences for LOCAL quicksort
     uint_t numSeqLimit = (tableLen - 1) / MIN_PARTITION_SIZE_GLOBAL + 1;
     uint_t elemsPerThreadBlock = THREADS_PER_SORT_GLOBAL * ELEMENTS_PER_THREAD_GLOBAL;
+
     cudaError_t error;
+    data_t minVal, maxVal;
+
+    minMaxReduction(
+        (data_t*)h_dataInput, (data_t*)d_dataInput, (data_t*)d_dataBuffer, h_minMaxValues, d_minMaxBuffer,
+        tableLen, minVal, maxVal
+    );
+    if (minVal == maxVal) {
+        return d_dataInput;
+    }
+    h_globalSeqHost[0].setInitSeq(tableLen, minVal, maxVal);
 
     // TODO if statement for initial sequence length
     while (numSeqGlobal + numSeqLocal < numSeqLimit) {
@@ -262,19 +264,20 @@ void quickSort(el_t *h_dataInput, el_t *d_dataInput, el_t *d_dataBuffer, data_t 
         h_globalSeqHostBuffer = temp;
     }
 
-    // Adds sequences which were not partitioned by global quicksort to sequences for local quicksort
+    // Adds sequences which were not partitioned by GLOBAL quicksort to sequences for LOCAL quicksort
     for (uint_t seqIdx = 0; seqIdx < numSeqGlobal; seqIdx++) {
         h_localSeq[numSeqLocal++].setFromGlobalSeq(h_globalSeqHost[seqIdx]);
     }
-
     runQuickSortLocalKernel(
         d_dataInput, d_dataBuffer, h_localSeq, d_localSeq, tableLen, numSeqLocal, orderAsc
     );
+
+    return d_dataBuffer;
 }
 
 void sortParallel(el_t *h_dataInput, el_t *h_dataOutput, uint_t tableLen, bool orderAsc) {
     // Data memory
-    el_t *d_dataInput, *d_dataBuffer;
+    el_t *d_dataInput, *d_dataBuffer, *d_dataResult;
     // When initial min/max parallel reduction reduces data to threashold, min/max values are coppied to host
     // and reduction is finnished on host. Multiplier "2" is used because of min and max values.
     data_t h_minMaxValues[2 * THRESHOLD_REDUCTION];
@@ -310,7 +313,7 @@ void sortParallel(el_t *h_dataInput, el_t *h_dataOutput, uint_t tableLen, bool o
     );
 
     startStopwatch(&timer);
-    quickSort(
+    d_dataResult = quickSort(
         h_dataInput, d_dataInput, d_dataBuffer, h_minMaxValues, d_minMaxBuffer, h_globalSeqHost,
         h_globalSeqHostBuffer, h_globalSeqDev, d_globalSeqDev, h_globalSeqIndexes, d_globalSeqIndexes,
         h_localSeq, d_localSeq, tableLen, orderAsc
@@ -321,7 +324,7 @@ void sortParallel(el_t *h_dataInput, el_t *h_dataOutput, uint_t tableLen, bool o
     double time = endStopwatch(timer, "Executing parallel quicksort.");
     printf("Operations (pair swaps): %.2f M/s\n", tableLen / 500.0 / time);
 
-    error = cudaMemcpy(h_dataOutput, d_dataBuffer, tableLen * sizeof(*h_dataOutput), cudaMemcpyDeviceToHost);
+    error = cudaMemcpy(h_dataOutput, d_dataResult, tableLen * sizeof(*h_dataOutput), cudaMemcpyDeviceToHost);
     checkCudaError(error);
 
     cudaFree(d_dataInput);
