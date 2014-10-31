@@ -295,7 +295,7 @@ __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_glob_seq_t *g
     }
     __syncthreads();
 
-    // Initializes min/max values
+    // Initializes min/max values. TODO use constant for different data type
     minValues[threadIdx.x] = UINT32_MAX;
     maxValues[threadIdx.x] = 0;
 
@@ -307,19 +307,22 @@ __global__ void quickSortGlobalKernel(el_t *input, el_t *output, d_glob_seq_t *g
 
     for (uint_t tx = threadIdx.x; tx < localLength; tx += blockDim.x) {
         el_t temp = primaryArray[localStart + tx];
-        localLower += temp.key < params.pivot;
-        localGreater += temp.key > params.pivot;
 
-        minValues[threadIdx.x] = min(minValues[threadIdx.x], temp.key);
-        maxValues[threadIdx.x] = max(maxValues[threadIdx.x], temp.key);
+        if (temp.key < params.pivot) {
+            localLower++;
+            maxValues[threadIdx.x] = max(maxValues[threadIdx.x], temp.key);
+        } else if (temp.key > params.pivot) {
+            localGreater++;
+            minValues[threadIdx.x] = min(minValues[threadIdx.x], temp.key);
+        }
     }
     __syncthreads();
 
     // Calculate and save min/max values, before shared memory gets overriden by scan
     minMaxReduction(minValues, maxValues, localLength);
     if (threadIdx.x == (blockDim.x - 1)) {
-        atomicMin(&globalParams[workIndex].minVal, minValues[0]);
-        atomicMax(&globalParams[workIndex].maxVal, maxValues[0]);
+        atomicMin(&globalParams[workIndex].greaterSeqMinVal, minValues[0]);
+        atomicMax(&globalParams[workIndex].lowerSeqMaxVal, maxValues[0]);
     }
     __syncthreads();
 

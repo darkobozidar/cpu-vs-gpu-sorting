@@ -38,10 +38,11 @@ struct HostGlobalSequence {
     uint_t length;
     uint_t oldStart;
     uint_t oldLength;
-    data_t pivot;
+    data_t minVal;
+    data_t maxVal;
     TransferDirection direction;
 
-    void setInitSeq(uint_t tableLen, data_t initPivot);
+    void setInitSeq(uint_t tableLen, data_t initMinVal, data_t initMaxVal);
     void setLowerSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev);
     void setGreaterSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev);
 };
@@ -72,9 +73,9 @@ struct DeviceGlobalSequence {
     uint_t offsetLower;
     uint_t offsetGreater;
 
-    // Stores min/max values of every thread block.
-    data_t minVal;
-    data_t maxVal;
+    // TODO comment
+    data_t lowerSeqMaxVal;
+    data_t greaterSeqMinVal;
 
     void setFromHostSeq(h_glob_seq_t globalSeqHost, uint_t startThreadBlock, uint_t threadBlocksPerSequence);
 };

@@ -198,7 +198,7 @@ void quickSort(el_t *h_dataInput, el_t *d_dataInput, el_t *d_dataBuffer, data_t 
         (data_t*)h_dataInput, (data_t*)d_dataInput, (data_t*)d_dataBuffer, h_minMaxValues, d_minMaxBuffer,
         tableLen, minVal, maxVal
     );
-    h_globalSeqHost[0].setInitSeq(tableLen, (minVal + maxVal) / 2);
+    h_globalSeqHost[0].setInitSeq(tableLen, minVal, maxVal);
 
     uint_t numSeqGlobal = 1; // Number of sequences for GLOBAL quicksort
     uint_t numSeqLocal = 0;  // Number of sequences for LOCAL quicksort

@@ -7,12 +7,13 @@ Because of circular dependencies between stuctures, methods have to be implement
 
 /* HostGlobalSequence */
 
-void HostGlobalSequence::setInitSeq(uint_t tableLen, data_t initPivot) {
+void HostGlobalSequence::setInitSeq(uint_t tableLen, data_t initMinVal, data_t initMaxVal) {
     start = 0;
     length = tableLen;
     oldStart = start;
     oldLength = length;
-    pivot = initPivot;
+    minVal = initMinVal;
+    maxVal = initMaxVal;
     direction = PRIMARY_MEM_TO_BUFFER;
 }
 
@@ -21,7 +22,8 @@ void HostGlobalSequence::setLowerSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t gl
     length = globalSeqDev.offsetLower;
     oldStart = start;
     oldLength = length;
-    pivot = (globalSeqDev.minVal + globalSeqHost.pivot) / 2;
+    minVal = globalSeqHost.minVal;
+    maxVal = globalSeqDev.lowerSeqMaxVal;
     direction = (TransferDirection) !globalSeqHost.direction;
 }
 
@@ -30,7 +32,8 @@ void HostGlobalSequence::setGreaterSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t 
     length = globalSeqDev.offsetGreater;
     oldStart = start;
     oldLength = length;
-    pivot = (globalSeqHost.pivot + globalSeqDev.maxVal) / 2;
+    minVal = globalSeqDev.greaterSeqMinVal;
+    maxVal = globalSeqHost.maxVal;
     direction = (TransferDirection) !globalSeqHost.direction;
 }
 
@@ -41,7 +44,7 @@ void DeviceGlobalSequence::setFromHostSeq(h_glob_seq_t globalSeqHost, uint_t sta
                                          uint_t threadBlocksPerSequence) {
     start = globalSeqHost.start;
     length = globalSeqHost.length;
-    pivot = globalSeqHost.pivot;
+    pivot = (globalSeqHost.minVal + globalSeqHost.maxVal) / 2;
     direction = globalSeqHost.direction;
 
     startThreadBlockIdx = startThreadBlock;
@@ -50,8 +53,9 @@ void DeviceGlobalSequence::setFromHostSeq(h_glob_seq_t globalSeqHost, uint_t sta
     offsetLower = 0;
     offsetGreater = 0;
 
-    minVal = UINT32_MAX;
-    maxVal = 0;
+    // TODO use constant for different data types
+    greaterSeqMinVal = UINT32_MAX;
+    lowerSeqMaxVal = 0;
 }
 
 
