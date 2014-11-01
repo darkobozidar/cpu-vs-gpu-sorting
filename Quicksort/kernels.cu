@@ -96,6 +96,18 @@ __device__ uint_t intraBlockScan(uint_t val) {
 
 //////////////////////// MIN/MAX REDUCTION ////////////////////////
 
+__device__ uint_t nextPowerOf2(uint_t value) {
+    value--;
+    value |= value >> 1;
+    value |= value >> 2;
+    value |= value >> 4;
+    value |= value >> 8;
+    value |= value >> 16;
+    value++;
+
+    return value;
+}
+
 /*
 Performs parallel min/max reduction. Half of the threads in thread block calculates min value,
 other half calculates max value. Result is returned as the first element in each array.
@@ -104,9 +116,9 @@ TODO read papers about parallel reduction optimization
 */
 __device__ void minMaxReduction(uint_t *minValues, uint_t *maxValues, uint_t length) {
     extern __shared__ float partialSum[];
-    length = blockDim.x <= length ? blockDim.x : length;
+    length = min(blockDim.x, nextPowerOf2(length));
 
-    for (uint_t stride = length / 2; stride > 0; stride /= 2) {
+    for (uint_t stride = length / 2; stride > 0; stride >>= 1) {
         if (threadIdx.x < stride) {
             minValues[threadIdx.x] = min(minValues[threadIdx.x], minValues[threadIdx.x + stride]);
         } else if (threadIdx.x < 2 * stride) {
