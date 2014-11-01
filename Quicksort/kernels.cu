@@ -32,6 +32,18 @@ __device__ data_t getMedian(data_t a, data_t b, data_t c) {
     return a ^ b ^ c ^ maxVal ^ minVal;
 }
 
+__device__ uint_t nextPowerOf2(uint_t value) {
+    value--;
+    value |= value >> 1;
+    value |= value >> 2;
+    value |= value >> 4;
+    value |= value >> 8;
+    value |= value >> 16;
+    value++;
+
+    return value;
+}
+
 
 /////////////////////////// SCAN UTILS ////////////////////////////
 
@@ -96,18 +108,6 @@ __device__ uint_t intraBlockScan(uint_t val) {
 
 //////////////////////// MIN/MAX REDUCTION ////////////////////////
 
-__device__ uint_t nextPowerOf2(uint_t value) {
-    value--;
-    value |= value >> 1;
-    value |= value >> 2;
-    value |= value >> 4;
-    value |= value >> 8;
-    value |= value >> 16;
-    value++;
-
-    return value;
-}
-
 /*
 Performs parallel min/max reduction. Half of the threads in thread block calculates min value,
 other half calculates max value. Result is returned as the first element in each array.
@@ -116,7 +116,7 @@ TODO read papers about parallel reduction optimization
 */
 __device__ void minMaxReduction(uint_t *minValues, uint_t *maxValues, uint_t length) {
     extern __shared__ float partialSum[];
-    length = min(blockDim.x, nextPowerOf2(length));
+    length = min(blockDim.x, length);
 
     for (uint_t stride = length / 2; stride > 0; stride >>= 1) {
         if (threadIdx.x < stride) {
@@ -208,8 +208,8 @@ __device__ int_t pushWorkstack(loc_seq_t *workstack, int_t &workstackCounter, lo
                                uint_t lowerCounter, uint_t greaterCounter) {
     loc_seq_t newParams1, newParams2;
 
-    newParams1.direction = (TransferDirection) !params.direction;
-    newParams2.direction = (TransferDirection) !params.direction;
+    newParams1.direction = (TransferDirection)!params.direction;
+    newParams2.direction = (TransferDirection)!params.direction;
 
     // TODO try in-place change directly on workstack without newParams 1 and 2 - if not possible move to struct construcor
     if (lowerCounter <= greaterCounter) {
@@ -281,7 +281,7 @@ __global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_
     // Index of sequence, which this thread block is partitioning
     __shared__ uint_t seqIdx;
     // Start and length of the data assigned to this thread block
-    __shared__ uint_t localStart, localLength;
+    __shared__ uint_t localStart, localLength, localLengthPowerOf2;
     __shared__ d_glob_seq_t sequence;
 
     if (threadIdx.x == (blockDim.x - 1)) {
@@ -294,6 +294,7 @@ __global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_
         uint_t offset = localBlockIdx * elemsPerBlock;
         localStart = sequence.start + offset;
         localLength = offset + elemsPerBlock <= sequence.length ? elemsPerBlock : sequence.length - offset;
+        localLengthPowerOf2 = nextPowerOf2(localLength);
     }
     __syncthreads();
 
@@ -323,7 +324,7 @@ __global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_
     __syncthreads();
 
     // Calculates and saves min/max values, before shared memory gets overriden by scan
-    minMaxReduction(minValues, maxValues, localLength);
+    minMaxReduction(minValues, maxValues, localLengthPowerOf2);
     if (threadIdx.x == (blockDim.x - 1)) {
         atomicMin(&sequences[seqIdx].greaterSeqMinVal, minValues[0]);
         atomicMax(&sequences[seqIdx].lowerSeqMaxVal, maxValues[0]);
