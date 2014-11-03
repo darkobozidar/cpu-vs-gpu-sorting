@@ -80,6 +80,8 @@ __device__ uint_t intraWarpScan(volatile uint_t *scanTile, uint_t val, uint_t st
 
 /*
 Performs intra-block INCLUSIVE scan.
+
+TODO optimize for table length smaller than blockDim.x.
 */
 __device__ uint_t intraBlockScan(uint_t val) {
     extern __shared__ uint_t scanTile[];
@@ -152,7 +154,7 @@ __device__ void normalizedBitonicSort(el_t *input, el_t *output, loc_seq_t local
     extern __shared__ el_t bitonicSortTile[];
 
     // Read data from global to shared memory.
-    for (uint_t tx = threadIdx.x; tx < localParams.length; tx += blockDim.x) {
+    for (uint_t tx = threadIdx.x; tx < localParams.length; tx += THREADS_PER_SORT_LOCAL) {
         bitonicSortTile[tx] = input[localParams.start + tx];
     }
     __syncthreads();
@@ -161,7 +163,7 @@ __device__ void normalizedBitonicSort(el_t *input, el_t *output, loc_seq_t local
     for (uint_t subBlockSize = 1; subBlockSize < localParams.length; subBlockSize <<= 1) {
         // Bitonic merge STEPS
         for (uint_t stride = subBlockSize; stride > 0; stride >>= 1) {
-            for (uint_t tx = threadIdx.x; tx < localParams.length >> 1; tx += blockDim.x) {
+            for (uint_t tx = threadIdx.x; tx < localParams.length >> 1; tx += THREADS_PER_SORT_LOCAL) {
                 uint_t indexThread = tx;
                 uint_t offset = stride;
 
@@ -187,7 +189,7 @@ __device__ void normalizedBitonicSort(el_t *input, el_t *output, loc_seq_t local
     }
 
     // Store data from shared to global memory
-    for (uint_t tx = threadIdx.x; tx < localParams.length; tx += blockDim.x) {
+    for (uint_t tx = threadIdx.x; tx < localParams.length; tx += THREADS_PER_SORT_LOCAL) {
         output[localParams.start + tx] = bitonicSortTile[tx];
     }
 }
@@ -244,11 +246,11 @@ __device__ int_t pushWorkstack(loc_seq_t *workstack, int_t &workstackCounter, lo
 __global__ void minMaxReductionKernel(data_t *input, data_t *output, uint_t tableLen, bool firstRun) {
     extern __shared__ data_t rudictionTile[];
     data_t *minValues = rudictionTile;
-    data_t *maxValues = rudictionTile + blockDim.x;
+    data_t *maxValues = rudictionTile + THREADS_PER_REDUCTION;
     data_t minVal = MAX_VAL;
     data_t maxVal = MIN_VAL;
 
-    uint_t elemsPerBlock = blockDim.x * ELEMENTS_PER_THREAD_REDUCTION;
+    uint_t elemsPerBlock = THREADS_PER_REDUCTION * ELEMENTS_PER_THREAD_REDUCTION;
     uint_t offset = blockIdx.x * elemsPerBlock;
     uint_t dataBlockLength = offset + elemsPerBlock <= tableLen ? elemsPerBlock : tableLen - offset;
 
@@ -257,7 +259,7 @@ __global__ void minMaxReductionKernel(data_t *input, data_t *output, uint_t tabl
     data_t *inputMin = input;
     data_t *inputMax = firstRun ? input : input + gridDim.x * elemsPerBlock;
 
-    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += blockDim.x) {
+    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_REDUCTION) {
         minVal = min(minVal, firstRun ? ((el_t*)inputMin)[offset + tx].key : inputMin[offset + tx]);
         maxVal = max(maxVal, firstRun ? ((el_t*)inputMax)[offset + tx].key : inputMax[offset + tx]);
     }
@@ -276,7 +278,7 @@ __global__ void minMaxReductionKernel(data_t *input, data_t *output, uint_t tabl
 __global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_seq_t *sequences, uint_t *seqIndexes) {
     extern __shared__ uint_t globalSortTile[];
     data_t *minValues = globalSortTile;
-    data_t *maxValues = globalSortTile + blockDim.x;
+    data_t *maxValues = globalSortTile + THREADS_PER_SORT_GLOBAL;
 
     // Index of sequence, which this thread block is partitioning
     __shared__ uint_t seqIdx;
@@ -284,10 +286,10 @@ __global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_
     __shared__ uint_t localStart, localLength, localLengthPowerOf2;
     __shared__ d_glob_seq_t sequence;
 
-    if (threadIdx.x == (blockDim.x - 1)) {
+    if (threadIdx.x == (THREADS_PER_SORT_GLOBAL - 1)) {
         seqIdx = seqIndexes[blockIdx.x];
         sequence = sequences[seqIdx];
-        uint_t elemsPerBlock = blockDim.x * ELEMENTS_PER_THREAD_GLOBAL;
+        uint_t elemsPerBlock = THREADS_PER_SORT_GLOBAL * ELEMENTS_PER_THREAD_GLOBAL;
         uint_t localBlockIdx = blockIdx.x - sequence.startThreadBlockIdx;
 
         // Params.threadBlockCounter cannot be used, because it can get modified by other blocks.
@@ -307,7 +309,7 @@ __global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_
     uint_t localLower = 0, localGreater = 0;
 
     // Counts the number of elements lower/greater than pivot and finds min/max
-    for (uint_t tx = threadIdx.x; tx < localLength; tx += blockDim.x) {
+    for (uint_t tx = threadIdx.x; tx < localLength; tx += THREADS_PER_SORT_GLOBAL) {
         el_t temp = primaryArray[localStart + tx];
         localLower += temp.key < sequence.pivot;
         localGreater += temp.key > sequence.pivot;
@@ -325,7 +327,7 @@ __global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_
 
     // Calculates and saves min/max values, before shared memory gets overriden by scan
     minMaxReduction(minValues, maxValues, localLengthPowerOf2);
-    if (threadIdx.x == (blockDim.x - 1)) {
+    if (threadIdx.x == (THREADS_PER_SORT_GLOBAL - 1)) {
         atomicMin(&sequences[seqIdx].greaterSeqMinVal, minValues[0]);
         atomicMax(&sequences[seqIdx].lowerSeqMaxVal, maxValues[0]);
     }
@@ -339,7 +341,7 @@ __global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_
 
     // Calculates number of elements lower/greater than pivot for all thread blocks processing this sequence
     __shared__ uint_t globalLower, globalGreater;
-    if (threadIdx.x == (blockDim.x - 1)) {
+    if (threadIdx.x == (THREADS_PER_SORT_GLOBAL - 1)) {
         globalLower = atomicAdd(&sequences[seqIdx].offsetLower, scanLower);
         globalGreater = atomicAdd(&sequences[seqIdx].offsetGreater, scanGreater);
     }
@@ -349,7 +351,7 @@ __global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_
     uint_t indexGreater = sequence.start + sequence.length - globalGreater - scanGreater;
 
     // Scatters elements to newly generated left/right subsequences
-    for (uint_t tx = threadIdx.x; tx < localLength; tx += blockDim.x) {
+    for (uint_t tx = threadIdx.x; tx < localLength; tx += THREADS_PER_SORT_GLOBAL) {
         el_t temp = primaryArray[localStart + tx];
 
         if (temp.key < sequence.pivot) {
@@ -360,7 +362,7 @@ __global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_
     }
 
     // Atomic sub has to be executed at the end of the kernel - after scattering of elements has been completed
-    if (threadIdx.x == (blockDim.x - 1)) {
+    if (threadIdx.x == (THREADS_PER_SORT_GLOBAL - 1)) {
         sequence.threadBlockCounter = atomicSub(&sequences[seqIdx].threadBlockCounter, 1) - 1;
     }
     __syncthreads();
@@ -376,7 +378,7 @@ __global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_
         // Pivots have to be stored in output array, because they won't be moved anymore
         while (index < end) {
             dataBuffer[index] = pivot;
-            index += blockDim.x;
+            index += THREADS_PER_SORT_GLOBAL;
         }
     }
 }
@@ -426,7 +428,7 @@ __global__ void quickSortLocalKernel(el_t *dataInput, el_t *dataBuffer, loc_seq_
         uint_t localLower = 0, localGreater = 0;
 
         // Every thread counts the number of elements lower/greater than pivot
-        for (uint_t tx = threadIdx.x; tx < sequence.length; tx += blockDim.x) {
+        for (uint_t tx = threadIdx.x; tx < sequence.length; tx += THREADS_PER_SORT_LOCAL) {
             el_t temp = primaryArray[sequence.start + tx];
             localLower += temp.key < pivot;
             localGreater += temp.key > pivot;
@@ -442,7 +444,7 @@ __global__ void quickSortLocalKernel(el_t *dataInput, el_t *dataBuffer, loc_seq_
         uint_t indexGreater = sequence.start + sequence.length - globalGreater;
 
         // Scatter elements to newly generated left/right subsequences
-        for (uint_t tx = threadIdx.x; tx < sequence.length; tx += blockDim.x) {
+        for (uint_t tx = threadIdx.x; tx < sequence.length; tx += THREADS_PER_SORT_LOCAL) {
             el_t temp = primaryArray[sequence.start + tx];
 
             if (temp.key < pivot) {
@@ -453,7 +455,7 @@ __global__ void quickSortLocalKernel(el_t *dataInput, el_t *dataBuffer, loc_seq_
         }
 
         // Pushes new subsequences on explicit stack and broadcast pivot offsets into shared memory
-        if (threadIdx.x == (blockDim.x - 1)) {
+        if (threadIdx.x == (THREADS_PER_SORT_LOCAL - 1)) {
             pushWorkstack(workstack, workstackCounter, sequence, globalLower, globalGreater);
 
             pivotLowerOffset = globalLower;
@@ -465,8 +467,12 @@ __global__ void quickSortLocalKernel(el_t *dataInput, el_t *dataBuffer, loc_seq_
         el_t pivotEl;
         pivotEl.key = pivot;
 
-        for (uint_t tx = pivotLowerOffset + threadIdx.x; tx < sequence.length - pivotGreaterOffset; tx += blockDim.x) {
-            dataBuffer[sequence.start + tx] = pivotEl;
+        uint_t index = sequence.start + pivotLowerOffset + threadIdx.x;
+        uint_t end = sequence.start + sequence.length - pivotGreaterOffset;
+
+        while (index < end) {
+            dataBuffer[index] = pivotEl;
+            index += THREADS_PER_SORT_LOCAL;
         }
     }
 }
