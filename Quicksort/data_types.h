@@ -94,6 +94,7 @@ struct LocalSequence {
     uint_t length;
     TransferDirection direction;
 
+    void setInitSeq(uint_t tableLen);
     void setLowerSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev);
     void setGreaterSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev);
     void setFromGlobalSeq(h_glob_seq_t globalParams);

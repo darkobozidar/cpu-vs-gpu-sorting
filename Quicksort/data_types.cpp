@@ -60,6 +60,12 @@ void DeviceGlobalSequence::setFromHostSeq(h_glob_seq_t globalSeqHost, uint_t sta
 
 /* LocalSequence */
 
+void LocalSequence::setInitSeq(uint_t tableLen) {
+    start = 0;
+    length = tableLen;
+    direction = PRIMARY_MEM_TO_BUFFER;
+}
+
 void LocalSequence::setLowerSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev) {
     start = globalSeqHost.oldStart;
     length = globalSeqDev.offsetLower;

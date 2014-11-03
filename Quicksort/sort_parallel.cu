@@ -201,7 +201,7 @@ el_t* quickSort(el_t *h_dataInput, el_t *d_dataInput, el_t *d_dataBuffer, data_t
                 uint_t *d_globalSeqIndexes, loc_seq_t *h_localSeq, loc_seq_t *d_localSeq, uint_t tableLen,
                 bool orderAsc) {
     // Because a lot of empty sequences can be generated, this counter is used to keep track of all
-    // generated sequences.
+    // theoretically generated sequences.
     uint_t numSeqAll = 1;
     uint_t numSeqGlobal = 1; // Number of sequences for GLOBAL quicksort
     uint_t numSeqLocal = 0;  // Number of sequences for LOCAL quicksort
@@ -245,27 +245,27 @@ el_t* quickSort(el_t *h_dataInput, el_t *d_dataInput, el_t *d_dataBuffer, data_t
 
         uint_t numSeqGlobalOld = numSeqGlobal;
         numSeqGlobal = 0;
+        numSeqAll *= 2;
 
         // Generates new sub-sequences and depending on their size adds them to list for GLOBAL or LOCAL quicksort
+        // If theoretical number of sequences reached limit, sequences are transfered to array for LOCAL quicksort
         for (uint_t seqIdx = 0; seqIdx < numSeqGlobalOld; seqIdx++) {
             h_glob_seq_t seqHost = h_globalSeqHost[seqIdx];
             d_glob_seq_t seqDev = h_globalSeqDev[seqIdx];
 
             // New subsequece (lower)
-            if (seqDev.offsetLower > THRESHOLD_PARTITION_SIZE_GLOBAL) {
+            if (seqDev.offsetLower > THRESHOLD_PARTITION_SIZE_GLOBAL && numSeqAll < numSeqLimit) {
                 h_globalSeqHostBuffer[numSeqGlobal++].setLowerSeq(seqHost, seqDev);
             } else if (seqDev.offsetLower > 0) {
                 h_localSeq[numSeqLocal++].setLowerSeq(seqHost, seqDev);
             }
 
             // New subsequece (greater)
-            if (seqDev.offsetGreater > THRESHOLD_PARTITION_SIZE_GLOBAL) {
+            if (seqDev.offsetGreater > THRESHOLD_PARTITION_SIZE_GLOBAL && numSeqAll < numSeqLimit) {
                 h_globalSeqHostBuffer[numSeqGlobal++].setGreaterSeq(seqHost, seqDev);
             } else if (seqDev.offsetGreater > 0) {
                 h_localSeq[numSeqLocal++].setGreaterSeq(seqHost, seqDev);
             }
-
-            numSeqAll++;
         }
 
         h_glob_seq_t *temp = h_globalSeqHost;
@@ -275,11 +275,12 @@ el_t* quickSort(el_t *h_dataInput, el_t *d_dataInput, el_t *d_dataBuffer, data_t
         generateSequences &= numSeqAll < numSeqLimit && numSeqGlobal > 0;
     }
 
-    // LOCAL QUICKSORT
-    // Adds sequences, which were not partitioned by GLOBAL quicksort, to sequences for LOCAL quicksort
-    for (uint_t seqIdx = 0; seqIdx < numSeqGlobal; seqIdx++) {
-        h_localSeq[numSeqLocal++].setFromGlobalSeq(h_globalSeqHost[seqIdx]);
+    // If global quicksort was not used, than sequence is initialized for LOCAL quicksort
+    if (tableLen <= THRESHOLD_PARTITION_SIZE_GLOBAL) {
+        numSeqLocal++;
+        h_localSeq[0].setInitSeq(tableLen);
     }
+
     runQuickSortLocalKernel(
         d_dataInput, d_dataBuffer, h_localSeq, d_localSeq, numSeqLocal, orderAsc
     );

@@ -15,9 +15,9 @@
 /* ---------------- GLOBAL QUICKSORT ---------------- */
 
 // How many threads are in each thread block when running global quicksort kernel. Has to be power of 2.
-#define THREADS_PER_SORT_GLOBAL 256
+#define THREADS_PER_SORT_GLOBAL 128
 // How many elements are processed by each thread in global quicksort. Has to be power of 2.
-#define ELEMENTS_PER_THREAD_GLOBAL 4
+#define ELEMENTS_PER_THREAD_GLOBAL 5
 // Threshold size until sequence can still get partitioned. When sequence's length is lower or equal to this
 // constant, than it stops to be partitioned by global quicksort. Has to be power of 2.
 #define THRESHOLD_PARTITION_SIZE_GLOBAL (1 << 11)
