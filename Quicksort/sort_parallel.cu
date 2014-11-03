@@ -19,12 +19,19 @@ Initializes HOST memory needed for paralel sort implementation.
 void memoryInitHost(h_glob_seq_t **h_globalSeqHost, h_glob_seq_t **h_globalSeqHostBuffer,
                     d_glob_seq_t **h_globalSeqDev, uint_t **h_globalSeqIndexes, loc_seq_t **h_localSeq,
                     uint_t maxNumSequences, uint_t maxNumThreadBlocks) {
-    // TODO malloc in pinned memory
+    cudaError_t error;
+
     *h_globalSeqHost = new h_glob_seq_t[maxNumSequences];
     *h_globalSeqHostBuffer = new h_glob_seq_t[maxNumSequences];
-    *h_globalSeqDev = new d_glob_seq_t[maxNumSequences];
-    *h_globalSeqIndexes = new uint_t[maxNumThreadBlocks];
-    *h_localSeq = new loc_seq_t[maxNumSequences];
+
+    // These sequences are transfered between host and device and are therfore allocated in pinned memory
+    error = cudaHostAlloc(h_globalSeqDev, maxNumSequences * sizeof(**h_globalSeqDev), cudaHostAllocDefault);
+    checkCudaError(error);
+    error = cudaHostAlloc(h_globalSeqIndexes, maxNumThreadBlocks * sizeof(**h_globalSeqIndexes),
+                          cudaHostAllocDefault);
+    checkCudaError(error);
+    error = cudaHostAlloc(h_localSeq, maxNumSequences * sizeof(**h_localSeq), cudaHostAllocDefault);
+    checkCudaError(error);
 }
 
 /*
@@ -81,8 +88,8 @@ uint_t runMinMaxReductionKernel(data_t *primaryArray, data_t *bufferArray, uint_
 /*
 Runs global quicksort and coppies required data to and from device.
 */
-void runQuickSortGlobalKernel(el_t *dataInput, el_t* dataBuffer, d_glob_seq_t *h_globalSeqHost,
-                              d_glob_seq_t *d_globalSeqHost, uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes,
+void runQuickSortGlobalKernel(el_t *dataInput, el_t* dataBuffer, d_glob_seq_t *h_globalSeqDev,
+                              d_glob_seq_t *d_globalSeqDev, uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes,
                               uint_t numSeqGlobal, uint_t threadBlockCounter) {
     cudaError_t error;
     LARGE_INTEGER timer;
@@ -98,7 +105,7 @@ void runQuickSortGlobalKernel(el_t *dataInput, el_t* dataBuffer, d_glob_seq_t *h
 
     startStopwatch(&timer);
 
-    error = cudaMemcpy(d_globalSeqHost, h_globalSeqHost, numSeqGlobal * sizeof(*d_globalSeqHost),
+    error = cudaMemcpy(d_globalSeqDev, h_globalSeqDev, numSeqGlobal * sizeof(*d_globalSeqDev),
                        cudaMemcpyHostToDevice);
     checkCudaError(error);
     error = cudaMemcpy(d_globalSeqIndexes, h_globalSeqIndexes, threadBlockCounter * sizeof(*d_globalSeqIndexes),
@@ -106,10 +113,10 @@ void runQuickSortGlobalKernel(el_t *dataInput, el_t* dataBuffer, d_glob_seq_t *h
     checkCudaError(error);
 
     quickSortGlobalKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
-        dataInput, dataBuffer, d_globalSeqHost, d_globalSeqIndexes
+        dataInput, dataBuffer, d_globalSeqDev, d_globalSeqIndexes
     );
 
-    error = cudaMemcpy(h_globalSeqHost, d_globalSeqHost, numSeqGlobal * sizeof(*h_globalSeqHost),
+    error = cudaMemcpy(h_globalSeqDev, d_globalSeqDev, numSeqGlobal * sizeof(*h_globalSeqDev),
                        cudaMemcpyDeviceToHost);
     checkCudaError(error);
 

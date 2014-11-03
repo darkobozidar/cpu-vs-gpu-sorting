@@ -24,21 +24,23 @@ int main(int argc, char** argv) {
     el_t *outputCorrect;
 
     uint_t tableLen = 1 << 25;
-    uint_t interval = 1 << 20;
+    uint_t interval = 1 << 31;
     bool orderAsc = true;
     cudaError_t error;
 
     cudaFree(NULL);  // Initializes CUDA, because CUDA init is lazy
     srand(time(NULL));
 
-    error = cudaHostAlloc(&input, tableLen * sizeof(*input), cudaHostAllocDefault);
-    checkCudaError(error);
-    error = cudaHostAlloc(&outputParallel, tableLen * sizeof(*outputParallel), cudaHostAllocDefault);
-    checkCudaError(error);
-    fillTable(input, tableLen, interval);
-    /*printTable(input, tableLen);*/
+    input = (el_t*)malloc(tableLen * sizeof(*input));
+    checkMallocError(input);
+    outputParallel = (el_t*)malloc(tableLen * sizeof(*outputParallel));
+    checkMallocError(outputParallel);
 
-    sortParallel(input, outputParallel, tableLen, orderAsc);
+    for (uint_t i = 0; i < 1; i++) {
+        fillTable(input, tableLen, interval);
+        sortParallel(input, outputParallel, tableLen, orderAsc);
+    }
+
     /*printTable(outputParallel, tableLen);*/
 
     printf("\n");

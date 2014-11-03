@@ -78,3 +78,11 @@ void printTable(el_t *table, uint_t startIndex, uint_t endIndex) {
 void printTable(el_t *table, uint_t tableLen) {
     printTable(table, 0, tableLen - 1);
 }
+
+void checkMallocError(void *ptr) {
+    if (ptr == NULL) {
+        printf("Error in host malloc\n.");
+        getchar();
+        exit(EXIT_FAILURE);
+    }
+}

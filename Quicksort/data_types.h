@@ -79,7 +79,9 @@ struct DeviceGlobalSequence {
     uint_t offsetLower;
     uint_t offsetGreater;
 
-    // TODO comment
+    // Holds the maximum value for lower sequence and minimum value for greater sequence. This way newly
+    // generated lower/greater sequence can have correct min/max value boundaries. Min value for lower
+    // sequence and max value for greater sequence are already contained on host (min and max of this sequence).
     data_t lowerSeqMaxVal;
     data_t greaterSeqMinVal;
 
