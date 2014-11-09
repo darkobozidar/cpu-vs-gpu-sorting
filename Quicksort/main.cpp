@@ -29,7 +29,6 @@ int main(int argc, char** argv) {
     cudaError_t error;
 
     cudaFree(NULL);  // Initializes CUDA, because CUDA init is lazy
-    srand(time(NULL));
 
     input = (el_t*)malloc(tableLen * sizeof(*input));
     checkMallocError(input);

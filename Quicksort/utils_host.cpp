@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <random>
 #include <Windows.h>
 
 #include <cuda.h>
@@ -49,9 +50,13 @@ double endStopwatch(LARGE_INTEGER start, char* comment) {
 Keys are filled with random numbers and values are filled with consecutive naumbers.
 */
 void fillTable(el_t *table, uint_t tableLen, uint_t interval) {
+    std::random_device rd;
+    std::default_random_engine generator(rd());
+    std::uniform_int_distribution<uint_t> distribution(0, interval);
+
     for (uint_t i = 0; i < tableLen; i++) {
         // TODO look for better solution
-        table[i].key = interval * ((double)rand() / ((double)RAND_MAX + 1));
+        table[i].key = distribution(generator);
         table[i].val = i;
     }
 }
