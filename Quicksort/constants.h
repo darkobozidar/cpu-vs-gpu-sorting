@@ -5,11 +5,11 @@
 /* ---------------- MIN/MAX REDUCTION --------------- */
 
 // How many threads are in each thread block when running min/max reduction. Has to be power of 2.
-#define THREADS_PER_REDUCTION 256
+#define THREADS_PER_REDUCTION 128
 // How many elements are processed by each thread in min/max reduction. Has to be power of 2.
-#define ELEMENTS_PER_THREAD_REDUCTION 32
+#define ELEMENTS_PER_THREAD_REDUCTION 64
 // Threashold when reduction on device stops and result is coppied to host. Reduction is finnished on host.
-#define THRESHOLD_REDUCTION (1 << 12)
+#define THRESHOLD_REDUCTION (1 << 13)
 
 
 /* ---------------- GLOBAL QUICKSORT ---------------- */
@@ -30,5 +30,11 @@
 #define THREADS_PER_SORT_LOCAL 256
 // Threshold for sequence size in local quick sort, when bitonic sort is used.
 #define THRESHOLD_BITONIC_SORT_LOCAL 512
+
+
+/* ------------ GENERAL DEVICE PARAMETERS ----------- */
+
+#define WARP_SIZE 32
+#define WARP_SIZE_LOG 5
 
 #endif

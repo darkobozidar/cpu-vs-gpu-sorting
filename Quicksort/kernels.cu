@@ -130,6 +130,55 @@ __device__ void minMaxReduction(uint_t *minValues, uint_t *maxValues, uint_t len
     }
 }
 
+template <uint_t blockSize>
+__device__ void warpMinReduce(volatile data_t *minValues) {
+    uint_t index = (threadIdx.x >> WARP_SIZE_LOG << (WARP_SIZE_LOG + 1)) + (threadIdx.x & (WARP_SIZE - 1));
+
+    if (blockSize >= 64) {
+        minValues[index] = min(minValues[index], minValues[index + 32]);
+    }
+    if (blockSize >= 32) {
+        minValues[index] = min(minValues[index], minValues[index + 16]);
+    }
+    if (blockSize >= 16) {
+        minValues[index] = min(minValues[index], minValues[index + 8]);
+    }
+    if (blockSize >= 8) {
+        minValues[index] = min(minValues[index], minValues[index + 4]);
+    }
+    if (blockSize >= 4) {
+        minValues[index] = min(minValues[index], minValues[index + 2]);
+    }
+    if (blockSize >= 2) {
+        minValues[index] = min(minValues[index], minValues[index + 1]);
+    }
+}
+
+template <uint_t blockSize>
+__device__ void warpMaxReduce(volatile data_t *maxValues) {
+    uint_t tx = threadIdx.x - blockSize / 2;
+    uint_t index = (tx >> WARP_SIZE_LOG << (WARP_SIZE_LOG + 1)) + (tx & (WARP_SIZE - 1));
+
+    if (blockSize >= 64) {
+        maxValues[index] = max(maxValues[index], maxValues[index + 32]);
+    }
+    if (blockSize >= 32) {
+        maxValues[index] = max(maxValues[index], maxValues[index + 16]);
+    }
+    if (blockSize >= 16) {
+        maxValues[index] = max(maxValues[index], maxValues[index + 8]);
+    }
+    if (blockSize >= 8) {
+        maxValues[index] = max(maxValues[index], maxValues[index + 4]);
+    }
+    if (blockSize >= 4) {
+        maxValues[index] = max(maxValues[index], maxValues[index + 2]);
+    }
+    if (blockSize >= 2) {
+        maxValues[index] = max(maxValues[index], maxValues[index + 1]);
+    }
+}
+
 
 /////////////////////// BITONIC SORT UTILS ////////////////////////
 
@@ -241,6 +290,63 @@ __device__ int_t pushWorkstack(loc_seq_t *workstack, int_t &workstackCounter, lo
 ///////////////////////////////////////////////////////////////////
 ///////////////////////////// KERNELS /////////////////////////////
 ///////////////////////////////////////////////////////////////////
+
+template <uint_t blockSize>
+__global__ void minMaxReductionKernel(el_t *input, data_t *output, uint_t tableLen) {
+    extern __shared__ data_t reductionTile[];
+    data_t *minValues = reductionTile;
+    data_t *maxValues = reductionTile + THREADS_PER_REDUCTION;
+
+    uint_t elemsPerBlock = THREADS_PER_REDUCTION * ELEMENTS_PER_THREAD_REDUCTION;
+    uint_t offset = blockIdx.x * elemsPerBlock;
+    uint_t dataBlockLength = offset + elemsPerBlock <= tableLen ? elemsPerBlock : tableLen - offset;
+
+    data_t minVal = MAX_VAL;
+    data_t maxVal = MIN_VAL;
+
+    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_REDUCTION) {
+        data_t val = input[offset + tx].key;
+        minVal = min(minVal, val);
+        maxVal = max(maxVal, val);
+    }
+
+    minValues[threadIdx.x] = minVal;
+    maxValues[threadIdx.x] = maxVal;
+    __syncthreads();
+
+    if (threadIdx.x < THREADS_PER_REDUCTION / 2) {
+        warpMinReduce<THREADS_PER_REDUCTION>(minValues);
+    }
+    else {
+        warpMaxReduce<THREADS_PER_REDUCTION>(maxValues);
+    }
+    __syncthreads();
+
+    if ((threadIdx.x >> WARP_SIZE_LOG) == 0) {
+        uint_t index = threadIdx.x << WARP_SIZE_LOG;
+
+        if (index < THREADS_PER_REDUCTION && THREADS_PER_REDUCTION > WARP_SIZE) {
+            minValues[threadIdx.x] = minValues[index];
+            maxValues[threadIdx.x] = maxValues[index];
+
+            if (index < THREADS_PER_REDUCTION / 2) {
+                warpMinReduce<THREADS_PER_REDUCTION / WARP_SIZE>(minValues);
+            }
+            else {
+                warpMaxReduce<THREADS_PER_REDUCTION / WARP_SIZE>(maxValues);
+            }
+        }
+
+        if (threadIdx.x == 0) {
+            output[blockIdx.x] = minValues[0];
+            output[gridDim.x + blockIdx.x] = maxValues[0];
+        }
+    }
+}
+
+template __global__ void minMaxReductionKernel<THREADS_PER_REDUCTION>(
+    el_t *input, uint_t *output, uint_t tableLen
+);
 
 // Use C++ template for first run parameter
 __global__ void minMaxReductionKernel(data_t *input, data_t *output, uint_t tableLen, bool firstRun) {
