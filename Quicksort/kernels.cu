@@ -262,8 +262,8 @@ __device__ int_t pushWorkstack(loc_seq_t *workstack, int_t &workstackCounter, lo
                                uint_t lowerCounter, uint_t greaterCounter) {
     loc_seq_t newParams1, newParams2;
 
-    newParams1.direction = (TransferDirection)!params.direction;
-    newParams2.direction = (TransferDirection)!params.direction;
+    newParams1.direction = (direct_t)!params.direction;
+    newParams2.direction = (direct_t)!params.direction;
 
     // TODO try in-place change directly on workstack without newParams 1 and 2 - if not possible move to struct construcor
     if (lowerCounter <= greaterCounter) {
@@ -361,7 +361,7 @@ __global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_
     // Index of sequence, which this thread block is partitioning
     __shared__ uint_t seqIdx;
     // Start and length of the data assigned to this thread block
-    __shared__ uint_t localStart, localLength, reductionLengthPowerOf2;
+    __shared__ uint_t localStart, localLength, numActiveThreads;
     __shared__ d_glob_seq_t sequence;
 
     if (threadIdx.x == (THREADS_PER_SORT_GLOBAL - 1)) {
@@ -374,15 +374,18 @@ __global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_
         uint_t offset = localBlockIdx * elemsPerBlock;
         localStart = sequence.start + offset;
         localLength = offset + elemsPerBlock <= sequence.length ? elemsPerBlock : sequence.length - offset;
-        reductionLengthPowerOf2 = nextPowerOf2(min(THREADS_PER_SORT_GLOBAL, localLength));
+        numActiveThreads = nextPowerOf2(min(THREADS_PER_SORT_GLOBAL, localLength));
     }
     __syncthreads();
 
     el_t *primaryArray = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataInput : dataBuffer;
     el_t *bufferArray = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataInput : dataBuffer;
 
+#if USE_REDUCTION_IN_GLOBAL_SORT
     // Initializes min/max values.
     data_t minVal = MAX_VAL, maxVal = MIN_VAL;
+#endif
+
     // Number of elements lower/greater than pivot (local for thread)
     uint_t localLower = 0, localGreater = 0;
 
@@ -392,23 +395,27 @@ __global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_
         localLower += temp.key < sequence.pivot;
         localGreater += temp.key > sequence.pivot;
 
+#if USE_REDUCTION_IN_GLOBAL_SORT
         // Max value is calculated for "lower" sequence and min value is calculated for "greater" sequence.
         // Min for lower sequence and max of greater sequence (min and max of currently partitioned
         // sequence) were already calculated on host.
         maxVal = max(maxVal, temp.key < sequence.pivot ? temp.key : MIN_VAL);
         minVal = min(minVal, temp.key > sequence.pivot ? temp.key : MAX_VAL);
+#endif
     }
 
+#if USE_REDUCTION_IN_GLOBAL_SORT
     minValues[threadIdx.x] = minVal;
     maxValues[threadIdx.x] = maxVal;
     __syncthreads();
 
     // Calculates and saves min/max values, before shared memory gets overriden by scan
-    minMaxReduction(reductionLengthPowerOf2);
+    minMaxReduction(numActiveThreads);
     if (threadIdx.x == (THREADS_PER_SORT_GLOBAL - 1)) {
         atomicMin(&sequences[seqIdx].greaterSeqMinVal, minValues[0]);
         atomicMax(&sequences[seqIdx].lowerSeqMaxVal, maxValues[0]);
     }
+#endif
     __syncthreads();
 
     // Calculates number of elements lower/greater than pivot inside whole thread blocks

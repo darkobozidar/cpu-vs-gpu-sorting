@@ -2,13 +2,22 @@
 #define CONSTANTS_H
 
 
+/* --------------- ALGORITHM PARAMETERS -------------- */
+// For GLOBAL quicksrot it designates whether:
+// - VAL 0: PIVOT value is used as MAX value of newly generated LOWER sequence and MIN value of newly
+//          generated GREATER sequence (FASTER, but possibility of WRONG min/max value)
+// - VAL 1: min/max reduction is performed in order to find MAX value of newly generated LOWER sequence
+//          and MIN value of newly generated GREATER sequence (SLOWER, but ALWAYS correct min/max value)
+#define USE_REDUCTION_IN_GLOBAL_SORT 1
+
+
 /* ---------------- MIN/MAX REDUCTION --------------- */
 
 // How many threads are in each thread block when running min/max reduction. Has to be power of 2.
 #define THREADS_PER_REDUCTION 128
 // How many elements are processed by each thread in min/max reduction. Has to be power of 2.
 #define ELEMENTS_PER_THREAD_REDUCTION 64
-// Threashold when reduction on device stops and result is coppied to host. Reduction is finnished on host.
+// Threshold of array length, when reduction is performed on DEVICE instead of HOST.
 #define THRESHOLD_REDUCTION (1 << 13)
 
 
@@ -34,7 +43,10 @@
 
 /* ------------ GENERAL DEVICE PARAMETERS ----------- */
 
+// These constants are needed in order to run C++ "templates", because variables cannot be used
+// How many threads are in warp (depending on device - for future compatibility)
 #define WARP_SIZE 32
+// Log¡2 of WARP_SIZE for faster computation because of left/right bit-shifts
 #define WARP_SIZE_LOG 5
 
 #endif

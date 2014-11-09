@@ -23,8 +23,12 @@ void HostGlobalSequence::setLowerSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t gl
     oldStart = start;
     oldLength = length;
     minVal = globalSeqHost.minVal;
+#if USE_REDUCTION_IN_GLOBAL_SORT
     maxVal = globalSeqDev.lowerSeqMaxVal;
-    direction = (TransferDirection) !globalSeqHost.direction;
+#else
+    maxVal = globalSeqDev.pivot;
+#endif
+    direction = (direct_t)!globalSeqHost.direction;
 }
 
 void HostGlobalSequence::setGreaterSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev) {
@@ -32,9 +36,13 @@ void HostGlobalSequence::setGreaterSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t 
     length = globalSeqDev.offsetGreater;
     oldStart = start;
     oldLength = length;
+#if USE_REDUCTION_IN_GLOBAL_SORT
     minVal = globalSeqDev.greaterSeqMinVal;
+#else
+    minVal = globalSeqDev.pivot;
+#endif
     maxVal = globalSeqHost.maxVal;
-    direction = (TransferDirection) !globalSeqHost.direction;
+    direction = (direct_t)!globalSeqHost.direction;
 }
 
 
@@ -53,8 +61,10 @@ void DeviceGlobalSequence::setFromHostSeq(h_glob_seq_t globalSeqHost, uint_t sta
     offsetLower = 0;
     offsetGreater = 0;
 
+#if USE_REDUCTION_IN_GLOBAL_SORT
     greaterSeqMinVal = MAX_VAL;
     lowerSeqMaxVal = MIN_VAL;
+#endif
 }
 
 
@@ -69,13 +79,13 @@ void LocalSequence::setInitSeq(uint_t tableLen) {
 void LocalSequence::setLowerSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev) {
     start = globalSeqHost.oldStart;
     length = globalSeqDev.offsetLower;
-    direction = (TransferDirection) !globalSeqHost.direction;
+    direction = (direct_t)!globalSeqHost.direction;
 }
 
 void LocalSequence::setGreaterSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev) {
     start = globalSeqHost.oldStart + globalSeqHost.length - globalSeqDev.offsetGreater;
     length = globalSeqDev.offsetGreater;
-    direction = (TransferDirection) !globalSeqHost.direction;
+    direction = (direct_t)!globalSeqHost.direction;
 }
 
 void LocalSequence::setFromGlobalSeq(h_glob_seq_t globalParams) {

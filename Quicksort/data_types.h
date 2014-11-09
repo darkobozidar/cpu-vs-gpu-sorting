@@ -2,6 +2,7 @@
 #define DATA_TYPES_H
 
 #include <stdint.h>
+#include "constants.h"
 
 typedef uint32_t uint_t;
 typedef int32_t int_t;
@@ -16,6 +17,7 @@ typedef struct Element el_t;
 typedef struct HostGlobalSequence h_glob_seq_t;
 typedef struct DeviceGlobalSequence d_glob_seq_t;
 typedef struct LocalSequence loc_seq_t;
+typedef enum TransferDirection direct_t;
 
 
 /*
@@ -46,7 +48,7 @@ struct HostGlobalSequence {
     uint_t oldLength;
     data_t minVal;
     data_t maxVal;
-    TransferDirection direction;
+    direct_t direction;
 
     void setInitSeq(uint_t tableLen, data_t initMinVal, data_t initMaxVal);
     void setLowerSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev);
@@ -61,7 +63,7 @@ struct DeviceGlobalSequence {
     uint_t start;
     uint_t length;
     data_t pivot;
-    TransferDirection direction;
+    direct_t direction;
 
     // Holds the index of the first thread block assigned to this sequence. Multiple thread blocks can be
     // partitioning the same sequence, which length is not necessarily multiple of thread block length. It
@@ -79,11 +81,13 @@ struct DeviceGlobalSequence {
     uint_t offsetLower;
     uint_t offsetGreater;
 
+#if USE_REDUCTION_IN_GLOBAL_SORT
     // Holds the maximum value for lower sequence and minimum value for greater sequence. This way newly
     // generated lower/greater sequence can have correct min/max value boundaries. Min value for lower
     // sequence and max value for greater sequence are already contained on host (min and max of this sequence).
     data_t lowerSeqMaxVal;
     data_t greaterSeqMinVal;
+#endif
 
     void setFromHostSeq(h_glob_seq_t globalSeqHost, uint_t startThreadBlock, uint_t threadBlocksPerSequence);
 };
