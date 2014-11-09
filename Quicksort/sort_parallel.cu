@@ -71,7 +71,7 @@ uint_t runMinMaxReductionKernel(el_t *primaryArray, data_t *bufferArray, uint_t 
     dim3 dimBlock(THREADS_PER_REDUCTION, 1, 1);
 
     startStopwatch(&timer);
-    minMaxReductionKernel<THREADS_PER_REDUCTION><<<dimGrid, dimBlock, sharedMemSize>>>(
+    minMaxReductionKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
         primaryArray, bufferArray, tableLen
     );
 

@@ -113,12 +113,11 @@ __device__ uint_t intraBlockScan(uint_t val) {
 /*
 Performs parallel min/max reduction. Half of the threads in thread block calculates min value,
 other half calculates max value. Result is returned as the first element in each array.
-
-TODO read papers about parallel reduction optimization
 */
-__device__ void minMaxReduction(uint_t *minValues, uint_t *maxValues, uint_t length) {
-    extern __shared__ float partialSum[];
-    length = min(blockDim.x, length);
+__device__ void minMaxReduction(uint_t length) {
+    extern __shared__ data_t reductionTile[];
+    data_t *minValues = reductionTile;
+    data_t *maxValues = reductionTile + THREADS_PER_REDUCTION;
 
     for (uint_t stride = length / 2; stride > 0; stride >>= 1) {
         if (threadIdx.x < stride) {
@@ -130,6 +129,9 @@ __device__ void minMaxReduction(uint_t *minValues, uint_t *maxValues, uint_t len
     }
 }
 
+/*
+Min reduction for warp. Every warp can reduce 64 elements or less.
+*/
 template <uint_t blockSize>
 __device__ void warpMinReduce(volatile data_t *minValues) {
     uint_t index = (threadIdx.x >> WARP_SIZE_LOG << (WARP_SIZE_LOG + 1)) + (threadIdx.x & (WARP_SIZE - 1));
@@ -154,6 +156,9 @@ __device__ void warpMinReduce(volatile data_t *minValues) {
     }
 }
 
+/*
+Max reduction for warp. Every warp can reduce 64 elements or less.
+*/
 template <uint_t blockSize>
 __device__ void warpMaxReduce(volatile data_t *maxValues) {
     uint_t tx = threadIdx.x - blockSize / 2;
@@ -291,7 +296,9 @@ __device__ int_t pushWorkstack(loc_seq_t *workstack, int_t &workstackCounter, lo
 ///////////////////////////// KERNELS /////////////////////////////
 ///////////////////////////////////////////////////////////////////
 
-template <uint_t blockSize>
+/*
+From input array finds min/max value and outputs the min/max value to output.
+*/
 __global__ void minMaxReductionKernel(el_t *input, data_t *output, uint_t tableLen) {
     extern __shared__ data_t reductionTile[];
     data_t *minValues = reductionTile;
@@ -304,6 +311,7 @@ __global__ void minMaxReductionKernel(el_t *input, data_t *output, uint_t tableL
     data_t minVal = MAX_VAL;
     data_t maxVal = MIN_VAL;
 
+    // Every thread reads and processes multiple elements
     for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_REDUCTION) {
         data_t val = input[offset + tx].key;
         minVal = min(minVal, val);
@@ -314,26 +322,28 @@ __global__ void minMaxReductionKernel(el_t *input, data_t *output, uint_t tableL
     maxValues[threadIdx.x] = maxVal;
     __syncthreads();
 
+    // Once all threads have processed their corresponding elements, than reduction is done in shared memory
     if (threadIdx.x < THREADS_PER_REDUCTION / 2) {
         warpMinReduce<THREADS_PER_REDUCTION>(minValues);
-    }
-    else {
+    } else {
         warpMaxReduce<THREADS_PER_REDUCTION>(maxValues);
     }
     __syncthreads();
 
+    // First warp loads results from all othwer warps and performs reduction
     if ((threadIdx.x >> WARP_SIZE_LOG) == 0) {
-        uint_t index = threadIdx.x << WARP_SIZE_LOG;
+        // Every warp reduces 2 * warpSize elements
+        uint_t index = threadIdx.x << (WARP_SIZE_LOG + 1);
 
+        // Threads load results of all other warp and half of those warps performs reduction on results
         if (index < THREADS_PER_REDUCTION && THREADS_PER_REDUCTION > WARP_SIZE) {
             minValues[threadIdx.x] = minValues[index];
             maxValues[threadIdx.x] = maxValues[index];
 
             if (index < THREADS_PER_REDUCTION / 2) {
-                warpMinReduce<THREADS_PER_REDUCTION / WARP_SIZE>(minValues);
-            }
-            else {
-                warpMaxReduce<THREADS_PER_REDUCTION / WARP_SIZE>(maxValues);
+                warpMinReduce<(THREADS_PER_REDUCTION >> (WARP_SIZE_LOG + 1))>(minValues);
+            } else {
+                warpMaxReduce<(THREADS_PER_REDUCTION >> (WARP_SIZE_LOG + 1))>(maxValues);
             }
         }
 
@@ -342,42 +352,6 @@ __global__ void minMaxReductionKernel(el_t *input, data_t *output, uint_t tableL
             output[gridDim.x + blockIdx.x] = maxValues[0];
         }
     }
-}
-
-template __global__ void minMaxReductionKernel<THREADS_PER_REDUCTION>(
-    el_t *input, uint_t *output, uint_t tableLen
-);
-
-// Use C++ template for first run parameter
-__global__ void minMaxReductionKernel(data_t *input, data_t *output, uint_t tableLen, bool firstRun) {
-    extern __shared__ data_t rudictionTile[];
-    data_t *minValues = rudictionTile;
-    data_t *maxValues = rudictionTile + THREADS_PER_REDUCTION;
-    data_t minVal = MAX_VAL;
-    data_t maxVal = MIN_VAL;
-
-    uint_t elemsPerBlock = THREADS_PER_REDUCTION * ELEMENTS_PER_THREAD_REDUCTION;
-    uint_t offset = blockIdx.x * elemsPerBlock;
-    uint_t dataBlockLength = offset + elemsPerBlock <= tableLen ? elemsPerBlock : tableLen - offset;
-
-    // If first run of this kernel array "input" contains input data. In other runs it contains min
-    // values in the first half of the array and max values in the second half.
-    data_t *inputMin = input;
-    data_t *inputMax = firstRun ? input : input + gridDim.x * elemsPerBlock;
-
-    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_REDUCTION) {
-        minVal = min(minVal, firstRun ? ((el_t*)inputMin)[offset + tx].key : inputMin[offset + tx]);
-        maxVal = max(maxVal, firstRun ? ((el_t*)inputMax)[offset + tx].key : inputMax[offset + tx]);
-    }
-    minValues[threadIdx.x] = minVal;
-    maxValues[threadIdx.x] = maxVal;
-
-    __syncthreads();
-    minMaxReduction(minValues, maxValues, dataBlockLength);
-
-    // Output min and max value
-    output[blockIdx.x] = minValues[0];
-    output[gridDim.x + blockIdx.x] = maxValues[0];
 }
 
 // TODO try alignment with 32 for coalasced reading
@@ -389,7 +363,7 @@ __global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_
     // Index of sequence, which this thread block is partitioning
     __shared__ uint_t seqIdx;
     // Start and length of the data assigned to this thread block
-    __shared__ uint_t localStart, localLength, localLengthPowerOf2;
+    __shared__ uint_t localStart, localLength, reductionLengthPowerOf2;
     __shared__ d_glob_seq_t sequence;
 
     if (threadIdx.x == (THREADS_PER_SORT_GLOBAL - 1)) {
@@ -402,7 +376,7 @@ __global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_
         uint_t offset = localBlockIdx * elemsPerBlock;
         localStart = sequence.start + offset;
         localLength = offset + elemsPerBlock <= sequence.length ? elemsPerBlock : sequence.length - offset;
-        localLengthPowerOf2 = nextPowerOf2(localLength);
+        reductionLengthPowerOf2 = nextPowerOf2(min(THREADS_PER_SORT_GLOBAL, localLength));
     }
     __syncthreads();
 
@@ -432,7 +406,7 @@ __global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_
     __syncthreads();
 
     // Calculates and saves min/max values, before shared memory gets overriden by scan
-    minMaxReduction(minValues, maxValues, localLengthPowerOf2);
+    minMaxReduction(reductionLengthPowerOf2);
     if (threadIdx.x == (THREADS_PER_SORT_GLOBAL - 1)) {
         atomicMin(&sequences[seqIdx].greaterSeqMinVal, minValues[0]);
         atomicMax(&sequences[seqIdx].lowerSeqMaxVal, maxValues[0]);
