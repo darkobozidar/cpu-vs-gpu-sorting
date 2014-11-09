@@ -50,27 +50,28 @@ __device__ uint_t nextPowerOf2(uint_t value) {
 /*
 Performs scan and computes, how many elements have 'true' predicate before current element.
 */
-__device__ uint_t intraWarpScan(volatile uint_t *scanTile, uint_t val, uint_t stride) {
+template <uint_t blockSize>
+__device__ uint_t intraWarpScan(volatile uint_t *scanTile, uint_t val) {
     // The same kind of indexing as for bitonic sort
-    uint_t index = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
+    uint_t index = 2 * threadIdx.x - (threadIdx.x & (min(blockSize, WARP_SIZE) - 1));
 
     scanTile[index] = 0;
-    index += stride;
+    index += min(blockSize, WARP_SIZE);
     scanTile[index] = val;
 
-    if (stride > 1) {
+    if (blockSize >= 2) {
         scanTile[index] += scanTile[index - 1];
     }
-    if (stride > 2) {
+    if (blockSize >= 4) {
         scanTile[index] += scanTile[index - 2];
     }
-    if (stride > 4) {
+    if (blockSize >= 8) {
         scanTile[index] += scanTile[index - 4];
     }
-    if (stride > 8) {
+    if (blockSize >= 16) {
         scanTile[index] += scanTile[index - 8];
     }
-    if (stride > 16) {
+    if (blockSize >= 32) {
         scanTile[index] += scanTile[index - 16];
     }
 
@@ -80,27 +81,24 @@ __device__ uint_t intraWarpScan(volatile uint_t *scanTile, uint_t val, uint_t st
 
 /*
 Performs intra-block INCLUSIVE scan.
-
-TODO optimize for table length smaller than blockDim.x.
 */
+template <uint_t blockSize>
 __device__ uint_t intraBlockScan(uint_t val) {
     extern __shared__ uint_t scanTile[];
-    // If thread block size is lower than warp size, than thread block size is used as warp size
-    uint_t warpLen = warpSize <= blockDim.x ? warpSize : blockDim.x;
-    uint_t warpIdx = threadIdx.x / warpLen;
-    uint_t laneIdx = threadIdx.x & (warpLen - 1);  // Thread index inside warp
+    uint_t warpIdx = threadIdx.x / WARP_SIZE;
+    uint_t laneIdx = threadIdx.x & (WARP_SIZE - 1);  // Thread index inside warp
 
-    uint_t warpResult = intraWarpScan(scanTile, val, warpLen);
+    uint_t warpResult = intraWarpScan<blockSize>(scanTile, val);
     __syncthreads();
 
-    if (laneIdx == warpLen - 1) {
+    if (laneIdx == WARP_SIZE - 1) {
         scanTile[warpIdx] = warpResult + val;
     }
     __syncthreads();
 
     // Maximum number of elements for scan is warpSize ^ 2
-    if (threadIdx.x < blockDim.x / warpLen) {
-        scanTile[threadIdx.x] = intraWarpScan(scanTile, scanTile[threadIdx.x], blockDim.x / warpLen);
+    if (threadIdx.x < blockSize / WARP_SIZE) {
+        scanTile[threadIdx.x] = intraWarpScan<blockSize / WARP_SIZE>(scanTile, scanTile[threadIdx.x]);
     }
     __syncthreads();
 
@@ -414,9 +412,9 @@ __global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_
     __syncthreads();
 
     // Calculates number of elements lower/greater than pivot inside whole thread blocks
-    uint_t scanLower = intraBlockScan(localLower);
+    uint_t scanLower = intraBlockScan<THREADS_PER_SORT_GLOBAL>(localLower);
     __syncthreads();
-    uint_t scanGreater = intraBlockScan(localGreater);
+    uint_t scanGreater = intraBlockScan<THREADS_PER_SORT_GLOBAL>(localGreater);
     __syncthreads();
 
     // Calculates number of elements lower/greater than pivot for all thread blocks processing this sequence
@@ -515,9 +513,9 @@ __global__ void quickSortLocalKernel(el_t *dataInput, el_t *dataBuffer, loc_seq_
         }
 
         // Calculates global offsets for each thread with inclusive scan
-        uint_t globalLower = intraBlockScan(localLower);
+        uint_t globalLower = intraBlockScan<THREADS_PER_SORT_LOCAL>(localLower);
         __syncthreads();
-        uint_t globalGreater = intraBlockScan(localGreater);
+        uint_t globalGreater = intraBlockScan<THREADS_PER_SORT_LOCAL>(localGreater);
         __syncthreads();
 
         uint_t indexLower = sequence.start + globalLower - localLower;
