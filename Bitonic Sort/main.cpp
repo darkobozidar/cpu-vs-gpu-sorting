@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
 
     uint_t tableLen = 1 << 4;
     uint_t interval = 1 << 16;
-    bool orderAsc = true;
+    order_t sortOrder = ORDER_ASC;  // Values: ORDER_ASC, ORDER_DESC
     cudaError_t error;
 
     cudaFree(NULL);  // Initializes CUDA, because CUDA init is lazy
@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
     /*fillTable(input, tableLen, interval);*/
     //printTable(input, tableLen);
 
-    sortParallel(input, outputParallel, tableLen, orderAsc);
+    sortParallel(input, outputParallel, tableLen, sortOrder);
     printTable(outputParallel, tableLen);
 
     printf("\n");

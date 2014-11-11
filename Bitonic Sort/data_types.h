@@ -3,15 +3,22 @@
 
 #include <stdint.h>
 
-typedef int data_t;
 typedef uint32_t uint_t;
 typedef int32_t int_t;
 
+typedef uint32_t data_t;
+typedef struct Element el_t;
+typedef enum SortOrder order_t;
+
 // Key value pair used for sorting
 struct Element {
-    uint_t key;
-    uint_t val;
+    data_t key;
+    data_t val;
 };
-typedef struct Element el_t;
+
+enum SortOrder {
+    ORDER_ASC,
+    ORDER_DESC
+};
 
 #endif

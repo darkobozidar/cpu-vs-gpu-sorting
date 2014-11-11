@@ -12,8 +12,8 @@
 /*
 Compares 2 elements and exchanges them according to orderAsc.
 */
-__device__ void compareExchange(el_t *elem1, el_t *elem2, bool orderAsc) {
-    if (((int_t)(elem1->key - elem2->key) <= 0) ^ orderAsc) {
+__device__ void compareExchange(el_t *elem1, el_t *elem2, order_t sortOrder) {
+    if (((int_t)(elem1->key - elem2->key) > 0) ^ sortOrder) {
         el_t temp = *elem1;
         *elem1 = *elem2;
         *elem2 = temp;
@@ -23,7 +23,7 @@ __device__ void compareExchange(el_t *elem1, el_t *elem2, bool orderAsc) {
 /*
 Sorts sub-blocks of input data with NORMALIZED bitonic sort.
 */
-__global__ void bitonicSortKernel(el_t *dataTable, uint_t tableLen, bool orderAsc) {
+__global__ void bitonicSortKernel(el_t *dataTable, uint_t tableLen, order_t sortOrder) {
     extern __shared__ el_t bitonicSortTile[];
 
     uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
@@ -45,8 +45,8 @@ __global__ void bitonicSortKernel(el_t *dataTable, uint_t tableLen, bool orderAs
                 uint_t offset = stride;
 
                 // In normalized bitonic sort, first STEP of every PHASE uses different offset than all other
-                // STEPS. Also in first step of every phase, offsets sizes are generated in ASCENDING order
-                // (normalized bitnic sort requires DESCENDING order). Because of that we can break the loop if
+                // STEPS. Also, in first step of every phase, offset sizes are generated in ASCENDING order
+                // (normalized bitnic sort requires DESCENDING order). Because of that, we can break the loop if
                 // index + offset >= length (bellow). If we want to generate offset sizes in ASCENDING order,
                 // than thread indexes inside every sub-block have to be reversed.
                 if (stride == subBlockSize) {
@@ -59,7 +59,7 @@ __global__ void bitonicSortKernel(el_t *dataTable, uint_t tableLen, bool orderAs
                     break;
                 }
 
-                compareExchange(&bitonicSortTile[index], &bitonicSortTile[index + offset], orderAsc);
+                compareExchange(&bitonicSortTile[index], &bitonicSortTile[index + offset], sortOrder);
             }
             __syncthreads();
         }
@@ -84,7 +84,7 @@ __global__ void bitonicMergeGlobalKernel(el_t *table, uint_t phase, uint_t step,
     el_t el1 = table[indexTable];
     el_t el2 = table[indexTable + stride];
 
-    compareExchange(&el1, &el2, direction);
+    compareExchange(&el1, &el2, (order_t)!direction);
 
     table[indexTable] = el1;
     table[indexTable + stride] = el2;
@@ -107,7 +107,7 @@ __global__ void bitonicMergeLocalKernel(el_t *table, uint_t phase, bool orderAsc
     for (uint_t stride = blockDim.x; stride > 0; stride >>= 1) {
         __syncthreads();
         uint_t start = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
-        compareExchange(&mergeTile[start], &mergeTile[start + stride], direction);
+        compareExchange(&mergeTile[start], &mergeTile[start + stride], (order_t)!direction);
     }
 
     __syncthreads();
