@@ -14,7 +14,7 @@ void startStopwatch(LARGE_INTEGER* start) {
     QueryPerformanceCounter(start);
 }
 
-void endStopwatch(LARGE_INTEGER start, char* comment, char deviceType) {
+double endStopwatch(LARGE_INTEGER start, char* comment, char deviceType) {
     LARGE_INTEGER frequency;
     LARGE_INTEGER end;
     double elapsedTime;
@@ -38,10 +38,11 @@ void endStopwatch(LARGE_INTEGER start, char* comment, char deviceType) {
     }
 
     printf("%s%s: %.5lf ms\n", device, comment, elapsedTime);
+    return elapsedTime;
 }
 
-void endStopwatch(LARGE_INTEGER start, char* comment) {
-    endStopwatch(start, comment, NULL);
+double endStopwatch(LARGE_INTEGER start, char* comment) {
+    return endStopwatch(start, comment, NULL);
 }
 
 /*

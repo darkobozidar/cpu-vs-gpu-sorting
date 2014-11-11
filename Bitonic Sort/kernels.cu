@@ -134,11 +134,10 @@ __global__ void bitonicMergeLocalKernel(el_t *dataTable, uint_t tableLen, uint_t
             if (isFirstStepOfPhase) {
                 offset = ((tx & (stride - 1)) << 1) + 1;
                 indexThread = (tx / stride) * stride + ((stride - 1) - (tx % stride));
+                isFirstStepOfPhase = false;
             }
-            isFirstStepOfPhase = false;
 
             uint_t index = (indexThread << 1) - (indexThread & (stride - 1));
-
             if (index + offset >= dataBlockLength) {
                 break;
             }
