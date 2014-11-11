@@ -83,16 +83,12 @@ Global bitonic merge for sections, where stride IS GREATER than max shared memor
 */
 __global__ void bitonicMergeGlobalKernel(el_t *dataTable, uint_t tableLen, uint_t step, bool firstStepOfPhase,
                                          order_t sortOrder) {
-    uint_t elemsPerThreadBlock = THREADS_PER_GLOBAL_MERGE * ELEMS_PER_THREAD_GLOBAL_MERGE;
-    uint_t offset = blockIdx.x * elemsPerThreadBlock;
-    uint_t dataBlockLength = offset + elemsPerThreadBlock <= tableLen ? elemsPerThreadBlock : tableLen - offset;
-
     uint_t stride = 1 << (step - 1);
-    // Every theoretical thread (threads are emulated with ELEMS_PER_THREAD_GLOBAL_MERGE) sorts 2 elements
-    uint_t threadOffset = blockIdx.x * (elemsPerThreadBlock >> 1);
+    uint_t pairsPerThreadBlock = (THREADS_PER_GLOBAL_MERGE * ELEMS_PER_THREAD_GLOBAL_MERGE) >> 1;
+    uint_t indexGlobal = blockIdx.x * pairsPerThreadBlock + threadIdx.x;
 
-    for (uint_t tx = threadIdx.x; tx < dataBlockLength >> 1; tx += THREADS_PER_GLOBAL_MERGE) {
-        uint_t indexThread = threadOffset + tx;
+    for (uint_t i = 0; i < ELEMS_PER_THREAD_GLOBAL_MERGE >> 1; i++) {
+        uint_t indexThread = indexGlobal + i * THREADS_PER_GLOBAL_MERGE;
         uint_t offset = stride;
 
         // In normalized bitonic sort, first STEP of every PHASE uses different offset than all other STEPS.
@@ -102,7 +98,6 @@ __global__ void bitonicMergeGlobalKernel(el_t *dataTable, uint_t tableLen, uint_
         }
 
         uint_t index = (indexThread << 1) - (indexThread & (stride - 1));
-
         if (index + offset >= tableLen) {
             break;
         }
