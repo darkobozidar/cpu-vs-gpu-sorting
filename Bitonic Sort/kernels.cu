@@ -3,6 +3,7 @@
 #include <cuda.h>
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
+#include "math_functions.h"
 
 #include "data_types.h"
 #include "constants.h"
@@ -20,33 +21,54 @@ __device__ void compareExchange(el_t *elem1, el_t *elem2, bool orderAsc) {
 }
 
 /*
-Sorts sub-blocks of input data with bitonic sort.
+Sorts sub-blocks of input data with NORMALIZED bitonic sort.
 */
-__global__ void bitonicSortKernel(el_t *table, bool orderAsc) {
-    extern __shared__ el_t sortTile[];
-    // If shared memory size is lower than table length, than every block has to be ordered
-    // in opposite direction -> bitonic sequence.
-    bool blockDirection = orderAsc ^ (blockIdx.x & 1);
+__global__ void bitonicSortKernel(el_t *dataTable, uint_t tableLen, bool orderAsc) {
+    extern __shared__ el_t bitonicSortTile[];
 
-    // Every thread loads 2 elements
-    uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
-    sortTile[threadIdx.x] = table[index];
-    sortTile[blockDim.x + threadIdx.x] = table[blockDim.x + index];
+    uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+    uint_t offset = blockIdx.x * elemsPerThreadBlock;
+    uint_t dataBlockLength = offset + elemsPerThreadBlock <= tableLen ? elemsPerThreadBlock : tableLen - offset;
 
-    // Bitonic sort
-    for (uint_t subBlockSize = 1; subBlockSize <= blockDim.x; subBlockSize <<= 1) {
-        bool direction = blockDirection ^ ((threadIdx.x & subBlockSize) != 0);
+    // Read data from global to shared memory.
+    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_BITONIC_SORT) {
+        bitonicSortTile[tx] = dataTable[offset + tx];
+    }
+    __syncthreads();
 
+    // Bitonic sort PHASES
+    for (uint_t subBlockSize = 1; subBlockSize < dataBlockLength; subBlockSize <<= 1) {
+        // Bitonic merge STEPS
         for (uint_t stride = subBlockSize; stride > 0; stride >>= 1) {
+            for (uint_t tx = threadIdx.x; tx < dataBlockLength >> 1; tx += THREADS_PER_BITONIC_SORT) {
+                uint_t indexThread = tx;
+                uint_t offset = stride;
+
+                // In normalized bitonic sort, first STEP of every PHASE uses different offset than all other
+                // STEPS. Also in first step of every phase, offsets sizes are generated in ASCENDING order
+                // (normalized bitnic sort requires DESCENDING order). Because of that we can break the loop if
+                // index + offset >= length (bellow). If we want to generate offset sizes in ASCENDING order,
+                // than thread indexes inside every sub-block have to be reversed.
+                if (stride == subBlockSize) {
+                    indexThread = (tx / stride) * stride + ((stride - 1) - (tx % stride));
+                    offset = ((tx & (stride - 1)) << 1) + 1;
+                }
+
+                uint_t index = (indexThread << 1) - (indexThread & (stride - 1));
+                if (index + offset >= dataBlockLength) {
+                    break;
+                }
+
+                compareExchange(&bitonicSortTile[index], &bitonicSortTile[index + offset], orderAsc);
+            }
             __syncthreads();
-            uint_t start = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
-            compareExchange(&sortTile[start], &sortTile[start + stride], direction);
         }
     }
 
-    __syncthreads();
-    table[index] = sortTile[threadIdx.x];
-    table[blockDim.x + index] = sortTile[blockDim.x + threadIdx.x];
+    // Store data from shared to global memory
+    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_BITONIC_SORT) {
+        dataTable[offset + tx] = bitonicSortTile[tx];
+    }
 }
 
 /*

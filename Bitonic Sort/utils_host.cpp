@@ -82,3 +82,15 @@ void printTable(el_t *table, uint_t startIndex, uint_t endIndex) {
 void printTable(el_t *table, uint_t tableLen) {
     printTable(table, 0, tableLen - 1);
 }
+
+uint_t nextPowerOf2(uint_t value) {
+    value--;
+    value |= value >> 1;
+    value |= value >> 2;
+    value |= value >> 4;
+    value |= value >> 8;
+    value |= value >> 16;
+    value++;
+
+    return value;
+}

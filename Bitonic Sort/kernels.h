@@ -6,7 +6,7 @@
 
 __global__ void printTableKernel(el_t *table, uint_t tableLen);
 
-__global__ void bitonicSortKernel(el_t *table, bool orderAsc);
+__global__ void bitonicSortKernel(el_t *dataTable, uint_t tableLen, bool orderAsc);
 __global__ void bitonicMergeGlobalKernel(el_t *table, uint_t phase, uint_t step, bool orderAsc);
 __global__ void bitonicMergeLocalKernel(el_t *table, uint_t phase, bool orderAsc);
 
