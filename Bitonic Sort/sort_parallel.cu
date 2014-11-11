@@ -28,7 +28,7 @@ void memoryDataInit(el_t *h_table, el_t **d_table, uint_t tableLen) {
 /*
 Sorts sub-blocks of input data with bitonic sort.
 */
-void runBitoicSortKernel(el_t *table, uint_t tableLen, order_t sortOrder) {
+void runBitoicSortKernel(el_t *dataTable, uint_t tableLen, order_t sortOrder) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
@@ -37,29 +37,30 @@ void runBitoicSortKernel(el_t *table, uint_t tableLen, order_t sortOrder) {
     dim3 dimBlock(THREADS_PER_BITONIC_SORT, 1, 1);
 
     startStopwatch(&timer);
-    bitonicSortKernel<<<dimGrid, dimBlock, elemsPerThreadBlock * sizeof(*table)>>>(
-        table, tableLen, sortOrder
+    bitonicSortKernel<<<dimGrid, dimBlock, elemsPerThreadBlock * sizeof(*dataTable)>>>(
+        dataTable, tableLen, sortOrder
     );
     /*error = cudaDeviceSynchronize();
     checkCudaError(error);
     endStopwatch(timer, "Executing bitonic sort kernel");*/
 }
 
-void runBitonicMergeGlobalKernel(el_t *table, uint_t tableLen, uint_t phase, uint_t step, bool orderAsc) {
+void runBitonicMergeGlobalKernel(el_t *dataTable, uint_t tableLen, uint_t phase, uint_t step, order_t sortOrder) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
-    dim3 dimGrid(tableLen / (2 * THREADS_PER_GLOBAL_MERGE), 1, 1);
+    uint_t elemsPerThreadBlock = THREADS_PER_GLOBAL_MERGE * ELEMS_PER_THREAD_GLOBAL_MERGE;
+    dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
     dim3 dimBlock(THREADS_PER_GLOBAL_MERGE, 1, 1);
 
     startStopwatch(&timer);
-    bitonicMergeGlobalKernel<<<dimGrid, dimBlock>>>(table, phase, step, orderAsc);
+    bitonicMergeGlobalKernel<<<dimGrid, dimBlock>>>(dataTable, tableLen, step, step == phase, sortOrder);
     /*error = cudaDeviceSynchronize();
     checkCudaError(error);
     endStopwatch(timer, "Executing bitonic merge global kernel");*/
 }
 
-void runBitoicMergeKernel(el_t *table, uint_t tableLen, uint_t phase, bool orderAsc) {
+void runBitoicMergeLocalKernel(el_t *dataTable, uint_t tableLen, uint_t phase, bool orderAsc) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
@@ -68,20 +69,28 @@ void runBitoicMergeKernel(el_t *table, uint_t tableLen, uint_t phase, bool order
     dim3 dimBlock(THREADS_PER_LOCAL_MERGE, 1, 1);
 
     startStopwatch(&timer);
-    bitonicMergeLocalKernel<<<dimGrid, dimBlock, 2 * THREADS_PER_LOCAL_MERGE * sizeof(*table)>>>(
-        table, phase, orderAsc
+    bitonicMergeLocalKernel<<<dimGrid, dimBlock, 2 * THREADS_PER_LOCAL_MERGE * sizeof(*dataTable)>>>(
+        dataTable, phase, orderAsc
     );
     /*error = cudaDeviceSynchronize();
     checkCudaError(error);
     endStopwatch(timer, "Executing bitonic merge local kernel");*/
 }
 
+void runPrintTableKernel(el_t *table, uint_t tableLen) {
+    printTableKernel<<<1, 1>>>(table, tableLen);
+    cudaError_t error = cudaDeviceSynchronize();
+    checkCudaError(error);
+}
+
 void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, order_t sortOrder) {
     el_t *d_table;
-    // Number of phases, which can be executed in shared memory (stride is lower than
-    // shared memory size)
-    int_t phasesSharedMem = log2((double)min(tableLen, 2 * THREADS_PER_LOCAL_MERGE));
-    int_t phasesAll = log2((double)tableLen);
+
+    uint_t tableLenPower2 = nextPowerOf2(tableLen);
+    uint_t elemsPerBlockSharedMem = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+    // Number of phases, which can be executed in shared memory (stride is lower than shared memory size)
+    int_t phasesSharedMem = log2((double)min(tableLenPower2, elemsPerBlockSharedMem));
+    int_t phasesAll = log2((double)tableLenPower2);
 
     LARGE_INTEGER timer;
     cudaError_t error;
@@ -93,14 +102,16 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, order_t sortOr
 
     startStopwatch(&timer);
     runBitoicSortKernel(d_table, tableLen, sortOrder);
+    runPrintTableKernel(d_table, tableLen);
 
-    /*for (uint_t phase = phasesSharedMem + 1; phase <= phasesAll; phase++) {
-        for (int step = phase; step > phasesSharedMem; step--) {
-            runBitonicMergeGlobalKernel(d_table, tableLen, phase, step, orderAsc);
+    for (uint_t phase = phasesSharedMem + 1; phase <= phasesSharedMem + 1/*phasesAll*/; phase++) {
+        for (int step = phase; step > 0 /*phasesSharedMem*/; step--) {
+            runBitonicMergeGlobalKernel(d_table, tableLen, phase, step, sortOrder);
+            runPrintTableKernel(d_table, tableLen);
         }
 
-        runBitoicMergeKernel(d_table, tableLen, phase, orderAsc);
-    }*/
+        /*runBitoicMergeLocalKernel(d_table, tableLen, phase, sortOrder);*/
+    }
 
     error = cudaDeviceSynchronize();
     checkCudaError(error);

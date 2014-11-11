@@ -9,6 +9,13 @@
 #include "constants.h"
 
 
+__global__ void printTableKernel(el_t *table, uint_t tableLen) {
+    for (uint_t i = 0; i < tableLen; i++) {
+        printf("%2d ", table[i].key);
+    }
+    printf("\n");
+}
+
 /*
 Compares 2 elements and exchanges them according to orderAsc.
 */
@@ -74,20 +81,40 @@ __global__ void bitonicSortKernel(el_t *dataTable, uint_t tableLen, order_t sort
 /*
 Global bitonic merge for sections, where stride IS GREATER than max shared memory.
 */
-__global__ void bitonicMergeGlobalKernel(el_t *table, uint_t phase, uint_t step, bool orderAsc) {
+__global__ void bitonicMergeGlobalKernel(el_t *dataTable, uint_t tableLen, uint_t step, bool firstStepOfPhase,
+                                         order_t sortOrder) {
+    uint_t elemsPerThreadBlock = THREADS_PER_GLOBAL_MERGE * ELEMS_PER_THREAD_GLOBAL_MERGE;
+    uint_t offset = blockIdx.x * elemsPerThreadBlock;
+    uint_t dataBlockLength = offset + elemsPerThreadBlock <= tableLen ? elemsPerThreadBlock : tableLen - offset;
+
     uint_t stride = 1 << (step - 1);
-    uint_t indexThread = blockIdx.x * blockDim.x + threadIdx.x;
-    uint_t indexTable = 2 * indexThread - (indexThread & (stride - 1));
-    // Elements inside same sub-block have to be ordered in same direction
-    bool direction = orderAsc ^ ((indexTable >> phase) & 1);
+    // Every theoretical thread (threads are emulated with ELEMS_PER_THREAD_GLOBAL_MERGE) sorts 2 elements
+    uint_t threadOffset = blockIdx.x * (elemsPerThreadBlock >> 1);
 
-    el_t el1 = table[indexTable];
-    el_t el2 = table[indexTable + stride];
+    for (uint_t tx = threadIdx.x; tx < dataBlockLength >> 1; tx += THREADS_PER_GLOBAL_MERGE) {
+        uint_t indexThread = threadOffset + tx;
+        uint_t offset = stride;
 
-    compareExchange(&el1, &el2, (order_t)!direction);
+        // In normalized bitonic sort, first STEP of every PHASE uses different offset than all other STEPS.
+        if (firstStepOfPhase) {
+            offset = ((indexThread & (stride - 1)) << 1) + 1;
+            indexThread = (indexThread / stride) * stride + ((stride - 1) - (indexThread % stride));
+        }
 
-    table[indexTable] = el1;
-    table[indexTable + stride] = el2;
+        uint_t index = (indexThread << 1) - (indexThread & (stride - 1));
+
+        if (index + offset >= tableLen) {
+            break;
+        }
+
+        el_t el1 = dataTable[index];
+        el_t el2 = dataTable[index + offset];
+
+        compareExchange(&el1, &el2, sortOrder);
+
+        dataTable[index] = el1;
+        dataTable[index + offset] = el2;
+    }
 }
 
 /*
