@@ -15,15 +15,37 @@
 /*
 Initializes DEVICE memory needed for paralel sort implementation.
 */
-void memoryInit(el_t *h_input, el_t **d_dataInput, uint_t tableLen) {
+void memoryInit(el_t *h_input, el_t **d_dataInput, el_t **d_dataBuffer, uint_t tableLen) {
     cudaError_t error;
 
     // Data memory allocation
     error = cudaMalloc(d_dataInput, tableLen * sizeof(**d_dataInput));
     checkCudaError(error);
+    error = cudaMalloc(d_dataBuffer, tableLen * sizeof(**d_dataBuffer));
+    checkCudaError(error);
 
     error = cudaMemcpy(*d_dataInput, h_input, tableLen * sizeof(**d_dataInput), cudaMemcpyHostToDevice);
     checkCudaError(error);
+}
+
+/*
+Sorts sub-blocks of input data with bitonic sort.
+*/
+void runBitoicSortKernel(el_t *dataTable, uint_t tableLen, order_t sortOrder) {
+    cudaError_t error;
+    LARGE_INTEGER timer;
+
+    uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+    dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
+    dim3 dimBlock(THREADS_PER_BITONIC_SORT, 1, 1);
+
+    startStopwatch(&timer);
+    bitonicSortKernel << <dimGrid, dimBlock, elemsPerThreadBlock * sizeof(*dataTable) >> >(
+        dataTable, tableLen, sortOrder
+        );
+    /*error = cudaDeviceSynchronize();
+    checkCudaError(error);
+    endStopwatch(timer, "Executing bitonic sort kernel");*/
 }
 
 void runPrintTableKernel(el_t *table, uint_t tableLen) {
@@ -32,15 +54,20 @@ void runPrintTableKernel(el_t *table, uint_t tableLen) {
     checkCudaError(error);
 }
 
-void sortParallel(el_t *h_dataInput, el_t *h_dataOutput, uint_t tableLen, bool orderAsc) {
-    el_t *d_dataInput;
+void sampleSort(el_t *dataTable, el_t *dataBuffer, uint_t tableLen, order_t sortOrder) {
+    runBitoicSortKernel(dataTable, tableLen, sortOrder);
+}
+
+void sortParallel(el_t *h_dataInput, el_t *h_dataOutput, uint_t tableLen, order_t sortOrder) {
+    el_t *d_dataInput, *d_dataBuffer;
 
     LARGE_INTEGER timer;
     cudaError_t error;
 
-    memoryInit(h_dataInput, &d_dataInput, tableLen);
+    memoryInit(h_dataInput, &d_dataInput, &d_dataBuffer, tableLen);
 
     startStopwatch(&timer);
+    sampleSort(d_dataInput, d_dataBuffer, tableLen, sortOrder);
 
     error = cudaDeviceSynchronize();
     checkCudaError(error);
