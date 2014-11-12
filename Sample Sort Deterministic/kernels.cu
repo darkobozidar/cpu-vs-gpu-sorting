@@ -219,3 +219,52 @@ __global__ void collectGlobalSamplesKernel(data_t *samples, uint_t samplesLen) {
     __syncthreads();
     samples[threadIdx.x] = globalSamplesTile[threadIdx.x];
 }
+
+__device__ int binarySearchInclusive(el_t* dataTable, data_t target, int_t indexStart, int_t indexEnd,
+                                     order_t sortOrder) {
+    while (indexStart <= indexEnd) {
+        // Floor to multiplier of stride - needed for strides > 1
+        int index = (indexStart + indexEnd) / 2;
+
+        if ((target <= dataTable[index].key) ^ (sortOrder)) {
+            indexEnd = index - 1;
+        } else {
+            indexStart = index + 1;
+        }
+    }
+
+    return indexStart;
+}
+
+// TODO check if it is better, to read data chunks into shared memory and have one thread block per one data block
+__global__ void sampleIndexingKernel(el_t *dataTable, const data_t* __restrict__ samples, data_t* samplesBuffer,
+                                     uint_t tableLen, order_t sortOrder) {
+    __shared__ uint_t indexingTile[THREADS_PER_SAMPLE_INDEXING];
+
+    uint_t sampleIndex = threadIdx.x % NUM_SAMPLES;
+    data_t sample = samples[sampleIndex];
+
+    // One thread block can process multiple data blocks (multiple chunks of data previously sorted by bitonic sort).
+    uint_t dataBlocksPerThreadBlock = THREADS_PER_SAMPLE_INDEXING / NUM_SAMPLES;
+    uint_t dataBlockIndex = threadIdx.x / NUM_SAMPLES;
+    uint_t elemsPerBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+
+    uint_t indexBlock = (blockIdx.x * dataBlocksPerThreadBlock + dataBlockIndex);
+    uint_t offset = indexBlock * elemsPerBitonicSort;
+    uint_t dataBlockLength = offset + elemsPerBitonicSort <= tableLen ? elemsPerBitonicSort : tableLen - offset;
+
+    indexingTile[threadIdx.x] = binarySearchInclusive(
+        dataTable, sample, offset, offset + dataBlockIndex, sortOrder
+    );
+    __syncthreads();
+
+    // TODO check if can be done withouth this extra step
+    uint_t prevIndex = 0;
+    if (threadIdx.x > 0) {
+        prevIndex = indexingTile[threadIdx.x - 1];
+    }
+    __syncthreads();
+
+    uint_t outputSampleIndex = sampleIndex * (gridDim.x * dataBlocksPerThreadBlock * NUM_SAMPLES) + indexBlock;
+    samplesBuffer[outputSampleIndex] = indexingTile[threadIdx.x] - prevIndex;
+}

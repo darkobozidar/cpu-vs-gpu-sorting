@@ -3,7 +3,8 @@
 
 
 /* --------------- ALGORITHM PARAMETERS -------------- */
-// Has to be lower or equal than multiplication of THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT
+// Has to be lower or equal than multiplication of THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT.
+// Has to be power of 2.
 #define NUM_SAMPLES 2
 
 
@@ -33,5 +34,10 @@
 // How many elements are processed by one thread in LOCAL bitonic merge. Min value is 2.
 // Has to be divisable by 2.
 #define ELEMS_PER_THREAD_LOCAL_MERGE 2
+
+
+/* ----------------- SAMPLE INDEXING ----------------- */
+
+#define THREADS_PER_SAMPLE_INDEXING 4
 
 #endif
