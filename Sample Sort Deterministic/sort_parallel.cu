@@ -34,7 +34,7 @@ void memoryInit(el_t *h_input, el_t **d_dataInput, el_t **d_dataBuffer, data_t *
 /*
 Sorts sub-blocks of input data with bitonic sort.
 */
-void runBitoicSortKernel(el_t *dataTable, uint_t tableLen, order_t sortOrder) {
+void runBitoicSortKernel(el_t *dataTable, data_t *samples, uint_t tableLen, order_t sortOrder) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
@@ -44,24 +44,31 @@ void runBitoicSortKernel(el_t *dataTable, uint_t tableLen, order_t sortOrder) {
 
     startStopwatch(&timer);
     bitonicSortKernel << <dimGrid, dimBlock, elemsPerThreadBlock * sizeof(*dataTable) >> >(
-        dataTable, tableLen, sortOrder
+        dataTable, samples, tableLen, sortOrder
     );
     /*error = cudaDeviceSynchronize();
     checkCudaError(error);
     endStopwatch(timer, "Executing bitonic sort kernel");*/
 }
 
-void runPrintTableKernel(el_t *table, uint_t tableLen) {
-    printTableKernel<<<1, 1>>>(table, tableLen);
+void runPrintElemsKernel(el_t *table, uint_t tableLen) {
+    printElemsKernel<<<1, 1>>>(table, tableLen);
     cudaError_t error = cudaDeviceSynchronize();
     checkCudaError(error);
 }
 
-el_t* sampleSort(el_t *dataTable, el_t *dataBuffer, uint_t tableLen, uint_t localSamplesLen, order_t sortOrder) {
-    runBitoicSortKernel(dataTable, tableLen, sortOrder);
+void runPrintDataKernel(data_t *table, uint_t tableLen) {
+    printDataKernel<<<1, 1>>>(table, tableLen);
+    cudaError_t error = cudaDeviceSynchronize();
+    checkCudaError(error);
+}
+
+el_t* sampleSort(el_t *dataTable, el_t *dataBuffer, data_t *samples, uint_t tableLen, uint_t localSamplesLen,
+                 order_t sortOrder) {
+    runBitoicSortKernel(dataTable, samples, tableLen, sortOrder);
 
     uint_t initBitonicSortSize = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
-    if (initBitonicSortSize <= tableLen) {
+    if (tableLen <= initBitonicSortSize) {
         return dataTable;
     }
 
@@ -74,9 +81,8 @@ void sortParallel(el_t *h_dataInput, el_t *h_dataOutput, uint_t tableLen, order_
     el_t *d_dataInput, *d_dataBuffer, *d_dataResult;
     data_t *d_samples;
 
-    uint_t initBitonicSortSize = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
-    uint_t localSamplesLen = tableLen / initBitonicSortSize * NUM_SAMPLES;
-    localSamplesLen += (tableLen % initBitonicSortSize) / NUM_SAMPLES;
+    uint_t localSamplesDistance = (THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT) / NUM_SAMPLES;
+    uint_t localSamplesLen = (tableLen - 1) / localSamplesDistance + 1;
 
     LARGE_INTEGER timer;
     cudaError_t error;
@@ -84,7 +90,7 @@ void sortParallel(el_t *h_dataInput, el_t *h_dataOutput, uint_t tableLen, order_
     memoryInit(h_dataInput, &d_dataInput, &d_dataBuffer, &d_samples, tableLen, localSamplesLen);
 
     startStopwatch(&timer);
-    d_dataResult = sampleSort(d_dataInput, d_dataBuffer, tableLen, localSamplesLen, sortOrder);
+    d_dataResult = sampleSort(d_dataInput, d_dataBuffer, d_samples, tableLen, localSamplesLen, sortOrder);
 
     error = cudaDeviceSynchronize();
     checkCudaError(error);

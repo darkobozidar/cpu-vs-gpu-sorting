@@ -23,7 +23,7 @@ int main(int argc, char** argv) {
     el_t *outputParallel;
     el_t *outputCorrect;
 
-    uint_t tableLen = 1 << 4;
+    uint_t tableLen = (1 << 4);
     uint_t interval = 1 << 31;
     order_t sortOrder = ORDER_ASC;  // Values: ORDER_ASC, ORDER_DESC
     cudaError_t error;
@@ -37,6 +37,7 @@ int main(int argc, char** argv) {
 
     for (uint_t i = 0; i < 1; i++) {
         /*fillTable(input, tableLen, interval);*/
+        printTable(input, tableLen);
         sortParallel(input, outputParallel, tableLen, sortOrder);
     }
 

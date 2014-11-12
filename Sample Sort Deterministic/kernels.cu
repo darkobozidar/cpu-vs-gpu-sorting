@@ -10,9 +10,16 @@
 #include "constants.h"
 
 
-__global__ void printTableKernel(el_t *table, uint_t tableLen) {
+__global__ void printElemsKernel(el_t *table, uint_t tableLen) {
     for (uint_t i = 0; i < tableLen; i++) {
         printf("%2d ", table[i].key);
+    }
+    printf("\n");
+}
+
+__global__ void printDataKernel(data_t *table, uint_t tableLen) {
+    for (uint_t i = 0; i < tableLen; i++) {
+        printf("%2d ", table[i]);
     }
     printf("\n");
 }
@@ -31,7 +38,7 @@ __device__ void compareExchange(el_t *elem1, el_t *elem2, order_t sortOrder) {
 /*
 Sorts sub-blocks of input data with NORMALIZED bitonic sort.
 */
-__global__ void bitonicSortKernel(el_t *dataTable, uint_t tableLen, order_t sortOrder) {
+__global__ void bitonicSortKernel(el_t *dataTable, data_t *localSamples, uint_t tableLen, order_t sortOrder) {
     extern __shared__ el_t bitonicSortTile[];
 
     uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
@@ -72,5 +79,9 @@ __global__ void bitonicSortKernel(el_t *dataTable, uint_t tableLen, order_t sort
     // Store data from shared to global memory
     for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_BITONIC_SORT) {
         dataTable[offset + tx] = bitonicSortTile[tx];
+
+        if (tx * NUM_SAMPLES < dataBlockLength) {
+            localSamples[blockIdx.x * NUM_SAMPLES + tx] = bitonicSortTile[tx * NUM_SAMPLES].key;
+        }
     }
 }
