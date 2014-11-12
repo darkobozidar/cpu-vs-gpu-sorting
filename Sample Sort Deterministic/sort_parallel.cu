@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <climits>
+#include <math.h>
 #include <Windows.h>
 
 #include <cuda.h>
@@ -52,38 +53,40 @@ void runBitonicSortCollectSamplesKernel(el_t *dataTable, data_t *samples, uint_t
     endStopwatch(timer, "Executing bitonic sort kernel");*/
 }
 
-//void runBitonicMergeGlobalKernel(el_t *dataTable, uint_t tableLen, uint_t phase, uint_t step, order_t sortOrder) {
-//    cudaError_t error;
-//    LARGE_INTEGER timer;
-//
-//    uint_t elemsPerThreadBlock = THREADS_PER_GLOBAL_MERGE * ELEMS_PER_THREAD_GLOBAL_MERGE;
-//    dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
-//    dim3 dimBlock(THREADS_PER_GLOBAL_MERGE, 1, 1);
-//
-//    startStopwatch(&timer);
-//    bitonicMergeGlobalKernel<<<dimGrid, dimBlock>>>(dataTable, tableLen, step, step == phase, sortOrder);
-//    /*error = cudaDeviceSynchronize();
-//    checkCudaError(error);
-//    endStopwatch(timer, "Executing bitonic merge global kernel");*/
-//}
-//
-//void runBitoicMergeLocalKernel(el_t *dataTable, uint_t tableLen, uint_t phase, uint_t step, order_t sortOrder) {
-//    cudaError_t error;
-//    LARGE_INTEGER timer;
-//
-//    // Every thread loads and sorts 2 elements
-//    uint_t elemsPerThreadBlock = THREADS_PER_LOCAL_MERGE * ELEMS_PER_THREAD_LOCAL_MERGE;
-//    dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
-//    dim3 dimBlock(THREADS_PER_LOCAL_MERGE, 1, 1);
-//
-//    startStopwatch(&timer);
-//    bitonicMergeLocalKernel<<<dimGrid, dimBlock, elemsPerThreadBlock * sizeof(*dataTable)>>>(
-//        dataTable, tableLen, step, phase == step, sortOrder
-//    );
-//    /*error = cudaDeviceSynchronize();
-//    checkCudaError(error);
-//    endStopwatch(timer, "Executing bitonic merge local kernel");*/
-//}
+template <typename T>
+void runBitonicMergeGlobalKernel(T *dataTable, uint_t tableLen, uint_t phase, uint_t step, order_t sortOrder) {
+    cudaError_t error;
+    LARGE_INTEGER timer;
+
+    uint_t elemsPerThreadBlock = THREADS_PER_GLOBAL_MERGE * ELEMS_PER_THREAD_GLOBAL_MERGE;
+    dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
+    dim3 dimBlock(THREADS_PER_GLOBAL_MERGE, 1, 1);
+
+    startStopwatch(&timer);
+    bitonicMergeGlobalKernel<T><<<dimGrid, dimBlock>>>(dataTable, tableLen, step, step == phase, sortOrder);
+    /*error = cudaDeviceSynchronize();
+    checkCudaError(error);
+    endStopwatch(timer, "Executing bitonic merge global kernel");*/
+}
+
+template <typename T>
+void runBitoicMergeLocalKernel(T *dataTable, uint_t tableLen, uint_t phase, uint_t step, order_t sortOrder) {
+    cudaError_t error;
+    LARGE_INTEGER timer;
+
+    // Every thread loads and sorts 2 elements
+    uint_t elemsPerThreadBlock = THREADS_PER_LOCAL_MERGE * ELEMS_PER_THREAD_LOCAL_MERGE;
+    dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
+    dim3 dimBlock(THREADS_PER_LOCAL_MERGE, 1, 1);
+
+    startStopwatch(&timer);
+    bitonicMergeLocalKernel<<<dimGrid, dimBlock>>>(
+        dataTable, tableLen, step, phase == step, sortOrder
+    );
+    /*error = cudaDeviceSynchronize();
+    checkCudaError(error);
+    endStopwatch(timer, "Executing bitonic merge local kernel");*/
+}
 
 void runPrintElemsKernel(el_t *table, uint_t tableLen) {
     printElemsKernel<<<1, 1>>>(table, tableLen);
@@ -97,28 +100,37 @@ void runPrintDataKernel(data_t *table, uint_t tableLen) {
     checkCudaError(error);
 }
 
-void bitonicMerge() {
-    /*for (uint_t phase = phasesBitonicSort + 1; phase <= phasesAll; phase++) {
+template <typename T>
+void bitonicMerge(T *dataTable, uint_t tableLen, uint_t elemsPerBlockBitonicSort, order_t sortOrder) {
+    uint_t tableLenPower2 = nextPowerOf2(tableLen);
+    uint_t elemsPerBlockMergeLocal = THREADS_PER_LOCAL_MERGE * ELEMS_PER_THREAD_LOCAL_MERGE;
+
+    // Number of phases, which can be executed in shared memory (stride is lower than shared memory size)
+    uint_t phasesBitonicSort = log2((double)min(tableLenPower2, elemsPerBlockBitonicSort));
+    uint_t phasesMergeLocal = log2((double)min(tableLenPower2, elemsPerBlockMergeLocal));
+    uint_t phasesAll = log2((double)tableLenPower2);
+
+    for (uint_t phase = phasesBitonicSort + 1; phase <= phasesAll; phase++) {
         uint_t step = phase;
         while (step > phasesMergeLocal) {
-            runBitonicMergeGlobalKernel(d_table, tableLen, phase, step, sortOrder);
+            runBitonicMergeGlobalKernel<T>(dataTable, tableLen, phase, step, sortOrder);
             step--;
         }
 
-        runBitoicMergeLocalKernel(d_table, tableLen, phase, step, sortOrder);
-    }*/
+        runBitoicMergeLocalKernel<T>(dataTable, tableLen, phase, step, sortOrder);
+    }
 }
 
 el_t* sampleSort(el_t *dataTable, el_t *dataBuffer, data_t *samples, uint_t tableLen, uint_t localSamplesLen,
                  order_t sortOrder) {
     runBitonicSortCollectSamplesKernel(dataTable, samples, tableLen, sortOrder);
 
-    uint_t initBitonicSortSize = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
-    if (tableLen <= initBitonicSortSize) {
+    uint_t elemsPerBlockBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+    if (tableLen <= elemsPerBlockBitonicSort) {
         return dataTable;
     }
 
-    runPrintDataKernel(samples, localSamplesLen);
+    bitonicMerge<data_t>(samples, localSamplesLen, NUM_SAMPLES, sortOrder);
 
     // TODO other steps
     // TODO handle case, if all samples are the same

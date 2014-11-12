@@ -11,5 +11,6 @@ void compareArrays(el_t* array1, el_t* array2, uint_t arrayLen);
 void printTable(el_t *table, uint_t tableLen);
 void printTable(el_t *table, uint_t startIndex, uint_t endIndex);
 void checkMallocError(void *ptr);
+uint_t nextPowerOf2(uint_t value);
 
 #endif

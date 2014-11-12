@@ -91,3 +91,15 @@ void checkMallocError(void *ptr) {
         exit(EXIT_FAILURE);
     }
 }
+
+uint_t nextPowerOf2(uint_t value) {
+    value--;
+    value |= value >> 1;
+    value |= value >> 2;
+    value |= value >> 4;
+    value |= value >> 8;
+    value |= value >> 16;
+    value++;
+
+    return value;
+}
