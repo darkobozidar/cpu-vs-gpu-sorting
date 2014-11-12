@@ -88,6 +88,19 @@ void runBitoicMergeLocalKernel(T *dataTable, uint_t tableLen, uint_t phase, uint
     endStopwatch(timer, "Executing bitonic merge local kernel");*/
 }
 
+void runCollectGlobalSamplesKernel(data_t *samples, uint_t samplesLen) {
+    LARGE_INTEGER timer;
+
+    dim3 dimGrid(1, 1, 1);
+    dim3 dimBlock(NUM_SAMPLES, 1, 1);
+
+    startStopwatch(&timer);
+    collectGlobalSamplesKernel<<<dimGrid, dimBlock>>>(samples, samplesLen);
+    /*error = cudaDeviceSynchronize();
+    checkCudaError(error);
+    endStopwatch(timer, "Executing kernel for collection of global samples");*/
+}
+
 void runPrintElemsKernel(el_t *table, uint_t tableLen) {
     printElemsKernel<<<1, 1>>>(table, tableLen);
     cudaError_t error = cudaDeviceSynchronize();
@@ -131,9 +144,12 @@ el_t* sampleSort(el_t *dataTable, el_t *dataBuffer, data_t *samples, uint_t tabl
     }
 
     bitonicMerge<data_t>(samples, localSamplesLen, NUM_SAMPLES, sortOrder);
+    runCollectGlobalSamplesKernel(samples, localSamplesLen);
+
+    // TODO handle case, if all samples are the same
+    runPrintDataKernel(samples, NUM_SAMPLES);
 
     // TODO other steps
-    // TODO handle case, if all samples are the same
     return dataTable;
 }
 

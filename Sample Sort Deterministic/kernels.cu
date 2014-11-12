@@ -205,3 +205,17 @@ template __global__ void bitonicMergeLocalKernel<data_t>(
 template __global__ void bitonicMergeLocalKernel<el_t>(
     el_t *dataTable, uint_t tableLen, uint_t step, bool isFirstStepOfPhase, order_t sortOrder
 );
+
+/*
+From LOCAL samples extracts GLOBAL samples (every NUM_SAMPLES sample). This is done by one thread block.
+*/
+__global__ void collectGlobalSamplesKernel(data_t *samples, uint_t samplesLen) {
+    // Shared memory is needed, because samples are read and written to the same array (race condition).
+    __shared__ data_t globalSamplesTile[NUM_SAMPLES];
+    uint_t samplesDistance = samplesLen / NUM_SAMPLES;
+
+    // We also add (samplesDistance / 2) to collect samples as evenly as possible
+    globalSamplesTile[threadIdx.x] = samples[threadIdx.x * samplesDistance + (samplesDistance / 2)];
+    __syncthreads();
+    samples[threadIdx.x] = globalSamplesTile[threadIdx.x];
+}

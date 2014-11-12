@@ -16,5 +16,6 @@ template <typename T>
 __global__ void bitonicMergeLocalKernel(
     T *table, uint_t tableLen, uint_t step, bool isFirstStepOfPhase, order_t sortOrder
 );
+__global__ void collectGlobalSamplesKernel(data_t *samples, uint_t samplesLen);
 
 #endif
