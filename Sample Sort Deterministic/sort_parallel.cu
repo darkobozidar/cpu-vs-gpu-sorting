@@ -103,6 +103,21 @@ void runCollectGlobalSamplesKernel(data_t *samples, uint_t samplesLen) {
     endStopwatch(timer, "Executing kernel for collection of global samples");*/
 }
 
+void runSampleIndexingKernel(el_t *dataTable, data_t *samples, data_t *samplesBuffer, uint_t tableLen,
+                             uint_t globalSamplesLen, order_t sortOrder) {
+    LARGE_INTEGER timer;
+
+    // TODO comment
+    dim3 dimGrid((globalSamplesLen - 1) / (THREADS_PER_SAMPLE_INDEXING / NUM_SAMPLES * (NUM_SAMPLES + 1)) + 1, 1, 1);
+    dim3 dimBlock(THREADS_PER_SAMPLE_INDEXING, 1, 1);
+
+    startStopwatch(&timer);
+    sampleIndexingKernel<<<dimGrid, dimBlock>>>(dataTable, samples, samplesBuffer, tableLen, sortOrder);
+    /*error = cudaDeviceSynchronize();
+    checkCudaError(error);
+    endStopwatch(timer, "Executing kernel sample indexing");*/
+}
+
 void runPrintElemsKernel(el_t *table, uint_t tableLen) {
     printElemsKernel<<<1, 1>>>(table, tableLen);
     cudaError_t error = cudaDeviceSynchronize();
@@ -137,7 +152,7 @@ void bitonicMerge(T *dataTable, uint_t tableLen, uint_t elemsPerBlockBitonicSort
 }
 
 el_t* sampleSort(el_t *dataTable, el_t *dataBuffer, data_t *samples, data_t *samplesBuffer, uint_t tableLen,
-                 uint_t localSamplesLen, order_t sortOrder) {
+                 uint_t localSamplesLen, uint_t globalSamplesLen, order_t sortOrder) {
     runBitonicSortCollectSamplesKernel(dataTable, samples, tableLen, sortOrder);
 
     uint_t elemsPerBlockBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
@@ -146,10 +161,11 @@ el_t* sampleSort(el_t *dataTable, el_t *dataBuffer, data_t *samples, data_t *sam
     }
 
     bitonicMerge<data_t>(samples, localSamplesLen, NUM_SAMPLES, sortOrder);
+    // TODO handle case, if all samples are the same
     runCollectGlobalSamplesKernel(samples, localSamplesLen);
 
-    // TODO handle case, if all samples are the same
-    runPrintDataKernel(samples, NUM_SAMPLES);
+    runSampleIndexingKernel(dataTable, samples, samplesBuffer, tableLen, globalSamplesLen, sortOrder);
+    runPrintDataKernel(samplesBuffer, globalSamplesLen);
 
     // TODO other steps
     return dataTable;
@@ -162,7 +178,7 @@ void sortParallel(el_t *h_dataInput, el_t *h_dataOutput, uint_t tableLen, order_
     uint_t elemsPerInitBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
     uint_t localSamplesDistance = (THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT) / NUM_SAMPLES;
     uint_t localSamplesLen = (tableLen - 1) / localSamplesDistance + 1;
-    uint_t globalSamplesLen = ((tableLen - 1) / elemsPerInitBitonicSort + 1) * NUM_SAMPLES;
+    uint_t globalSamplesLen = ((tableLen - 1) / elemsPerInitBitonicSort + 1) * (NUM_SAMPLES + 1);
 
     LARGE_INTEGER timer;
     cudaError_t error;
@@ -174,7 +190,8 @@ void sortParallel(el_t *h_dataInput, el_t *h_dataOutput, uint_t tableLen, order_
 
     startStopwatch(&timer);
     d_dataResult = sampleSort(
-        d_dataInput, d_dataBuffer, d_samples, d_samplesBuffer, tableLen, localSamplesLen, sortOrder
+        d_dataInput, d_dataBuffer, d_samples, d_samplesBuffer, tableLen, localSamplesLen, globalSamplesLen,
+        sortOrder
     );
 
     error = cudaDeviceSynchronize();

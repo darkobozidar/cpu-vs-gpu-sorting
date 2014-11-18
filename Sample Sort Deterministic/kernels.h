@@ -17,5 +17,9 @@ __global__ void bitonicMergeLocalKernel(
     T *table, uint_t tableLen, uint_t step, bool isFirstStepOfPhase, order_t sortOrder
 );
 __global__ void collectGlobalSamplesKernel(data_t *samples, uint_t samplesLen);
+__global__ void sampleIndexingKernel(
+    el_t *dataTable, const data_t* __restrict__ samples, data_t* samplesBuffer, uint_t tableLen,
+    order_t sortOrder
+);
 
 #endif

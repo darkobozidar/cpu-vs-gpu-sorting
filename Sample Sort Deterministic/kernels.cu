@@ -237,6 +237,10 @@ __device__ int binarySearchInclusive(el_t* dataTable, data_t target, int_t index
 }
 
 // TODO check if it is better, to read data chunks into shared memory and have one thread block per one data block
+/*
+For all previously sorted chunks finds the index of global samples and calculates the number of elements in each
+of the (NUM_SAMPLES + 1) buckets.
+*/
 __global__ void sampleIndexingKernel(el_t *dataTable, const data_t* __restrict__ samples, data_t* samplesBuffer,
                                      uint_t tableLen, order_t sortOrder) {
     __shared__ uint_t indexingTile[THREADS_PER_SAMPLE_INDEXING];
@@ -254,17 +258,24 @@ __global__ void sampleIndexingKernel(el_t *dataTable, const data_t* __restrict__
     uint_t dataBlockLength = offset + elemsPerBitonicSort <= tableLen ? elemsPerBitonicSort : tableLen - offset;
 
     indexingTile[threadIdx.x] = binarySearchInclusive(
-        dataTable, sample, offset, offset + dataBlockIndex, sortOrder
+        dataTable, sample, offset, offset + dataBlockLength - 1, sortOrder
     );
     __syncthreads();
 
-    // TODO check if can be done withouth this extra step
-    uint_t prevIndex = 0;
-    if (threadIdx.x > 0) {
+    uint_t prevIndex;
+    uint_t allDataBlocks = gridDim.x * dataBlocksPerThreadBlock;
+    uint_t outputSampleIndex = sampleIndex * allDataBlocks + indexBlock;
+
+    if (sampleIndex == 0) {
+        prevIndex = offset;
+    } else {
         prevIndex = indexingTile[threadIdx.x - 1];
     }
     __syncthreads();
 
-    uint_t outputSampleIndex = sampleIndex * (gridDim.x * dataBlocksPerThreadBlock * NUM_SAMPLES) + indexBlock;
     samplesBuffer[outputSampleIndex] = indexingTile[threadIdx.x] - prevIndex;
+    // Because there is NUM_SAMPLES samples, (NUM_SAMPLES + 1) buckets are created.
+    if (sampleIndex == NUM_SAMPLES - 1) {
+        samplesBuffer[outputSampleIndex + allDataBlocks] = offset + elemsPerBitonicSort - indexingTile[threadIdx.x];
+    }
 }
