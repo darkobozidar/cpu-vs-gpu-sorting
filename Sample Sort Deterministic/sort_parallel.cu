@@ -20,8 +20,8 @@
 Initializes DEVICE memory needed for paralel sort implementation.
 */
 void memoryInit(el_t *h_input, el_t **d_dataInput, el_t **d_dataBuffer, data_t **d_samples,
-                uint_t **d_localBucketSizes, uint_t **d_localBucketOffsets, uint_t tableLen,
-                uint_t localSamplesLen, uint_t localBucketsLen) {
+                uint_t **d_globalBucketOffsets, uint_t **d_localBucketSizes, uint_t **d_localBucketOffsets,
+                uint_t tableLen, uint_t localSamplesLen, uint_t localBucketsLen) {
     cudaError_t error;
 
     // Data memory allocation
@@ -30,6 +30,8 @@ void memoryInit(el_t *h_input, el_t **d_dataInput, el_t **d_dataBuffer, data_t *
     error = cudaMalloc(d_dataBuffer, tableLen * sizeof(**d_dataBuffer));
     checkCudaError(error);
     error = cudaMalloc(d_samples, localSamplesLen * sizeof(**d_samples));
+    checkCudaError(error);
+    error = cudaMalloc(d_globalBucketOffsets, (NUM_SAMPLES + 1) * sizeof(**d_globalBucketOffsets));
     checkCudaError(error);
     error = cudaMalloc(d_localBucketSizes, localBucketsLen * sizeof(**d_localBucketSizes));
     checkCudaError(error);
@@ -144,22 +146,30 @@ void runSampleIndexingKernel(el_t *dataTable, data_t *samples, data_t *bucketSiz
     endStopwatch(timer, "Executing kernel sample indexing");*/
 }
 
-void runBucketsRelocationKernel(el_t *dataTable, el_t *dataBuffer, uint_t *localBucketSizes,
+void runBucketsRelocationKernel(el_t *dataTable, el_t *dataBuffer, uint_t *h_globalBucketOffsets,
+                                uint_t *d_globalBucketOffsets, uint_t *localBucketSizes,
                                 uint_t *localBucketOffsets, uint_t tableLen) {
     // For NUM_SAMPLES samples (NUM_SAMPLES + 1) buckets are created
     uint_t sharedMemSize = 2 * (NUM_SAMPLES + 1);
     uint_t elemsPerBitonicSort = THREADS_PER_GLOBAL_MERGE * ELEMS_PER_THREAD_GLOBAL_MERGE;
     LARGE_INTEGER timer;
+    cudaError_t error;
 
     dim3 dimGrid((tableLen - 1) / elemsPerBitonicSort + 1, 1, 1);
     dim3 dimBlock(THREADS_PER_BUCKETS_RELOCATION, 1, 1);
     bucketsRelocationKernel<<<dimGrid, dimBlock, sharedMemSize * sizeof(*localBucketSizes)>>>(
-        dataTable, dataBuffer, localBucketSizes, localBucketOffsets, tableLen
+        dataTable, dataBuffer, d_globalBucketOffsets, localBucketSizes, localBucketOffsets, tableLen
     );
 
     /*error = cudaDeviceSynchronize();
     checkCudaError(error);
     endStopwatch(timer, "Executing kernel for buckets relocation");*/
+
+    error = cudaMemcpy(
+        h_globalBucketOffsets, d_globalBucketOffsets, (NUM_SAMPLES + 1) * sizeof(*h_globalBucketOffsets),
+        cudaMemcpyDeviceToHost
+    );
+    checkCudaError(error);
 }
 
 void runPrintElemsKernel(el_t *table, uint_t tableLen) {
@@ -195,9 +205,9 @@ void bitonicMerge(T *dataTable, uint_t tableLen, uint_t elemsPerBlockBitonicSort
     }
 }
 
-el_t* sampleSort(el_t *dataTable, el_t *dataBuffer, data_t *samples, uint_t *d_localBucketSizes,
-                 uint_t *d_localBucketOffsets, uint_t tableLen, uint_t localSamplesLen, uint_t localBucketsLen,
-                 order_t sortOrder) {
+el_t* sampleSort(el_t *dataTable, el_t *dataBuffer, data_t *samples, uint_t *h_globalBucketOffsets,
+                 uint_t *d_globalBucketOffsets, uint_t *d_localBucketSizes, uint_t *d_localBucketOffsets,
+                 uint_t tableLen, uint_t localSamplesLen, uint_t localBucketsLen, order_t sortOrder) {
     CUDPPHandle scanPlan;
 
     // TODO Should this be done before or after stopwatch?
@@ -221,7 +231,15 @@ el_t* sampleSort(el_t *dataTable, el_t *dataBuffer, data_t *samples, uint_t *d_l
         exit(-1);
     }
 
-    runBucketsRelocationKernel(dataTable, dataBuffer, d_localBucketSizes, d_localBucketOffsets, tableLen);
+    runBucketsRelocationKernel(
+        dataTable, dataBuffer, h_globalBucketOffsets, d_globalBucketOffsets, d_localBucketSizes,
+        d_localBucketOffsets, tableLen
+    );
+
+    /*for (uint_t i = 0; i < NUM_SAMPLES + 1; i++) {
+        printf("%2d ", h_globalBucketOffsets[i]);
+    }
+    printf("\n\n");*/
 
     // TODO other steps
     return dataBuffer;
@@ -231,7 +249,8 @@ void sortParallel(el_t *h_dataInput, el_t *h_dataOutput, uint_t tableLen, order_
     el_t *d_dataInput, *d_dataBuffer, *d_dataResult;
     // First it holds LOCAL and than GLOBAL samples
     data_t *d_samples;
-    uint_t *d_globalBucketSizes, *d_localBucketSizes, *d_localBucketOffsets;
+    uint_t *d_localBucketSizes, *d_localBucketOffsets;
+    uint_t h_globalBucketOffsets[NUM_SAMPLES + 1], *d_globalBucketOffsets;
 
     uint_t elemsPerInitBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
     uint_t localSamplesDistance = (THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT) / NUM_SAMPLES;
@@ -243,14 +262,14 @@ void sortParallel(el_t *h_dataInput, el_t *h_dataOutput, uint_t tableLen, order_
     cudaError_t error;
 
     memoryInit(
-        h_dataInput, &d_dataInput, &d_dataBuffer, &d_samples, &d_localBucketSizes, &d_localBucketOffsets,
-        tableLen, localSamplesLen, localBucketsLen
+        h_dataInput, &d_dataInput, &d_dataBuffer, &d_samples, &d_globalBucketOffsets, &d_localBucketSizes,
+        &d_localBucketOffsets, tableLen, localSamplesLen, localBucketsLen
     );
 
     startStopwatch(&timer);
     d_dataResult = sampleSort(
-        d_dataInput, d_dataBuffer, d_samples, d_localBucketSizes, d_localBucketOffsets, tableLen,
-        localSamplesLen, localBucketsLen, sortOrder
+        d_dataInput, d_dataBuffer, d_samples, h_globalBucketOffsets, d_globalBucketOffsets, d_localBucketSizes,
+        d_localBucketOffsets, tableLen, localSamplesLen, localBucketsLen, sortOrder
     );
 
     error = cudaDeviceSynchronize();

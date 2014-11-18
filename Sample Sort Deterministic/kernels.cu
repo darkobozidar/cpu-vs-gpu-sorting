@@ -280,22 +280,32 @@ __global__ void sampleIndexingKernel(el_t *dataTable, const data_t* __restrict__
     }
 }
 
-__global__ void bucketsRelocationKernel(el_t *dataTable, el_t *dataBuffer,
+__global__ void bucketsRelocationKernel(el_t *dataTable, el_t *dataBuffer, uint_t *d_globalBucketOffsets,
                                         const uint_t* __restrict__ localBucketSizes,
                                         const uint_t* __restrict__ localBucketOffsets, uint_t tableLen) {
     extern __shared__ uint_t bucketsTile[];
     uint_t *bucketSizes = bucketsTile;
     uint_t *bucketOffsets = bucketsTile + NUM_SAMPLES + 1;
 
+    // Reads bucket sizes and offsets to shared memory
     if (threadIdx.x < NUM_SAMPLES + 1) {
         uint_t index = threadIdx.x * gridDim.x + blockIdx.x;
         bucketSizes[threadIdx.x] = localBucketSizes[index];
         bucketOffsets[threadIdx.x] = localBucketOffsets[index];
 
+        // Last block writes size of entire buckets into array of global bucket sizes
+        if (blockIdx.x == gridDim.x - 1) {
+            d_globalBucketOffsets[threadIdx.x] = bucketOffsets[threadIdx.x] + bucketSizes[threadIdx.x];
+        }
+
         // If thread block contains NUM_SAMPLES threads, then last thread reads also (NUM_SAMPLES + 1)th bucket
         if (THREADS_PER_BUCKETS_RELOCATION == NUM_SAMPLES && threadIdx.x == NUM_SAMPLES - 1) {
             bucketSizes[threadIdx.x + 1] = localBucketSizes[index + gridDim.x];
             bucketOffsets[threadIdx.x + 1] = localBucketOffsets[index + gridDim.x];
+
+            if (blockIdx.x == gridDim.x - 1) {
+                d_globalBucketOffsets[threadIdx.x + 1] = bucketOffsets[threadIdx.x + 1] + bucketSizes[threadIdx.x + 1];
+            }
         }
     }
     __syncthreads();

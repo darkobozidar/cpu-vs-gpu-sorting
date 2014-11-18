@@ -22,7 +22,7 @@ __global__ void sampleIndexingKernel(
     order_t sortOrder
 );
 __global__ void bucketsRelocationKernel(
-    el_t *dataTable, el_t *dataBuffer, const uint_t* __restrict__ localBucketSizes,
+    el_t *dataTable, el_t *dataBuffer, uint_t *d_globalBucketOffsets, const uint_t* __restrict__ localBucketSizes,
     const uint_t* __restrict__ localBucketOffsets, uint_t tableLen
 );
 
