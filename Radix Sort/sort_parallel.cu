@@ -131,6 +131,7 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, bool orderAsc)
     // Init memory and library CUDPP
     memoryInit(h_input, &d_table, &d_bufffer, &d_bucketOffsetsLocal, &d_bucketOffsetsGlobal, &d_bucketSizes,
                tableLen, bucketsLen);
+    // TODO Should this be done before or after stopwatch?
     cudppInitScan(&scanPlan, bucketsLen);
 
     startStopwatch(&timer);

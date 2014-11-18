@@ -7,6 +7,8 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
+#include <cudpp.h>
+
 #include "data_types.h"
 #include "constants.h"
 #include "utils_cuda.h"
@@ -18,7 +20,8 @@
 Initializes DEVICE memory needed for paralel sort implementation.
 */
 void memoryInit(el_t *h_input, el_t **d_dataInput, el_t **d_dataBuffer, data_t **d_samples,
-                data_t **d_samplesBuffer, uint_t tableLen, uint_t localSamplesLen, uint_t globalSamplesLen) {
+                uint_t **d_localBucketSizes, uint_t **d_localBucketOffsets, uint_t tableLen,
+                uint_t localSamplesLen, uint_t localBucketsLen) {
     cudaError_t error;
 
     // Data memory allocation
@@ -28,11 +31,34 @@ void memoryInit(el_t *h_input, el_t **d_dataInput, el_t **d_dataBuffer, data_t *
     checkCudaError(error);
     error = cudaMalloc(d_samples, localSamplesLen * sizeof(**d_samples));
     checkCudaError(error);
-    error = cudaMalloc(d_samplesBuffer, globalSamplesLen * sizeof(**d_samplesBuffer));
+    error = cudaMalloc(d_localBucketSizes, localBucketsLen * sizeof(**d_localBucketSizes));
+    checkCudaError(error);
+    error = cudaMalloc(d_localBucketOffsets, localBucketsLen * sizeof(**d_localBucketOffsets));
     checkCudaError(error);
 
     error = cudaMemcpy(*d_dataInput, h_input, tableLen * sizeof(**d_dataInput), cudaMemcpyHostToDevice);
     checkCudaError(error);
+}
+
+void cudppInitScan(CUDPPHandle *scanPlan, uint_t tableLen) {
+    // Initializes the CUDPP Library
+    CUDPPHandle theCudpp;
+    cudppCreate(&theCudpp);
+
+    CUDPPConfiguration config;
+    config.op = CUDPP_ADD;
+    config.datatype = CUDPP_UINT;
+    config.algorithm = CUDPP_SCAN;
+    config.options = CUDPP_OPTION_FORWARD | CUDPP_OPTION_EXCLUSIVE;
+
+    *scanPlan = 0;
+    CUDPPResult result = cudppPlan(theCudpp, scanPlan, config, tableLen, 1, 0);
+
+    if (result != CUDPP_SUCCESS) {
+        printf("Error creating CUDPPPlan\n");
+        getchar();
+        exit(-1);
+    }
 }
 
 /*
@@ -103,16 +129,16 @@ void runCollectGlobalSamplesKernel(data_t *samples, uint_t samplesLen) {
     endStopwatch(timer, "Executing kernel for collection of global samples");*/
 }
 
-void runSampleIndexingKernel(el_t *dataTable, data_t *samples, data_t *samplesBuffer, uint_t tableLen,
-                             uint_t globalSamplesLen, order_t sortOrder) {
+void runSampleIndexingKernel(el_t *dataTable, data_t *samples, data_t *bucketSizes, uint_t tableLen,
+                             uint_t numAllBuckets, order_t sortOrder) {
     LARGE_INTEGER timer;
 
     // TODO comment
-    dim3 dimGrid((globalSamplesLen - 1) / (THREADS_PER_SAMPLE_INDEXING / NUM_SAMPLES * (NUM_SAMPLES + 1)) + 1, 1, 1);
+    dim3 dimGrid((numAllBuckets - 1) / (THREADS_PER_SAMPLE_INDEXING / NUM_SAMPLES * (NUM_SAMPLES + 1)) + 1, 1, 1);
     dim3 dimBlock(THREADS_PER_SAMPLE_INDEXING, 1, 1);
 
     startStopwatch(&timer);
-    sampleIndexingKernel<<<dimGrid, dimBlock>>>(dataTable, samples, samplesBuffer, tableLen, sortOrder);
+    sampleIndexingKernel<<<dimGrid, dimBlock>>>(dataTable, samples, bucketSizes, tableLen, sortOrder);
     /*error = cudaDeviceSynchronize();
     checkCudaError(error);
     endStopwatch(timer, "Executing kernel sample indexing");*/
@@ -151,8 +177,13 @@ void bitonicMerge(T *dataTable, uint_t tableLen, uint_t elemsPerBlockBitonicSort
     }
 }
 
-el_t* sampleSort(el_t *dataTable, el_t *dataBuffer, data_t *samples, data_t *samplesBuffer, uint_t tableLen,
-                 uint_t localSamplesLen, uint_t globalSamplesLen, order_t sortOrder) {
+el_t* sampleSort(el_t *dataTable, el_t *dataBuffer, data_t *samples, uint_t *d_localBucketSizes,
+                 uint_t *d_localBucketOffsets, uint_t tableLen, uint_t localSamplesLen, uint_t localBucketsLen,
+                 order_t sortOrder) {
+    CUDPPHandle scanPlan;
+
+    // TODO Should this be done before or after stopwatch?
+    cudppInitScan(&scanPlan, localBucketsLen);
     runBitonicSortCollectSamplesKernel(dataTable, samples, tableLen, sortOrder);
 
     uint_t elemsPerBlockBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
@@ -163,9 +194,18 @@ el_t* sampleSort(el_t *dataTable, el_t *dataBuffer, data_t *samples, data_t *sam
     bitonicMerge<data_t>(samples, localSamplesLen, NUM_SAMPLES, sortOrder);
     // TODO handle case, if all samples are the same
     runCollectGlobalSamplesKernel(samples, localSamplesLen);
+    runPrintDataKernel(samples, NUM_SAMPLES);
+    runSampleIndexingKernel(dataTable, samples, d_localBucketSizes, tableLen, localBucketsLen, sortOrder);
 
-    runSampleIndexingKernel(dataTable, samples, samplesBuffer, tableLen, globalSamplesLen, sortOrder);
-    runPrintDataKernel(samplesBuffer, globalSamplesLen);
+    CUDPPResult result = cudppScan(scanPlan, d_localBucketOffsets, d_localBucketSizes, localBucketsLen);
+    if (result != CUDPP_SUCCESS) {
+        printf("Error in cudppScan()\n");
+        getchar();
+        exit(-1);
+    }
+
+    runPrintDataKernel(d_localBucketSizes, localBucketsLen);
+    runPrintDataKernel(d_localBucketOffsets, localBucketsLen);
 
     // TODO other steps
     return dataTable;
@@ -173,25 +213,28 @@ el_t* sampleSort(el_t *dataTable, el_t *dataBuffer, data_t *samples, data_t *sam
 
 void sortParallel(el_t *h_dataInput, el_t *h_dataOutput, uint_t tableLen, order_t sortOrder) {
     el_t *d_dataInput, *d_dataBuffer, *d_dataResult;
-    data_t *d_samples, *d_samplesBuffer;
+    // First it holds LOCAL and than GLOBAL samples
+    data_t *d_samples;
+    uint_t *d_globalBucketSizes, *d_localBucketSizes, *d_localBucketOffsets;
 
     uint_t elemsPerInitBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
     uint_t localSamplesDistance = (THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT) / NUM_SAMPLES;
     uint_t localSamplesLen = (tableLen - 1) / localSamplesDistance + 1;
-    uint_t globalSamplesLen = ((tableLen - 1) / elemsPerInitBitonicSort + 1) * (NUM_SAMPLES + 1);
+    // (number of all data blocks (tiles)) * (number buckets generated from NUM_SAMPLES)
+    uint_t localBucketsLen = ((tableLen - 1) / elemsPerInitBitonicSort + 1) * (NUM_SAMPLES + 1);
 
     LARGE_INTEGER timer;
     cudaError_t error;
 
     memoryInit(
-        h_dataInput, &d_dataInput, &d_dataBuffer, &d_samples, &d_samplesBuffer, tableLen, localSamplesLen,
-        globalSamplesLen
+        h_dataInput, &d_dataInput, &d_dataBuffer, &d_samples, &d_localBucketSizes, &d_localBucketOffsets,
+        tableLen, localSamplesLen, localBucketsLen
     );
 
     startStopwatch(&timer);
     d_dataResult = sampleSort(
-        d_dataInput, d_dataBuffer, d_samples, d_samplesBuffer, tableLen, localSamplesLen, globalSamplesLen,
-        sortOrder
+        d_dataInput, d_dataBuffer, d_samples, d_localBucketSizes, d_localBucketOffsets, tableLen,
+        localSamplesLen, localBucketsLen, sortOrder
     );
 
     error = cudaDeviceSynchronize();

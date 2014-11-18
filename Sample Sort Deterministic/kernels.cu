@@ -241,7 +241,7 @@ __device__ int binarySearchInclusive(el_t* dataTable, data_t target, int_t index
 For all previously sorted chunks finds the index of global samples and calculates the number of elements in each
 of the (NUM_SAMPLES + 1) buckets.
 */
-__global__ void sampleIndexingKernel(el_t *dataTable, const data_t* __restrict__ samples, data_t* samplesBuffer,
+__global__ void sampleIndexingKernel(el_t *dataTable, const data_t* __restrict__ samples, uint_t * bucketSizes,
                                      uint_t tableLen, order_t sortOrder) {
     __shared__ uint_t indexingTile[THREADS_PER_SAMPLE_INDEXING];
 
@@ -273,9 +273,9 @@ __global__ void sampleIndexingKernel(el_t *dataTable, const data_t* __restrict__
     }
     __syncthreads();
 
-    samplesBuffer[outputSampleIndex] = indexingTile[threadIdx.x] - prevIndex;
+    bucketSizes[outputSampleIndex] = indexingTile[threadIdx.x] - prevIndex;
     // Because there is NUM_SAMPLES samples, (NUM_SAMPLES + 1) buckets are created.
     if (sampleIndex == NUM_SAMPLES - 1) {
-        samplesBuffer[outputSampleIndex + allDataBlocks] = offset + elemsPerBitonicSort - indexingTile[threadIdx.x];
+        bucketSizes[outputSampleIndex + allDataBlocks] = offset + elemsPerBitonicSort - indexingTile[threadIdx.x];
     }
 }
