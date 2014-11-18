@@ -144,6 +144,24 @@ void runSampleIndexingKernel(el_t *dataTable, data_t *samples, data_t *bucketSiz
     endStopwatch(timer, "Executing kernel sample indexing");*/
 }
 
+void runBucketsRelocationKernel(el_t *dataTable, el_t *dataBuffer, uint_t *localBucketSizes,
+                                uint_t *localBucketOffsets, uint_t tableLen) {
+    // For NUM_SAMPLES samples (NUM_SAMPLES + 1) buckets are created
+    uint_t sharedMemSize = 2 * (NUM_SAMPLES + 1);
+    uint_t elemsPerBitonicSort = THREADS_PER_GLOBAL_MERGE * ELEMS_PER_THREAD_GLOBAL_MERGE;
+    LARGE_INTEGER timer;
+
+    dim3 dimGrid((tableLen - 1) / elemsPerBitonicSort + 1, 1, 1);
+    dim3 dimBlock(THREADS_PER_BUCKETS_RELOCATION, 1, 1);
+    bucketsRelocationKernel<<<dimGrid, dimBlock, sharedMemSize * sizeof(*localBucketSizes)>>>(
+        dataTable, dataBuffer, localBucketSizes, localBucketOffsets, tableLen
+    );
+
+    /*error = cudaDeviceSynchronize();
+    checkCudaError(error);
+    endStopwatch(timer, "Executing kernel for buckets relocation");*/
+}
+
 void runPrintElemsKernel(el_t *table, uint_t tableLen) {
     printElemsKernel<<<1, 1>>>(table, tableLen);
     cudaError_t error = cudaDeviceSynchronize();
@@ -194,7 +212,6 @@ el_t* sampleSort(el_t *dataTable, el_t *dataBuffer, data_t *samples, uint_t *d_l
     bitonicMerge<data_t>(samples, localSamplesLen, NUM_SAMPLES, sortOrder);
     // TODO handle case, if all samples are the same
     runCollectGlobalSamplesKernel(samples, localSamplesLen);
-    runPrintDataKernel(samples, NUM_SAMPLES);
     runSampleIndexingKernel(dataTable, samples, d_localBucketSizes, tableLen, localBucketsLen, sortOrder);
 
     CUDPPResult result = cudppScan(scanPlan, d_localBucketOffsets, d_localBucketSizes, localBucketsLen);
@@ -204,8 +221,7 @@ el_t* sampleSort(el_t *dataTable, el_t *dataBuffer, data_t *samples, uint_t *d_l
         exit(-1);
     }
 
-    runPrintDataKernel(d_localBucketSizes, localBucketsLen);
-    runPrintDataKernel(d_localBucketOffsets, localBucketsLen);
+    runBucketsRelocationKernel(dataTable, dataBuffer, d_localBucketSizes, d_localBucketOffsets, tableLen);
 
     // TODO other steps
     return dataTable;

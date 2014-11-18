@@ -38,6 +38,16 @@
 
 /* ----------------- SAMPLE INDEXING ----------------- */
 
+// Has to be greater or equal than NUM_SAMPLES.
 #define THREADS_PER_SAMPLE_INDEXING 4
+
+
+/* ---------------- BUCKETS RELOCATION --------------- */
+
+// How many threads are used per one thread block in kernel for buckets relocation. Has to be power of 2.
+// Also has to be greater or equal than NUM_SAMPLES.
+#define THREADS_PER_BUCKETS_RELOCATION 4
+
+
 
 #endif

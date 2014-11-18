@@ -21,5 +21,9 @@ __global__ void sampleIndexingKernel(
     el_t *dataTable, const data_t* __restrict__ samples, uint_t *bucketSizes, uint_t tableLen,
     order_t sortOrder
 );
+__global__ void bucketsRelocationKernel(
+    el_t *dataTable, el_t *dataBuffer, const uint_t* __restrict__ localBucketSizes,
+    const uint_t* __restrict__ localBucketOffsets, uint_t tableLen
+);
 
 #endif
