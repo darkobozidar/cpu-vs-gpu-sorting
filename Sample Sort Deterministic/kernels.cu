@@ -299,4 +299,25 @@ __global__ void bucketsRelocationKernel(el_t *dataTable, el_t *dataBuffer,
         }
     }
     __syncthreads();
+
+    uint_t elemsPerBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+    uint_t offset = blockIdx.x * elemsPerBitonicSort;
+    uint_t activeThreads = 0;
+    uint_t activeThreadsPrev = 0;
+    uint_t dataBlockLength = offset + elemsPerBitonicSort <= tableLen ? elemsPerBitonicSort : tableLen - offset;
+
+    uint_t tx = threadIdx.x;
+    uint_t bucketIndex = 0;
+
+    while (tx < dataBlockLength) {
+        activeThreads += bucketSizes[bucketIndex];
+
+        while (tx < activeThreads) {
+            dataBuffer[bucketOffsets[bucketIndex] + tx - activeThreadsPrev] = dataTable[offset + tx];
+            tx += THREADS_PER_BUCKETS_RELOCATION;
+        }
+
+        activeThreadsPrev = activeThreads;
+        bucketIndex++;
+    }
 }

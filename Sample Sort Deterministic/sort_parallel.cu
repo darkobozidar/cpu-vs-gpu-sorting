@@ -224,7 +224,7 @@ el_t* sampleSort(el_t *dataTable, el_t *dataBuffer, data_t *samples, uint_t *d_l
     runBucketsRelocationKernel(dataTable, dataBuffer, d_localBucketSizes, d_localBucketOffsets, tableLen);
 
     // TODO other steps
-    return dataTable;
+    return dataBuffer;
 }
 
 void sortParallel(el_t *h_dataInput, el_t *h_dataOutput, uint_t tableLen, order_t sortOrder) {
