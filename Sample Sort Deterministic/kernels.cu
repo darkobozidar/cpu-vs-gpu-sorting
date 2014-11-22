@@ -116,6 +116,16 @@ template __global__ void bitonicSortCollectSamplesKernel<el_t>(
 );
 
 /*
+Sorts sub-blocks of input data with NORMALIZED bitonic sort.
+*/
+template <typename T>
+__global__ void bitonicSortKernel(T *dataTable, uint_t tableLen, order_t sortOrder) {
+    bitonicSort(dataTable, tableLen, sortOrder);
+}
+
+template __global__ void bitonicSortKernel<el_t>(el_t *dataTable, uint_t tableLen, order_t sortOrder);
+
+/*
 Global bitonic merge for sections, where stride IS GREATER than max shared memory.
 */
 template <typename T>

@@ -9,6 +9,8 @@ __global__ void bitonicSortCollectSamplesKernel(
     T *dataTable, data_t *localSamples, uint_t tableLen, order_t sortOrder
 );
 template <typename T>
+__global__ void bitonicSortKernel(T *dataTable, uint_t tableLen, order_t sortOrder);
+template <typename T>
 __global__ void bitonicMergeGlobalKernel(
     T *dataTable, uint_t tableLen, uint_t step, bool firstStepOfPhase, order_t sortOrder
 );

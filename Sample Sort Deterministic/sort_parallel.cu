@@ -80,6 +80,26 @@ void runBitonicSortCollectSamplesKernel(el_t *dataTable, data_t *samples, uint_t
     );
     /*error = cudaDeviceSynchronize();
     checkCudaError(error);
+    endStopwatch(timer, "Executing kernel for bitonic sort and collecting samples");*/
+}
+
+/*
+Sorts sub-blocks of input data with bitonic sort.
+*/
+void runBitonicSortKernel(el_t *dataTable, uint_t tableLen, order_t sortOrder) {
+    cudaError_t error;
+    LARGE_INTEGER timer;
+
+    uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+    dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
+    dim3 dimBlock(THREADS_PER_BITONIC_SORT, 1, 1);
+
+    startStopwatch(&timer);
+    bitonicSortKernel<el_t><<<dimGrid, dimBlock, elemsPerThreadBlock * sizeof(*dataTable)>>>(
+        dataTable, tableLen, sortOrder
+    );
+    /*error = cudaDeviceSynchronize();
+    checkCudaError(error);
     endStopwatch(timer, "Executing bitonic sort kernel");*/
 }
 
@@ -205,6 +225,18 @@ void bitonicMerge(T *dataTable, uint_t tableLen, uint_t elemsPerBlockBitonicSort
     }
 }
 
+template <typename T>
+void bitonicSort(T *dataTable, uint_t tableLen, order_t sortOrder) {
+    uint_t tableLenPower2 = nextPowerOf2(tableLen);
+    uint_t elemsPerBlockBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+
+    uint_t phasesAll = log2((double)tableLenPower2);
+
+    runBitonicSortKernel(dataTable, tableLen, sortOrder);
+
+    bitonicMerge<T>(dataTable, tableLen, elemsPerBlockBitonicSort, sortOrder);
+}
+
 el_t* sampleSort(el_t *dataTable, el_t *dataBuffer, data_t *samples, uint_t *h_globalBucketOffsets,
                  uint_t *d_globalBucketOffsets, uint_t *d_localBucketSizes, uint_t *d_localBucketOffsets,
                  uint_t tableLen, uint_t localSamplesLen, uint_t localBucketsLen, order_t sortOrder) {
@@ -236,12 +268,14 @@ el_t* sampleSort(el_t *dataTable, el_t *dataBuffer, data_t *samples, uint_t *h_g
         d_localBucketOffsets, tableLen
     );
 
-    /*for (uint_t i = 0; i < NUM_SAMPLES + 1; i++) {
-        printf("%2d ", h_globalBucketOffsets[i]);
-    }
-    printf("\n\n");*/
+    uint_t previousOffset = 0;
+    for (uint_t bucket = 0; bucket < NUM_SAMPLES + 1; bucket++) {
+        uint_t currentOffset = h_globalBucketOffsets[bucket];
+        uint_t bucketLen = currentOffset - previousOffset;
 
-    // TODO other steps
+        bitonicSort(dataBuffer, bucketLen, sortOrder);
+    }
+
     return dataBuffer;
 }
 
