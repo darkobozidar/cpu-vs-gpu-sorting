@@ -156,8 +156,11 @@ void runSampleIndexingKernel(el_t *dataTable, data_t *samples, data_t *bucketSiz
     LARGE_INTEGER timer;
 
     // TODO comment
-    dim3 dimGrid((numAllBuckets - 1) / (THREADS_PER_SAMPLE_INDEXING / NUM_SAMPLES * (NUM_SAMPLES + 1)) + 1, 1, 1);
-    dim3 dimBlock(THREADS_PER_SAMPLE_INDEXING, 1, 1);
+    uint_t elemsPerBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+    uint_t numBlocks = (tableLen - 1) / elemsPerBitonicSort + 1;
+    uint_t threadBlockSize = min(numBlocks * NUM_SAMPLES, THREADS_PER_SAMPLE_INDEXING);
+    dim3 dimGrid((numAllBuckets - 1) / (threadBlockSize / NUM_SAMPLES * (NUM_SAMPLES + 1)) + 1, 1, 1);
+    dim3 dimBlock(threadBlockSize, 1, 1);
 
     startStopwatch(&timer);
     sampleIndexingKernel<<<dimGrid, dimBlock>>>(dataTable, samples, bucketSizes, tableLen, sortOrder);

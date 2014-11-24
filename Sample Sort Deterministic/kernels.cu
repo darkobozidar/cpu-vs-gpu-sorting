@@ -107,7 +107,9 @@ __global__ void bitonicSortCollectSamplesKernel(T *dataTable, data_t *localSampl
     uint_t samplesPerThreadBlock = (dataBlockLength - 1) / localSamplesDistance + 1;
 
     for (uint_t tx = threadIdx.x; tx < samplesPerThreadBlock; tx += THREADS_PER_BITONIC_SORT) {
-        localSamples[blockIdx.x * NUM_SAMPLES + tx] = bitonicSortTile[tx * localSamplesDistance].key;
+        // TODO comment localSampleDistance / 2
+        uint_t sample = bitonicSortTile[tx * localSamplesDistance + (localSamplesDistance / 2)].key;
+        localSamples[blockIdx.x * NUM_SAMPLES + tx] = sample;
     }
 }
 
@@ -259,7 +261,7 @@ __global__ void sampleIndexingKernel(el_t *dataTable, const data_t* __restrict__
     data_t sample = samples[sampleIndex];
 
     // One thread block can process multiple data blocks (multiple chunks of data previously sorted by bitonic sort).
-    uint_t dataBlocksPerThreadBlock = THREADS_PER_SAMPLE_INDEXING / NUM_SAMPLES;
+    uint_t dataBlocksPerThreadBlock = blockDim.x / NUM_SAMPLES;
     uint_t dataBlockIndex = threadIdx.x / NUM_SAMPLES;
     uint_t elemsPerBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
 
