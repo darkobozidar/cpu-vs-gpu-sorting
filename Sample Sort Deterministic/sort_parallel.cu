@@ -42,6 +42,9 @@ void memoryInit(el_t *h_input, el_t **d_dataInput, el_t **d_dataBuffer, data_t *
     checkCudaError(error);
 }
 
+/*
+Initializes CUDPP scan.
+*/
 void cudppInitScan(CUDPPHandle *scanPlan, uint_t tableLen) {
     // Initializes the CUDPP Library
     CUDPPHandle theCudpp;
@@ -138,6 +141,9 @@ void runBitoicMergeLocalKernel(T *dataTable, uint_t tableLen, uint_t phase, uint
     endStopwatch(timer, "Executing bitonic merge local kernel");*/
 }
 
+/*
+From all LOCAL samples collects (NUM_SAMPLES) GLOBAL samples.
+*/
 void runCollectGlobalSamplesKernel(data_t *samples, uint_t samplesLen) {
     LARGE_INTEGER timer;
 
@@ -151,14 +157,19 @@ void runCollectGlobalSamplesKernel(data_t *samples, uint_t samplesLen) {
     endStopwatch(timer, "Executing kernel for collection of global samples");*/
 }
 
+/*
+For every sample searches, how many elements in tile are lower than it's value.
+*/
 void runSampleIndexingKernel(el_t *dataTable, data_t *samples, data_t *bucketSizes, uint_t tableLen,
                              uint_t numAllBuckets, order_t sortOrder) {
     LARGE_INTEGER timer;
 
-    // TODO comment
+    // Number of threads per thread block can be greater than number of samples.
     uint_t elemsPerBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
     uint_t numBlocks = (tableLen - 1) / elemsPerBitonicSort + 1;
     uint_t threadBlockSize = min(numBlocks * NUM_SAMPLES, THREADS_PER_SAMPLE_INDEXING);
+
+    // Every thread block creates from NUM_SAMPLES samples (NUM_SAMPLES + 1) buckets
     dim3 dimGrid((numAllBuckets - 1) / (threadBlockSize / NUM_SAMPLES * (NUM_SAMPLES + 1)) + 1, 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
 
@@ -169,6 +180,10 @@ void runSampleIndexingKernel(el_t *dataTable, data_t *samples, data_t *bucketSiz
     endStopwatch(timer, "Executing kernel sample indexing");*/
 }
 
+/*
+From local bucket sizes and offsets scatters elements to their global buckets. At the end it coppies
+global bucket sizes (sizes of whole buckets, not just bucket size per tile (local size)) to host.
+*/
 void runBucketsRelocationKernel(el_t *dataTable, el_t *dataBuffer, uint_t *h_globalBucketOffsets,
                                 uint_t *d_globalBucketOffsets, uint_t *localBucketSizes,
                                 uint_t *localBucketOffsets, uint_t tableLen) {
@@ -207,6 +222,9 @@ void runPrintDataKernel(data_t *table, uint_t tableLen) {
     checkCudaError(error);
 }
 
+/*
+Performs global bitonic merge, when number of elements is greater than shared memory size.
+*/
 template <typename T>
 void bitonicMerge(T *dataTable, uint_t tableLen, uint_t elemsPerBlockBitonicSort, order_t sortOrder) {
     uint_t tableLenPower2 = nextPowerOf2(tableLen);
@@ -228,6 +246,9 @@ void bitonicMerge(T *dataTable, uint_t tableLen, uint_t elemsPerBlockBitonicSort
     }
 }
 
+/*
+Performs bitonic sort.
+*/
 template <typename T>
 void bitonicSort(T *dataTable, uint_t tableLen, order_t sortOrder) {
     uint_t tableLenPower2 = nextPowerOf2(tableLen);
@@ -240,6 +261,7 @@ void bitonicSort(T *dataTable, uint_t tableLen, order_t sortOrder) {
     bitonicMerge<T>(dataTable, tableLen, elemsPerBlockBitonicSort, sortOrder);
 }
 
+// TODO figure out what the bottleneck is
 el_t* sampleSort(el_t *dataTable, el_t *dataBuffer, data_t *samples, uint_t *h_globalBucketOffsets,
                  uint_t *d_globalBucketOffsets, uint_t *d_localBucketSizes, uint_t *d_localBucketOffsets,
                  uint_t tableLen, uint_t localSamplesLen, uint_t localBucketsLen, order_t sortOrder) {
@@ -254,6 +276,8 @@ el_t* sampleSort(el_t *dataTable, el_t *dataBuffer, data_t *samples, uint_t *h_g
         return dataTable;
     }
 
+    // Local samples are already partially ordered - NUM_SAMPLES per every tile. These partially ordered
+    // samples need to be merged.
     bitonicMerge<data_t>(samples, localSamplesLen, NUM_SAMPLES, sortOrder);
     // TODO handle case, if all samples are the same
     runCollectGlobalSamplesKernel(samples, localSamplesLen);
@@ -271,6 +295,7 @@ el_t* sampleSort(el_t *dataTable, el_t *dataBuffer, data_t *samples, uint_t *h_g
         d_localBucketOffsets, tableLen
     );
 
+    // Sorts every bucket with bitonic sort
     uint_t previousOffset = 0;
     for (uint_t bucket = 0; bucket < NUM_SAMPLES + 1; bucket++) {
         uint_t currentOffset = h_globalBucketOffsets[bucket];
@@ -286,7 +311,9 @@ void sortParallel(el_t *h_dataInput, el_t *h_dataOutput, uint_t tableLen, order_
     el_t *d_dataInput, *d_dataBuffer, *d_dataResult;
     // First it holds LOCAL and than GLOBAL samples
     data_t *d_samples;
+    // Sizes and offsets of local (per every tile) buckets (gained after scan on bucket sizes)
     uint_t *d_localBucketSizes, *d_localBucketOffsets;
+    // Offsets of entire (whole, global) buckets, not just parts of buckets for every tile (local)
     uint_t h_globalBucketOffsets[NUM_SAMPLES + 1], *d_globalBucketOffsets;
 
     uint_t elemsPerInitBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;

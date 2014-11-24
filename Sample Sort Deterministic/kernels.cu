@@ -106,9 +106,10 @@ __global__ void bitonicSortCollectSamplesKernel(T *dataTable, data_t *localSampl
     uint_t localSamplesDistance = elemsPerThreadBlock / NUM_SAMPLES;
     uint_t samplesPerThreadBlock = (dataBlockLength - 1) / localSamplesDistance + 1;
 
+    // Collects samples
     for (uint_t tx = threadIdx.x; tx < samplesPerThreadBlock; tx += THREADS_PER_BITONIC_SORT) {
-        // TODO comment localSampleDistance / 2
-        uint_t sample = bitonicSortTile[tx * localSamplesDistance + (localSamplesDistance / 2)].key;
+        // Collects the samples on offset of "localSampleDistance / 2" in order to be nearer to center
+        uint_t sample = bitonicSortTile[localSamplesDistance / 2 + tx * localSamplesDistance].key;
         localSamples[blockIdx.x * NUM_SAMPLES + tx] = sample;
     }
 }
@@ -248,10 +249,11 @@ __device__ int binarySearchInclusive(el_t* dataTable, data_t target, int_t index
     return indexStart;
 }
 
-// TODO check if it is better, to read data chunks into shared memory and have one thread block per one data block
 /*
 For all previously sorted chunks finds the index of global samples and calculates the number of elements in each
 of the (NUM_SAMPLES + 1) buckets.
+
+TODO check if it is better, to read data chunks into shared memory and have one thread block per one data block
 */
 __global__ void sampleIndexingKernel(el_t *dataTable, const data_t* __restrict__ samples, uint_t * bucketSizes,
                                      uint_t tableLen, order_t sortOrder) {
@@ -292,6 +294,9 @@ __global__ void sampleIndexingKernel(el_t *dataTable, const data_t* __restrict__
     }
 }
 
+/*
+According to local (per one tile) bucket sizes and offsets kernel scatters elements to their global buckets.
+*/
 __global__ void bucketsRelocationKernel(el_t *dataTable, el_t *dataBuffer, uint_t *d_globalBucketOffsets,
                                         const uint_t* __restrict__ localBucketSizes,
                                         const uint_t* __restrict__ localBucketOffsets, uint_t tableLen) {
@@ -331,6 +336,7 @@ __global__ void bucketsRelocationKernel(el_t *dataTable, el_t *dataBuffer, uint_
     uint_t tx = threadIdx.x;
     uint_t bucketIndex = 0;
 
+    // Every thread reads bucket size and scatters elements to their global buckets
     while (tx < dataBlockLength) {
         activeThreads += bucketSizes[bucketIndex];
 
@@ -339,6 +345,7 @@ __global__ void bucketsRelocationKernel(el_t *dataTable, el_t *dataBuffer, uint_
             tx += THREADS_PER_BUCKETS_RELOCATION;
         }
 
+        // TODO try with sycnthreads if ti works faster
         activeThreadsPrev = activeThreads;
         bucketIndex++;
     }

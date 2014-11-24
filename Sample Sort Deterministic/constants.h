@@ -18,6 +18,7 @@
 #define ELEMS_PER_THREAD_BITONIC_SORT 4
 
 
+// TODO doesn't work, if number of threads for merge is lower than number of threads per bitonic sort.
 /* --------------- BITONIC MERGE GLOBAL -------------- */
 
 // How many threads are used per one thread block in GLOBAL bitonic merge. Has to be power of 2.
