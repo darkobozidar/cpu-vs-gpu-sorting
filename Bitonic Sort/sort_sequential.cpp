@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <array>
 
-#include "data_types.h"
-#include "utils_host.h"
+#include "../Utils/data_types_common.h"
+#include "../Utils/host.h"
 
 
 // TODO figure out, how to use only one compare function for parallel and sequential implementation.

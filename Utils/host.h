@@ -2,7 +2,7 @@
 #define HOST_UTILS_H
 
 #include <windows.h>
-#include "data_types.h"
+#include "data_types_common.h"
 
 void startStopwatch(LARGE_INTEGER* start);
 double endStopwatch(LARGE_INTEGER start, char *comment, char deviceType);

@@ -6,12 +6,11 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
-#include "data_types.h"
+#include "../Utils/data_types_common.h"
+#include "../Utils/cuda.h"
+#include "../Utils/host.h"
 #include "constants.h"
-#include "utils_cuda.h"
-#include "utils_host.h"
 #include "kernels.h"
-
 
 /*
 Initializes device memory.

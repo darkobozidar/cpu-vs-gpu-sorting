@@ -2,6 +2,7 @@
 #define DEVICE_PROPS_H
 
 #include "cuda_runtime.h"
+#include "data_types_common.h"
 
 cudaDeviceProp getCudaDeviceProp(int deviceIndex);
 cudaDeviceProp getCudaDeviceProp();

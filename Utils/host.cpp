@@ -6,8 +6,7 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
-#include "data_types.h"
-#include "constants.h"
+#include "data_types_common.h"
 
 
 void startStopwatch(LARGE_INTEGER* start) {

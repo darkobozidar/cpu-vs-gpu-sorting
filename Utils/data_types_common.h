@@ -1,5 +1,5 @@
-#ifndef DATA_TYPES_H
-#define DATA_TYPES_H
+#ifndef DATA_TYPES_COMMON_H
+#define DATA_TYPES_COMMON_H
 
 #include <stdint.h>
 
