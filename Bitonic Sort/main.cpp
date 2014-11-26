@@ -19,9 +19,9 @@
 int main(int argc, char** argv) {
     data_t *h_input;
     data_t *h_outputParallel, *h_outputSequential, *h_outputCorrect, *d_dataTable;
-    double **stopwatchTimes;
+    double **timers;
 
-    uint_t tableLen = (1 << 20);
+    uint_t tableLen = (1 << 16);
     uint_t interval = (1 << 31);
     uint_t testRepetitions = 10;     // How many times are sorts ran
     order_t sortOrder = ORDER_ASC;  // Values: ORDER_ASC, ORDER_DESC
@@ -32,9 +32,17 @@ int main(int argc, char** argv) {
 
     // Memory alloc
     allocHostMemory(
-        &h_input, &h_outputParallel, &h_outputSequential, &h_outputCorrect, &stopwatchTimes, tableLen, testRepetitions
+        &h_input, &h_outputParallel, &h_outputSequential, &h_outputCorrect, &timers, tableLen, testRepetitions
     );
     allocDeviceMemory(&d_dataTable, tableLen);
+
+    printf("======================================================================================================\n");
+    printf("||                                           BITONIC SORT                                           ||\n");
+    printf("======================================================================================================\n");
+    printf("||     # ||              PARALLEL              ||              SEQUENTIAL            ||   CORRECT   ||\n");
+    printf("======================================================================================================\n");
+    printf("||     # ||     time    |      rate     |  OK  ||     time    |      rate     |  OK  ||     time    ||\n");
+    printf("======================================================================================================\n");
 
     for (uint_t i = 0; i < testRepetitions; i++)
     {
@@ -43,21 +51,32 @@ int main(int argc, char** argv) {
         // Sort parallel
         error = cudaMemcpy(d_dataTable, h_input, tableLen * sizeof(*d_dataTable), cudaMemcpyHostToDevice);
         checkCudaError(error);
-        sortParallel(h_input, h_outputParallel, d_dataTable, tableLen, sortOrder);
+        timers[SORT_PARALLEL][i] = sortParallel(h_input, h_outputParallel, d_dataTable, tableLen, sortOrder);
 
         // Sort sequential
         std::copy(h_input, h_input + tableLen, h_outputSequential);
+        timers[SORT_SEQUENTIAL][i] = 99999;
         // TODO
 
         // Sort correct
         std::copy(h_input, h_input + tableLen, h_outputCorrect);
-        sortCorrect(h_input, h_outputCorrect, tableLen);
+        timers[SORT_CORRECT][i] = sortCorrect(h_input, h_outputCorrect, tableLen);
 
-        compareArrays(h_outputParallel, h_outputCorrect, tableLen);
+        bool areEqualParallel = compareArrays(h_outputParallel, h_outputCorrect, tableLen);
+        bool areEqualSequential = false;  // TODO
+
+        printf(
+            "|| %5d || %8.2lf ms | %8.2lf el/s | %s  || %8.2lf ms | %8.2lf el/s | %s  || %8.2lf ms ||\n", i,
+            timers[SORT_PARALLEL][i], tableLen / 1000.0 / timers[SORT_PARALLEL][i], areEqualParallel ? "YES" : "NO ",
+            timers[SORT_SEQUENTIAL][i], tableLen / 1000.0 / timers[SORT_SEQUENTIAL][i], areEqualSequential ? "YES" : "NO ",
+            timers[SORT_CORRECT][i]
+        );
     }
 
+    printf("======================================================================================================\n");
+
     // Memory free
-    freeHostMemory(h_input, h_outputParallel, h_outputSequential, h_outputCorrect, stopwatchTimes);
+    freeHostMemory(h_input, h_outputParallel, h_outputSequential, h_outputCorrect, timers);
     freeDeviceMemory(d_dataTable);
 
     getchar();

@@ -15,7 +15,7 @@ Allocates host memory.
 */
 void allocHostMemory(
     data_t **input, data_t **outputParallel, data_t **outputSequential, data_t **outputCorrect,
-    double ***stopwatchTimes, uint_t tableLen, uint_t testRepetitions
+    double ***timers, uint_t tableLen, uint_t testRepetitions
 )
 {
     // Data input
@@ -31,13 +31,13 @@ void allocHostMemory(
     checkMallocError(*outputCorrect);
 
     // Stopwatch times for PARALLEL, SEQUENTIAL and CORREECT
-    double** stopwatchesTemp = new double*[NUM_STOPWATCHES];
+    double** timersTemp = new double*[NUM_STOPWATCHES];
     for (uint_t i = 0; i < NUM_STOPWATCHES; i++)
     {
-        stopwatchesTemp[i] = new double[testRepetitions];
+        timersTemp[i] = new double[testRepetitions];
     }
 
-    *stopwatchTimes = stopwatchesTemp;
+    *timers = timersTemp;
 }
 
 /*
@@ -45,7 +45,7 @@ Frees host memory.
 */
 void freeHostMemory(
     data_t *input, data_t *outputParallel, data_t *outputSequential, data_t *outputCorrect,
-    double **stopwatchTimes
+    double **timers
 )
 {
     free(input);
@@ -55,9 +55,9 @@ void freeHostMemory(
 
     for (uint_t i = 0; i < NUM_STOPWATCHES; ++i)
     {
-        delete[] stopwatchTimes[i];
+        delete[] timers[i];
     }
-    delete[] stopwatchTimes;
+    delete[] timers;
 }
 
 /*

@@ -83,18 +83,17 @@ void fillTableKeyValue(data_t *keys, data_t *values, uint_t tableLen, uint_t int
 /*
 Compares two arrays and prints out if they are the same or if they differ.
 */
-void compareArrays(data_t* array1, data_t* array2, uint_t arrayLen)
+bool compareArrays(data_t* array1, data_t* array2, uint_t arrayLen)
 {
     for (uint_t i = 0; i < arrayLen; i++)
     {
         if (array1[i] != array2[i])
         {
-            printf("Arrays are different: array1[%d] = %d, array2[%d] = %d.\n", i, array1[i], i, array2[i]);
-            return;
+            return false;
         }
     }
 
-    printf("Arrays are the same.\n");
+    return true;
 }
 
 /*

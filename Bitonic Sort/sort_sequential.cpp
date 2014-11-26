@@ -16,11 +16,11 @@ void sortSequential(data_t* inputHost, data_t* outputHost, uint_t arrayLen, bool
     // TODO
 }
 
-void sortCorrect(data_t* input, data_t *output, uint_t tableLen)
+double sortCorrect(data_t* input, data_t *output, uint_t tableLen)
 {
     LARGE_INTEGER timer;
 
     startStopwatch(&timer);
     qsort(output, tableLen, sizeof(*output), compareSeq);
-    endStopwatch(timer, "Correct");
+    return endStopwatch(timer);
 }
