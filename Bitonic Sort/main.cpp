@@ -10,14 +10,14 @@
 #include "../Utils/host.h"
 #include "../Utils/cuda.h"
 #include "constants.h"
+#include "memory.h"
 #include "sort_parallel.h"
 #include "sort_sequential.h"
 
 
 int main(int argc, char** argv) {
     data_t *input;
-    data_t *outputParallel;
-    data_t *outputCorrect;
+    data_t *outputParallel, *outputCorrect;
 
     uint_t tableLen = (1 << 10);
     uint_t interval = 1 << 31;
@@ -27,10 +27,7 @@ int main(int argc, char** argv) {
     cudaFree(NULL);  // Initializes CUDA, because CUDA init is lazy
     srand(time(NULL));  // TODO check if needed
 
-    input = (data_t*)malloc(tableLen * sizeof(*input));
-    checkMallocError(input);
-    outputParallel = (data_t*)malloc(tableLen * sizeof(*outputParallel));
-    checkMallocError(outputParallel);
+    allocHostMemory(&input, &outputParallel, &outputCorrect, tableLen);
 
     for (uint_t i = 0; i < 1; i++)
     {
@@ -43,13 +40,12 @@ int main(int argc, char** argv) {
     /*printTable(outputParallel, tableLen);*/
 
     printf("\n");
-    outputCorrect = sortCorrect(input, tableLen);
+    sortCorrect(input, outputCorrect, tableLen);
     compareArrays(outputParallel, outputCorrect, tableLen);
 
-    ////cudaFreeHost(inputData);
-    //cudaFreeHost(outputDataParallel);
     ////free(outputDataSequential);
     //free(outputDataCorrect);
+    freeHostMemory(input, outputParallel, outputCorrect);
 
     getchar();
     return 0;

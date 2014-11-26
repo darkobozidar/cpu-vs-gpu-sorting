@@ -4,6 +4,6 @@
 #include "../Utils/data_types_common.h"
 
 
-data_t* sortCorrect(data_t* input, uint_t tableLen);
+void sortCorrect(data_t* input, data_t *output, uint_t tableLen);
 
 #endif
