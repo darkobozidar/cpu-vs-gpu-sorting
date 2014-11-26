@@ -19,9 +19,9 @@
 int main(int argc, char** argv) {
     data_t *h_input;
     data_t *h_outputParallel, *h_outputSequential, *h_outputCorrect, *d_dataTable;
-    double *timesParallel, *timesSequential, *timesCorrect;
+    double **stopwatchTimes;
 
-    uint_t tableLen = (1 << 25);
+    uint_t tableLen = (1 << 20);
     uint_t interval = (1 << 31);
     uint_t testRepetitions = 10;     // How many times are sorts ran
     order_t sortOrder = ORDER_ASC;  // Values: ORDER_ASC, ORDER_DESC
@@ -31,7 +31,9 @@ int main(int argc, char** argv) {
     srand(time(NULL));  // TODO check if needed
 
     // Memory alloc
-    allocHostMemory(&h_input, &h_outputParallel, &h_outputSequential, &h_outputCorrect, tableLen);
+    allocHostMemory(
+        &h_input, &h_outputParallel, &h_outputSequential, &h_outputCorrect, &stopwatchTimes, tableLen, testRepetitions
+    );
     allocDeviceMemory(&d_dataTable, tableLen);
 
     for (uint_t i = 0; i < testRepetitions; i++)
@@ -55,7 +57,7 @@ int main(int argc, char** argv) {
     }
 
     // Memory free
-    freeHostMemory(h_input, h_outputParallel, h_outputSequential, h_outputCorrect);
+    freeHostMemory(h_input, h_outputParallel, h_outputSequential, h_outputCorrect, stopwatchTimes);
     freeDeviceMemory(d_dataTable);
 
     getchar();

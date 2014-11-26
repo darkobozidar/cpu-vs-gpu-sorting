@@ -5,9 +5,13 @@
 
 
 void allocHostMemory(
-    data_t **input, data_t **outputParallel, data_t **outputSequential, data_t **outputCorrect, uint_t tableLen
+    data_t **input, data_t **outputParallel, data_t **outputSequential, data_t **outputCorrect,
+    double ***stopwatchTimes, uint_t tableLen, uint_t testRepetitions
 );
-void freeHostMemory(data_t *input, data_t *outputParallel, data_t *outputSequential, data_t *outputCorrect);
+void freeHostMemory(
+    data_t *input, data_t *outputParallel, data_t *outputSequential, data_t *outputCorrect,
+    double **stopwatchTimes
+);
 
 void allocDeviceMemory(data_t **dataTable, uint_t tableLen);
 void freeDeviceMemory(data_t *dataTable);

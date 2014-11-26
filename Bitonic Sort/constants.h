@@ -32,4 +32,8 @@
 #define ELEMS_PER_THREAD_LOCAL_MERGE 2
 
 
+/* ---------------- TESTING CONSTANTS ---------------- */
+// How may times are stopwatched (PARALLEL, SEQUENTIAL and CORRECT). DON'T CHANGE!
+#define NUM_STOPWATCHES 3
+
 #endif
