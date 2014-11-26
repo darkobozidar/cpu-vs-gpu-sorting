@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <array>
 
 #include "../Utils/data_types_common.h"
 #include "../Utils/host.h"
@@ -21,9 +20,7 @@ void sortCorrect(data_t* input, data_t *output, uint_t tableLen)
 {
     LARGE_INTEGER timer;
 
-    std::copy(input, input + tableLen, output);
-
     startStopwatch(&timer);
     qsort(output, tableLen, sizeof(*output), compareSeq);
-    endStopwatch(timer, "Executing C sort implementation");
+    endStopwatch(timer, "Correct");
 }

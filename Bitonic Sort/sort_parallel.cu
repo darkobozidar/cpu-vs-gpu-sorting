@@ -12,17 +12,6 @@
 #include "constants.h"
 #include "kernels.h"
 
-/*
-Initializes device memory.
-*/
-void memoryDataInit(data_t *h_table, data_t **d_table, uint_t tableLen) {
-    cudaError_t error;
-
-    error = cudaMalloc(d_table, tableLen * sizeof(**d_table));
-    checkCudaError(error);
-    error = cudaMemcpy(*d_table, h_table, tableLen * sizeof(**d_table), cudaMemcpyHostToDevice);
-    checkCudaError(error);
-}
 
 /*
 Sorts sub-blocks of input data with bitonic sort.
@@ -83,9 +72,7 @@ void runPrintTableKernel(data_t *table, uint_t tableLen) {
     checkCudaError(error);
 }
 
-void sortParallel(data_t *h_input, data_t *h_output, uint_t tableLen, order_t sortOrder) {
-    data_t *d_table;
-
+void sortParallel(data_t *h_input, data_t *h_output, data_t *d_dataTable, uint_t tableLen, order_t sortOrder) {
     uint_t tableLenPower2 = nextPowerOf2(tableLen);
     uint_t elemsPerBlockBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
     uint_t elemsPerBlockMergeLocal = THREADS_PER_LOCAL_MERGE * ELEMS_PER_THREAD_LOCAL_MERGE;
@@ -102,28 +89,26 @@ void sortParallel(data_t *h_input, data_t *h_output, uint_t tableLen, order_t so
     // TODO test
     cudaDeviceSetCacheConfig(cudaFuncCachePreferEqual);
     cudaFuncSetCacheConfig(bitonicMergeGlobalKernel, cudaFuncCachePreferL1);
-    memoryDataInit(h_input, &d_table, tableLen);
 
     startStopwatch(&timer);
-    runBitoicSortKernel(d_table, tableLen, sortOrder);
+    runBitoicSortKernel(d_dataTable, tableLen, sortOrder);
 
     for (uint_t phase = phasesBitonicSort + 1; phase <= phasesAll; phase++) {
         uint_t step = phase;
         while (step > phasesMergeLocal) {
-            runBitonicMergeGlobalKernel(d_table, tableLen, phase, step, sortOrder);
+            runBitonicMergeGlobalKernel(d_dataTable, tableLen, phase, step, sortOrder);
             step--;
         }
 
-        runBitoicMergeLocalKernel(d_table, tableLen, phase, step, sortOrder);
+        runBitoicMergeLocalKernel(d_dataTable, tableLen, phase, step, sortOrder);
     }
 
     error = cudaDeviceSynchronize();
     checkCudaError(error);
-    double time = endStopwatch(timer, "Executing parallel bitonic sort.");
-    printf("Operations (pair swaps): %.2f M/s\n", tableLen / 500.0 / time);
 
-    error = cudaMemcpy(h_output, d_table, tableLen * sizeof(*h_output), cudaMemcpyDeviceToHost);
+    double time = endStopwatch(timer);
+    printf("Parallel: %.5lf ms. Swaps/s: %.2f M/s\n", time, tableLen / 500.0 / time);
+
+    error = cudaMemcpy(h_output, d_dataTable, tableLen * sizeof(*h_output), cudaMemcpyDeviceToHost);
     checkCudaError(error);
-
-    cudaFree(d_table);
 }

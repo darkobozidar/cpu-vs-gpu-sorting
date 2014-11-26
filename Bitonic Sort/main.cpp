@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <stdlib.h>
+#include <array>
 
 #include <cuda.h>
 #include "cuda_runtime.h"
@@ -16,36 +17,46 @@
 
 
 int main(int argc, char** argv) {
-    data_t *input;
-    data_t *outputParallel, *outputCorrect;
+    data_t *h_input;
+    data_t *h_outputParallel, *h_outputSequential, *h_outputCorrect;
+    data_t *d_dataTable;
 
     uint_t tableLen = (1 << 10);
     uint_t interval = 1 << 31;
+    uint_t testRepetitions = 1;     // How many times are sorts ran
     order_t sortOrder = ORDER_ASC;  // Values: ORDER_ASC, ORDER_DESC
     cudaError_t error;
 
-    cudaFree(NULL);  // Initializes CUDA, because CUDA init is lazy
+    cudaFree(NULL);     // Initializes CUDA, because CUDA init is lazy
     srand(time(NULL));  // TODO check if needed
 
-    allocHostMemory(&input, &outputParallel, &outputCorrect, tableLen);
+    // Memory alloc
+    allocHostMemory(&h_input, &h_outputParallel, &h_outputSequential, &h_outputCorrect, tableLen);
+    allocDeviceMemory(&d_dataTable, tableLen);
 
-    for (uint_t i = 0; i < 1; i++)
+    for (uint_t i = 0; i < testRepetitions; i++)
     {
-        fillTableKey(input, tableLen, interval);
-        //printTable(input, tableLen);
+        fillTableKey(h_input, tableLen, interval);
 
-        sortParallel(input, outputParallel, tableLen, sortOrder);
+        // Sort parallel
+        error = cudaMemcpy(d_dataTable, h_input, tableLen * sizeof(*d_dataTable), cudaMemcpyHostToDevice);
+        checkCudaError(error);
+        sortParallel(h_input, h_outputParallel, d_dataTable, tableLen, sortOrder);
+
+        // Sort sequential
+        std::copy(h_input, h_input + tableLen, h_outputSequential);
+        // TODO
+
+        // Sort correct
+        std::copy(h_input, h_input + tableLen, h_outputCorrect);
+        sortCorrect(h_input, h_outputCorrect, tableLen);
+
+        compareArrays(h_outputParallel, h_outputCorrect, tableLen);
     }
 
-    /*printTable(outputParallel, tableLen);*/
-
-    printf("\n");
-    sortCorrect(input, outputCorrect, tableLen);
-    compareArrays(outputParallel, outputCorrect, tableLen);
-
-    ////free(outputDataSequential);
-    //free(outputDataCorrect);
-    freeHostMemory(input, outputParallel, outputCorrect);
+    // Memory free
+    freeHostMemory(h_input, h_outputParallel, h_outputSequential, h_outputCorrect);
+    freeDeviceMemory(d_dataTable);
 
     getchar();
     return 0;

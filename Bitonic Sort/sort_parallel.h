@@ -4,6 +4,6 @@
 #include "../Utils/data_types_common.h"
 
 
-void sortParallel(data_t *h_input, data_t *h_output, uint_t tableLen, order_t sortOrder);
+void sortParallel(data_t *h_input, data_t *h_output, data_t *d_dataTable, uint_t tableLen, order_t sortOrder);
 
 #endif
