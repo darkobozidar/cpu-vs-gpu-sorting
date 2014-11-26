@@ -15,9 +15,9 @@
 
 
 int main(int argc, char** argv) {
-    el_t *input;
-    el_t *outputParallel;
-    el_t *outputCorrect;
+    data_t *input;
+    data_t *outputParallel;
+    data_t *outputCorrect;
 
     uint_t tableLen = (1 << 10);
     uint_t interval = 1 << 31;
@@ -33,7 +33,7 @@ int main(int argc, char** argv) {
     checkCudaError(error);
 
     for (uint_t i = 0; i < 1; i++) {
-        fillTable(input, tableLen, interval);
+        fillTableKey(input, tableLen, interval);
         //printTable(input, tableLen);
 
         sortParallel(input, outputParallel, tableLen, sortOrder);
