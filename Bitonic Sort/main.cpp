@@ -32,7 +32,7 @@ int main(int argc, char** argv) {
     error = cudaHostAlloc(&outputParallel, tableLen * sizeof(*outputParallel), cudaHostAllocDefault);
     checkCudaError(error);
 
-    for (uint_t i = 0; i < 10; i++) {
+    for (uint_t i = 0; i < 1; i++) {
         fillTable(input, tableLen, interval);
         //printTable(input, tableLen);
 
