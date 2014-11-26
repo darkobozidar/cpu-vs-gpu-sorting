@@ -10,6 +10,7 @@
 #include "../Utils/data_types_common.h"
 #include "../Utils/host.h"
 #include "../Utils/cuda.h"
+#include "../Utils/statistics.h"
 #include "constants.h"
 #include "memory.h"
 #include "sort_parallel.h"
@@ -25,6 +26,9 @@ int main(int argc, char** argv) {
     uint_t interval = (1 << 31);
     uint_t testRepetitions = 10;     // How many times are sorts ran
     order_t sortOrder = ORDER_ASC;  // Values: ORDER_ASC, ORDER_DESC
+
+    // Designates whether paralle/sequential sort has always sorted data correctly
+    bool parallelSortsCorrectly = true, sequentialSortsCorrectly = true;
     cudaError_t error;
 
     cudaFree(NULL);     // Initializes CUDA, because CUDA init is lazy
@@ -35,14 +39,7 @@ int main(int argc, char** argv) {
         &h_input, &h_outputParallel, &h_outputSequential, &h_outputCorrect, &timers, tableLen, testRepetitions
     );
     allocDeviceMemory(&d_dataTable, tableLen);
-
-    printf("======================================================================================================\n");
-    printf("||                                           BITONIC SORT                                           ||\n");
-    printf("======================================================================================================\n");
-    printf("||     # ||              PARALLEL              ||              SEQUENTIAL            ||   CORRECT   ||\n");
-    printf("======================================================================================================\n");
-    printf("||     # ||     time    |      rate     |  OK  ||     time    |      rate     |  OK  ||     time    ||\n");
-    printf("======================================================================================================\n");
+    printTableHeaderKeysOnly("BITONIC SORT");
 
     for (uint_t i = 0; i < testRepetitions; i++)
     {
@@ -65,15 +62,30 @@ int main(int argc, char** argv) {
         bool areEqualParallel = compareArrays(h_outputParallel, h_outputCorrect, tableLen);
         bool areEqualSequential = false;  // TODO
 
-        printf(
-            "|| %5d || %8.2lf ms | %8.2lf el/s | %s  || %8.2lf ms | %8.2lf el/s | %s  || %8.2lf ms ||\n", i,
-            timers[SORT_PARALLEL][i], tableLen / 1000.0 / timers[SORT_PARALLEL][i], areEqualParallel ? "YES" : "NO ",
-            timers[SORT_SEQUENTIAL][i], tableLen / 1000.0 / timers[SORT_SEQUENTIAL][i], areEqualSequential ? "YES" : "NO ",
-            timers[SORT_CORRECT][i]
-        );
+        parallelSortsCorrectly &= areEqualParallel;
+        sequentialSortsCorrectly &= areEqualSequential;
+
+        printTableLineKeysOnly(timers, i, tableLen, areEqualParallel, areEqualSequential);
     }
 
-    printf("======================================================================================================\n");
+    printTableSplitterKeysOnly();
+
+    // Print-out of statistics for PARALLEL sort
+    printf("\n\n- PARALLEL SORT\n");
+    printStatisticsKeysOnly(timers[SORT_PARALLEL], testRepetitions, tableLen, parallelSortsCorrectly);
+
+    // Print-out of statistics for SEQUENTIAL sort
+    printf("\n\n- SEQUENTIAL SORT\n");
+    printStatisticsKeysOnly(timers[SORT_SEQUENTIAL], testRepetitions, tableLen, sequentialSortsCorrectly);
+
+    printf(
+        "\n\n- Speedup (SEQUENTIAL/PARALLEL): %.2lf\n",
+        getSpeedup(timers, SORT_SEQUENTIAL, SORT_PARALLEL, testRepetitions)
+    );
+    printf(
+        "- Speedup (CORRECT/PARALLEL):    %.2lf\n",
+        getSpeedup(timers, SORT_CORRECT, SORT_PARALLEL, testRepetitions)
+    );
 
     // Memory free
     freeHostMemory(h_input, h_outputParallel, h_outputSequential, h_outputCorrect, timers);
