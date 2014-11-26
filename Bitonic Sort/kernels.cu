@@ -9,9 +9,9 @@
 #include "constants.h"
 
 
-__global__ void printTableKernel(el_t *table, uint_t tableLen) {
+__global__ void printTableKernel(data_t *table, uint_t tableLen) {
     for (uint_t i = 0; i < tableLen; i++) {
-        printf("%2d ", table[i].key);
+        printf("%2d ", table[i]);
     }
     printf("\n");
 }
@@ -19,9 +19,9 @@ __global__ void printTableKernel(el_t *table, uint_t tableLen) {
 /*
 Compares 2 elements and exchanges them according to orderAsc.
 */
-__device__ void compareExchange(el_t *elem1, el_t *elem2, order_t sortOrder) {
-    if (((int_t)(elem1->key - elem2->key) > 0) ^ sortOrder) {
-        el_t temp = *elem1;
+__device__ void compareExchange(data_t *elem1, data_t *elem2, order_t sortOrder) {
+    if (((int_t)(elem1 - elem2) > 0) ^ sortOrder) {
+        data_t temp = *elem1;
         *elem1 = *elem2;
         *elem2 = temp;
     }
@@ -30,8 +30,8 @@ __device__ void compareExchange(el_t *elem1, el_t *elem2, order_t sortOrder) {
 /*
 Sorts sub-blocks of input data with NORMALIZED bitonic sort.
 */
-__global__ void bitonicSortKernel(el_t *dataTable, uint_t tableLen, order_t sortOrder) {
-    extern __shared__ el_t bitonicSortTile[];
+__global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder) {
+    extern __shared__ data_t bitonicSortTile[];
 
     uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
     uint_t offset = blockIdx.x * elemsPerThreadBlock;
@@ -81,7 +81,7 @@ __global__ void bitonicSortKernel(el_t *dataTable, uint_t tableLen, order_t sort
 /*
 Global bitonic merge for sections, where stride IS GREATER than max shared memory.
 */
-__global__ void bitonicMergeGlobalKernel(el_t *dataTable, uint_t tableLen, uint_t step, bool firstStepOfPhase,
+__global__ void bitonicMergeGlobalKernel(data_t *dataTable, uint_t tableLen, uint_t step, bool firstStepOfPhase,
                                          order_t sortOrder) {
     uint_t stride = 1 << (step - 1);
     uint_t pairsPerThreadBlock = (THREADS_PER_GLOBAL_MERGE * ELEMS_PER_THREAD_GLOBAL_MERGE) >> 1;
@@ -109,9 +109,9 @@ __global__ void bitonicMergeGlobalKernel(el_t *dataTable, uint_t tableLen, uint_
 /*
 Global bitonic merge for sections, where stride IS LOWER OR EQUAL than max shared memory.
 */
-__global__ void bitonicMergeLocalKernel(el_t *dataTable, uint_t tableLen, uint_t step, bool isFirstStepOfPhase,
+__global__ void bitonicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint_t step, bool isFirstStepOfPhase,
                                         order_t sortOrder) {
-    extern __shared__ el_t mergeTile[];
+    extern __shared__ data_t mergeTile[];
 
     uint_t elemsPerThreadBlock = THREADS_PER_LOCAL_MERGE * ELEMS_PER_THREAD_LOCAL_MERGE;
     uint_t offset = blockIdx.x * elemsPerThreadBlock;

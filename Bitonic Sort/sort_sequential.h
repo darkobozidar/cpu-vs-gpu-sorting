@@ -4,6 +4,6 @@
 #include "../Utils/data_types_common.h"
 
 
-el_t* sortCorrect(el_t* input, uint_t tableLen);
+data_t* sortCorrect(data_t* input, uint_t tableLen);
 
 #endif

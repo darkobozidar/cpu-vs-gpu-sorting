@@ -15,7 +15,7 @@
 /*
 Initializes device memory.
 */
-void memoryDataInit(el_t *h_table, el_t **d_table, uint_t tableLen) {
+void memoryDataInit(data_t *h_table, data_t **d_table, uint_t tableLen) {
     cudaError_t error;
 
     error = cudaMalloc(d_table, tableLen * sizeof(**d_table));
@@ -27,7 +27,7 @@ void memoryDataInit(el_t *h_table, el_t **d_table, uint_t tableLen) {
 /*
 Sorts sub-blocks of input data with bitonic sort.
 */
-void runBitoicSortKernel(el_t *dataTable, uint_t tableLen, order_t sortOrder) {
+void runBitoicSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
@@ -44,7 +44,7 @@ void runBitoicSortKernel(el_t *dataTable, uint_t tableLen, order_t sortOrder) {
     endStopwatch(timer, "Executing bitonic sort kernel");*/
 }
 
-void runBitonicMergeGlobalKernel(el_t *dataTable, uint_t tableLen, uint_t phase, uint_t step, order_t sortOrder) {
+void runBitonicMergeGlobalKernel(data_t *dataTable, uint_t tableLen, uint_t phase, uint_t step, order_t sortOrder) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
@@ -59,7 +59,7 @@ void runBitonicMergeGlobalKernel(el_t *dataTable, uint_t tableLen, uint_t phase,
     endStopwatch(timer, "Executing bitonic merge global kernel");*/
 }
 
-void runBitoicMergeLocalKernel(el_t *dataTable, uint_t tableLen, uint_t phase, uint_t step, order_t sortOrder) {
+void runBitoicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint_t phase, uint_t step, order_t sortOrder) {
     cudaError_t error;
     LARGE_INTEGER timer;
 
@@ -77,14 +77,14 @@ void runBitoicMergeLocalKernel(el_t *dataTable, uint_t tableLen, uint_t phase, u
     endStopwatch(timer, "Executing bitonic merge local kernel");*/
 }
 
-void runPrintTableKernel(el_t *table, uint_t tableLen) {
+void runPrintTableKernel(data_t *table, uint_t tableLen) {
     printTableKernel<<<1, 1>>>(table, tableLen);
     cudaError_t error = cudaDeviceSynchronize();
     checkCudaError(error);
 }
 
-void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, order_t sortOrder) {
-    el_t *d_table;
+void sortParallel(data_t *h_input, data_t *h_output, uint_t tableLen, order_t sortOrder) {
+    data_t *d_table;
 
     uint_t tableLenPower2 = nextPowerOf2(tableLen);
     uint_t elemsPerBlockBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
@@ -99,6 +99,7 @@ void sortParallel(el_t *h_input, el_t *h_output, uint_t tableLen, order_t sortOr
     cudaError_t error;
 
     // Global bitonic merge doesn't use shared memory -> preference can be set for L1
+    // TODO test
     cudaDeviceSetCacheConfig(cudaFuncCachePreferEqual);
     cudaFuncSetCacheConfig(bitonicMergeGlobalKernel, cudaFuncCachePreferL1);
     memoryDataInit(h_input, &d_table, tableLen);

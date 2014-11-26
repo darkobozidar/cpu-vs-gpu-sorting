@@ -25,14 +25,15 @@ int main(int argc, char** argv) {
     cudaError_t error;
 
     cudaFree(NULL);  // Initializes CUDA, because CUDA init is lazy
-    srand(time(NULL));
+    srand(time(NULL));  // TODO check if needed
 
-    error = cudaHostAlloc(&input, tableLen * sizeof(*input), cudaHostAllocDefault);
-    checkCudaError(error);
-    error = cudaHostAlloc(&outputParallel, tableLen * sizeof(*outputParallel), cudaHostAllocDefault);
-    checkCudaError(error);
+    input = (data_t*)malloc(tableLen * sizeof(*input));
+    checkMallocError(input);
+    outputParallel = (data_t*)malloc(tableLen * sizeof(*outputParallel));
+    checkMallocError(outputParallel);
 
-    for (uint_t i = 0; i < 1; i++) {
+    for (uint_t i = 0; i < 1; i++)
+    {
         fillTableKey(input, tableLen, interval);
         //printTable(input, tableLen);
 
