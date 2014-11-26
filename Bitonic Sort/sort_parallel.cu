@@ -17,62 +17,46 @@
 Sorts sub-blocks of input data with bitonic sort.
 */
 void runBitoicSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder) {
-    cudaError_t error;
-    LARGE_INTEGER timer;
-
     uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
     dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
     dim3 dimBlock(THREADS_PER_BITONIC_SORT, 1, 1);
 
-    startStopwatch(&timer);
     bitonicSortKernel<<<dimGrid, dimBlock, elemsPerThreadBlock * sizeof(*dataTable)>>>(
         dataTable, tableLen, sortOrder
     );
-    /*error = cudaDeviceSynchronize();
-    checkCudaError(error);
-    endStopwatch(timer, "Executing bitonic sort kernel");*/
 }
 
-void runBitonicMergeGlobalKernel(data_t *dataTable, uint_t tableLen, uint_t phase, uint_t step, order_t sortOrder) {
-    cudaError_t error;
-    LARGE_INTEGER timer;
-
+/*
+Merges array, if data blocks are larger than shared memory size. It executes only of STEP on PHASE per kernel lounch.
+*/
+void runBitonicMergeGlobalKernel(data_t *dataTable, uint_t tableLen, uint_t phase, uint_t step, order_t sortOrder)
+{
     uint_t elemsPerThreadBlock = THREADS_PER_GLOBAL_MERGE * ELEMS_PER_THREAD_GLOBAL_MERGE;
     dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
     dim3 dimBlock(THREADS_PER_GLOBAL_MERGE, 1, 1);
 
-    startStopwatch(&timer);
     bitonicMergeGlobalKernel<<<dimGrid, dimBlock>>>(dataTable, tableLen, step, step == phase, sortOrder);
-    /*error = cudaDeviceSynchronize();
-    checkCudaError(error);
-    endStopwatch(timer, "Executing bitonic merge global kernel");*/
 }
 
-void runBitoicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint_t phase, uint_t step, order_t sortOrder) {
-    cudaError_t error;
-    LARGE_INTEGER timer;
-
+/*
+Merges array when stride is lower than shared memory size. It executes all remaining STEPS of current PHASE.
+*/
+void runBitoicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint_t phase, uint_t step, order_t sortOrder)
+{
     // Every thread loads and sorts 2 elements
     uint_t elemsPerThreadBlock = THREADS_PER_LOCAL_MERGE * ELEMS_PER_THREAD_LOCAL_MERGE;
     dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
     dim3 dimBlock(THREADS_PER_LOCAL_MERGE, 1, 1);
 
-    startStopwatch(&timer);
     bitonicMergeLocalKernel<<<dimGrid, dimBlock, elemsPerThreadBlock * sizeof(*dataTable)>>>(
         dataTable, tableLen, step, phase == step, sortOrder
     );
-    /*error = cudaDeviceSynchronize();
-    checkCudaError(error);
-    endStopwatch(timer, "Executing bitonic merge local kernel");*/
 }
 
-void runPrintTableKernel(data_t *table, uint_t tableLen) {
-    printTableKernel<<<1, 1>>>(table, tableLen);
-    cudaError_t error = cudaDeviceSynchronize();
-    checkCudaError(error);
-}
-
-void sortParallel(data_t *h_input, data_t *h_output, data_t *d_dataTable, uint_t tableLen, order_t sortOrder) {
+/*
+Sorts data with NORMALIZED BITONIC SORT.
+*/
+double sortParallel(data_t *h_input, data_t *h_output, data_t *d_dataTable, uint_t tableLen, order_t sortOrder) {
     uint_t tableLenPower2 = nextPowerOf2(tableLen);
     uint_t elemsPerBlockBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
     uint_t elemsPerBlockMergeLocal = THREADS_PER_LOCAL_MERGE * ELEMS_PER_THREAD_LOCAL_MERGE;
@@ -86,13 +70,12 @@ void sortParallel(data_t *h_input, data_t *h_output, data_t *d_dataTable, uint_t
     cudaError_t error;
 
     // Global bitonic merge doesn't use shared memory -> preference can be set for L1
-    // TODO test
-    cudaDeviceSetCacheConfig(cudaFuncCachePreferEqual);
     cudaFuncSetCacheConfig(bitonicMergeGlobalKernel, cudaFuncCachePreferL1);
 
     startStopwatch(&timer);
     runBitoicSortKernel(d_dataTable, tableLen, sortOrder);
 
+    // Bitonic merge
     for (uint_t phase = phasesBitonicSort + 1; phase <= phasesAll; phase++) {
         uint_t step = phase;
         while (step > phasesMergeLocal) {
@@ -105,10 +88,10 @@ void sortParallel(data_t *h_input, data_t *h_output, data_t *d_dataTable, uint_t
 
     error = cudaDeviceSynchronize();
     checkCudaError(error);
-
     double time = endStopwatch(timer);
-    printf("Parallel: %.5lf ms. Swaps/s: %.2f M/s\n", time, tableLen / 500.0 / time);
 
     error = cudaMemcpy(h_output, d_dataTable, tableLen * sizeof(*h_output), cudaMemcpyDeviceToHost);
     checkCudaError(error);
+
+    return time;
 }

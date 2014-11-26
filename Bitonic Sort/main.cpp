@@ -18,12 +18,12 @@
 
 int main(int argc, char** argv) {
     data_t *h_input;
-    data_t *h_outputParallel, *h_outputSequential, *h_outputCorrect;
-    data_t *d_dataTable;
+    data_t *h_outputParallel, *h_outputSequential, *h_outputCorrect, *d_dataTable;
+    double *timesParallel, *timesSequential, *timesCorrect;
 
-    uint_t tableLen = (1 << 10);
-    uint_t interval = 1 << 31;
-    uint_t testRepetitions = 1;     // How many times are sorts ran
+    uint_t tableLen = (1 << 25);
+    uint_t interval = (1 << 31);
+    uint_t testRepetitions = 10;     // How many times are sorts ran
     order_t sortOrder = ORDER_ASC;  // Values: ORDER_ASC, ORDER_DESC
     cudaError_t error;
 

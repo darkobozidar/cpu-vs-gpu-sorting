@@ -9,13 +9,6 @@
 #include "constants.h"
 
 
-__global__ void printTableKernel(data_t *table, uint_t tableLen) {
-    for (uint_t i = 0; i < tableLen; i++) {
-        printf("%2d ", table[i]);
-    }
-    printf("\n");
-}
-
 /*
 Compares 2 elements and exchanges them according to orderAsc.
 */
