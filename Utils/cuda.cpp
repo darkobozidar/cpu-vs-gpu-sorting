@@ -4,8 +4,10 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
+#include "data_types_common.h"
 
-cudaDeviceProp getCudaDeviceProp(int deviceIndex) {
+
+cudaDeviceProp getCudaDeviceProp(uint_t deviceIndex) {
     cudaDeviceProp deviceProp;
     cudaGetDeviceProperties(&deviceProp, deviceIndex);
     return deviceProp;
@@ -15,43 +17,43 @@ cudaDeviceProp getCudaDeviceProp() {
     return getCudaDeviceProp(0);
 }
 
-int getMaxThreadsPerBlock(int deviceIndex) {
+uint_t getMaxThreadsPerBlock(uint_t deviceIndex) {
     return getCudaDeviceProp(deviceIndex).maxThreadsPerBlock;
 }
 
-int getMaxThreadsPerBlock() {
+uint_t getMaxThreadsPerBlock() {
     return getMaxThreadsPerBlock(0);
 }
 
-int getMaxThreadsPerMultiProcessor(int deviceIndex) {
+uint_t getMaxThreadsPerMultiProcessor(uint_t deviceIndex) {
     return getCudaDeviceProp(deviceIndex).maxThreadsPerMultiProcessor;
 }
 
-int getMaxThreadsPerMultiProcessor() {
+uint_t getMaxThreadsPerMultiProcessor() {
     return getMaxThreadsPerMultiProcessor(0);
 }
 
-int getMultiProcessorCount(int deviceIndex) {
+uint_t getMultiProcessorCount(uint_t deviceIndex) {
     return getCudaDeviceProp(deviceIndex).multiProcessorCount;
 }
 
-int getMultiProcessorCount() {
+uint_t getMultiProcessorCount() {
     return getMultiProcessorCount(0);
 }
 
-int getSharedMemoryPerBlock(int deviceIndex) {
+uint_t getSharedMemoryPerBlock(uint_t deviceIndex) {
     return getCudaDeviceProp(deviceIndex).sharedMemPerBlock;
 }
 
-int getSharedMemoryPerBlock() {
+uint_t getSharedMemoryPerBlock() {
     return getSharedMemoryPerBlock(0);
 }
 
-int getSharedMemoryPerMultiprocesor(int deviceIndex) {
+uint_t getSharedMemoryPerMultiprocesor(uint_t deviceIndex) {
     return getCudaDeviceProp(deviceIndex).sharedMemPerMultiprocessor;
 }
 
-int getSharedMemoryPerMultiprocesor() {
+uint_t getSharedMemoryPerMultiprocesor() {
     return getSharedMemoryPerMultiprocesor(0);
 }
 

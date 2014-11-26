@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
     data_t *h_outputParallel, *h_outputSequential, *h_outputCorrect, *d_dataTable;
     double **timers;
 
-    uint_t tableLen = (1 << 16);
+    uint_t tableLen = (1 << 20);
     uint_t interval = (1 << 31);
     uint_t testRepetitions = 10;     // How many times are sorts ran
     order_t sortOrder = ORDER_ASC;  // Values: ORDER_ASC, ORDER_DESC
@@ -43,7 +43,7 @@ int main(int argc, char** argv) {
 
     for (uint_t i = 0; i < testRepetitions; i++)
     {
-        fillTableKey(h_input, tableLen, interval);
+        fillTableKeysOnly(h_input, tableLen, interval);
 
         // Sort parallel
         error = cudaMemcpy(d_dataTable, h_input, tableLen * sizeof(*d_dataTable), cudaMemcpyHostToDevice);

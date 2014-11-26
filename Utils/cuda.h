@@ -4,18 +4,18 @@
 #include "cuda_runtime.h"
 #include "data_types_common.h"
 
-cudaDeviceProp getCudaDeviceProp(int deviceIndex);
+cudaDeviceProp getCudaDeviceProp(uint_t deviceIndex);
 cudaDeviceProp getCudaDeviceProp();
-int getMaxThreadsPerBlock(int deviceIndex);
-int getMaxThreadsPerBlock();
-int getMaxThreadsPerMultiProcessor(int deviceIndex);
-int getMaxThreadsPerMultiProcessor();
-int getMultiProcessorCount(int deviceIndex);
-int getMultiProcessorCount();
-int getSharedMemoryPerBlock(int deviceIndex);
-int getSharedMemoryPerBlock();
-int getSharedMemoryPerMultiprocesor(int deviceIndex);
-int getSharedMemoryPerMultiprocesor();
+uint_t getMaxThreadsPerBlock(uint_t deviceIndex);
+uint_t getMaxThreadsPerBlock();
+uint_t getMaxThreadsPerMultiProcessor(uint_t deviceIndex);
+uint_t getMaxThreadsPerMultiProcessor();
+uint_t getMultiProcessorCount(uint_t deviceIndex);
+uint_t getMultiProcessorCount();
+uint_t getSharedMemoryPerBlock(uint_t deviceIndex);
+uint_t getSharedMemoryPerBlock();
+uint_t getSharedMemoryPerMultiprocesor(uint_t deviceIndex);
+uint_t getSharedMemoryPerMultiprocesor();
 
 void checkCudaError(cudaError_t error);
 

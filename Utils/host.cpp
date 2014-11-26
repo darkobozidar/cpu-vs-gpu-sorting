@@ -53,7 +53,7 @@ double endStopwatch(LARGE_INTEGER start)
 Fills keys with random numbers.
 - TODO use twister generator
 */
-void fillTableKey(data_t *keys, uint_t tableLen, uint_t interval)
+void fillTableKeysOnly(data_t *keys, uint_t tableLen, uint_t interval)
 {
     std::random_device rd;
     std::default_random_engine generator(rd());

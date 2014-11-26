@@ -9,7 +9,7 @@ Prints out table vertical splitter if only keys are sorted.
 */
 void printTableSplitterKeysOnly()
 {
-    printf("======================================================================================================\n");
+    printf("====================================================================================================\n");
 }
 
 /*
@@ -20,9 +20,9 @@ void printTableHeaderKeysOnly(char *sortName)
     printf("> %s\n\n", sortName);
 
     printTableSplitterKeysOnly();
-    printf("||     # ||              PARALLEL              ||              SEQUENTIAL            ||   CORRECT   ||\n");
+    printf("||     # ||             PARALLEL              ||             SEQUENTIAL            ||   CORRECT   ||\n");
     printTableSplitterKeysOnly();
-    printf("||     # ||     time    |      rate     |  OK  ||     time    |      rate     |  OK  ||     time    ||\n");
+    printf("||     # ||     time    |      rate    |  OK  ||     time    |      rate    |  OK  ||     time    ||\n");
     printTableSplitterKeysOnly();
 }
 
@@ -34,7 +34,7 @@ void printTableLineKeysOnly(
 )
 {
     printf(
-        "|| %5d || %8.2lf ms | %8.2lf el/s | %s  || %8.2lf ms | %8.2lf el/s | %s  || %8.2lf ms ||\n", iter,
+        "|| %5d || %8.2lf ms | %8.2lf M/s | %s  || %8.2lf ms | %8.2lf M/s | %s  || %8.2lf ms ||\n", iter,
         timers[SORT_PARALLEL][iter], tableLen / 1000.0 / timers[SORT_PARALLEL][iter],
         areEqualParallel ? "YES" : "NO ",
         timers[SORT_SEQUENTIAL][iter], tableLen / 1000.0 / timers[SORT_SEQUENTIAL][iter],
@@ -66,7 +66,7 @@ void printStatisticsKeysOnly(double *timers, uint_t testRepetitions, uint_t tabl
     double deviationTime = sqrt(timeSum);
 
     printf("Average sort time:  %8.2lf ms\n", avgTime);
-    printf("Average sort rate:  %8.2lf el/s\n", tableLen / 1000.0 / avgTime);
+    printf("Average sort rate:  %8.2lf M/s\n", tableLen / 1000.0 / avgTime);
     printf("Standard deviation: %8.2lf ms\n", deviationTime);
     printf("Sorting correctly:  %8s\n", sortsCorrectly ? "YES" : "NO");
 }
