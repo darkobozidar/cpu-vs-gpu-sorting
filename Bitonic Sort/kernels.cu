@@ -15,7 +15,7 @@ Compares 2 elements and exchanges them according to orderAsc.
 template <order_t sortOrder>
 __device__ void compareExchange(data_t *elem1, data_t *elem2)
 {
-    if ((elem1 > elem2) ^ sortOrder)
+    if ((*elem1 > *elem2) ^ sortOrder)
     {
         data_t temp = *elem1;
         *elem1 = *elem2;
