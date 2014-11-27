@@ -38,7 +38,8 @@ void runBitoicSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder) 
 }
 
 /*
-Merges array, if data blocks are larger than shared memory size. It executes only of STEP on PHASE per kernel lounch.
+Merges array, if data blocks are larger than shared memory size. It executes only of STEP on PHASE per
+kernel launch.
 */
 void runBitonicMergeGlobalKernel(data_t *dataTable, uint_t tableLen, uint_t phase, uint_t step, order_t sortOrder)
 {
@@ -118,7 +119,8 @@ void runBitoicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint_t phase,
 /*
 Sorts data with NORMALIZED BITONIC SORT.
 */
-double sortParallel(data_t *h_input, data_t *h_output, data_t *d_dataTable, uint_t tableLen, order_t sortOrder) {
+double sortParallel(data_t *h_input, data_t *h_output, data_t *d_dataTable, uint_t tableLen, order_t sortOrder)
+{
     uint_t tableLenPower2 = nextPowerOf2(tableLen);
     uint_t elemsPerBlockBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
     uint_t elemsPerBlockMergeLocal = THREADS_PER_LOCAL_MERGE * ELEMS_PER_THREAD_LOCAL_MERGE;

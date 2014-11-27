@@ -36,7 +36,7 @@ __global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen)
     uint_t offset = blockIdx.x * elemsPerThreadBlock;
     uint_t dataBlockLength = offset + elemsPerThreadBlock <= tableLen ? elemsPerThreadBlock : tableLen - offset;
 
-    // Read data from global to shared memory.
+    // Reads data from global to shared memory.
     for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_BITONIC_SORT)
     {
         bitonicSortTile[tx] = dataTable[offset + tx];
@@ -47,13 +47,14 @@ __global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen)
     for (uint_t subBlockSize = 1; subBlockSize < dataBlockLength; subBlockSize <<= 1)
     {
         // Bitonic merge STEPS
-        for (uint_t stride = subBlockSize; stride > 0; stride >>= 1) {
+        for (uint_t stride = subBlockSize; stride > 0; stride >>= 1)
+        {
             for (uint_t tx = threadIdx.x; tx < dataBlockLength >> 1; tx += THREADS_PER_BITONIC_SORT)
             {
                 uint_t indexThread = tx;
                 uint_t offset = stride;
 
-                // In normalized bitonic sort, first STEP of every PHASE uses different offset than all other
+                // In NORMALIZED bitonic sort, first STEP of every PHASE uses different offset than all other
                 // STEPS. Also, in first step of every phase, offset sizes are generated in ASCENDING order
                 // (normalized bitnic sort requires DESCENDING order). Because of that, we can break the loop if
                 // index + offset >= length (bellow). If we want to generate offset sizes in ASCENDING order,
@@ -72,11 +73,12 @@ __global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen)
 
                 compareExchange<sortOrder>(&bitonicSortTile[index], &bitonicSortTile[index + offset]);
             }
+
             __syncthreads();
         }
     }
 
-    // Store data from shared to global memory
+    // Stores data from shared to global memory
     for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_BITONIC_SORT) {
         dataTable[offset + tx] = bitonicSortTile[tx];
     }
@@ -138,7 +140,7 @@ __global__ void bitonicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint
     uint_t dataBlockLength = offset + elemsPerThreadBlock <= tableLen ? elemsPerThreadBlock : tableLen - offset;
     uint_t pairsPerBlockLength = dataBlockLength >> 1;
 
-    // Read data from global to shared memory.
+    // Reads data from global to shared memory.
     for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_LOCAL_MERGE)
     {
         mergeTile[tx] = dataTable[offset + tx];
