@@ -18,12 +18,15 @@ double sortSequential(data_t* dataTable, uint_t tableLen, order_t sortOrder)
     {
         for (uint_t stride = subBlockSize; stride > 0; stride >>= 1)
         {
+            bool isFirstStepOfPhase = stride == subBlockSize;
+
             for (uint_t el = 0; el < tableLen >> 1; el++)
             {
                 uint_t indexEl = el;
                 uint_t offset = stride;
 
-                if (stride == subBlockSize)
+                // In normalized bitonic sort, first STEP of every PHASE uses different offset than all other STEPS.
+                if (isFirstStepOfPhase)
                 {
                     indexEl = (el / stride) * stride + ((stride - 1) - (el % stride));
                     offset = ((el & (stride - 1)) << 1) + 1;

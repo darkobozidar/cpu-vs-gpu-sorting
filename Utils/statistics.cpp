@@ -34,7 +34,7 @@ void printTableLineKeysOnly(
 )
 {
     printf(
-        "|| %5d || %8.2lf ms | %8.2lf M/s | %s  || %8.2lf ms | %8.2lf M/s | %s  || %8.2lf ms ||\n", iter,
+        "|| %5d || %8.2lf ms | %8.2lf M/s | %s  || %8.2lf ms | %8.2lf M/s | %s  || %8.2lf ms ||\n", iter + 1,
         timers[SORT_PARALLEL][iter], tableLen / 1000.0 / timers[SORT_PARALLEL][iter],
         areEqualParallel ? "YES" : "NO ",
         timers[SORT_SEQUENTIAL][iter], tableLen / 1000.0 / timers[SORT_SEQUENTIAL][iter],
