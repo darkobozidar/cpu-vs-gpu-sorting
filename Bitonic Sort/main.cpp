@@ -56,7 +56,7 @@ int main(int argc, char** argv) {
 
         // Sort correct
         std::copy(h_input, h_input + tableLen, h_outputCorrect);
-        timers[SORT_CORRECT][i] = sortCorrect(h_outputCorrect, tableLen);
+        timers[SORT_CORRECT][i] = sortCorrect(h_outputCorrect, tableLen, sortOrder);
 
         bool areEqualParallel = compareArrays(h_outputParallel, h_outputCorrect, tableLen);
         bool areEqualSequential = compareArrays(h_outputSequential, h_outputCorrect, tableLen);

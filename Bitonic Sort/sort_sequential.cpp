@@ -49,22 +49,39 @@ double sortSequential(data_t* dataTable, uint_t tableLen, order_t sortOrder)
 }
 
 /*
-Compare function needed for C++ sort.
+Compare function for ASCENDING order needed for C++ sort.
 */
-int compareSeq(const void* elem1, const void* elem2)
+int compareAsc(const void* elem1, const void* elem2)
 {
     return *((data_t*)elem1) - *((data_t*)elem2);
+}
+
+/*
+Compare function for DESCENDING order needed for C++ sort.
+*/
+int compareDesc(const void* elem1, const void* elem2)
+{
+    return *((data_t*)elem2) - *((data_t*)elem1);
 }
 
 /*
 Sorts data with C++ sort, which sorts data 100% correctly. This is needed to verify parallel and sequential sorts.
 // TODO sort order
 */
-double sortCorrect(data_t *dataTable, uint_t tableLen)
+double sortCorrect(data_t *dataTable, uint_t tableLen, order_t sortOrder)
 {
     LARGE_INTEGER timer;
 
     startStopwatch(&timer);
-    qsort(dataTable, tableLen, sizeof(*dataTable), compareSeq);
+
+    if (sortOrder == ORDER_ASC)
+    {
+        qsort(dataTable, tableLen, sizeof(*dataTable), compareAsc);
+    }
+    else
+    {
+        qsort(dataTable, tableLen, sizeof(*dataTable), compareDesc);
+    }
+
     return endStopwatch(timer);
 }

@@ -5,6 +5,6 @@
 
 
 double sortSequential(data_t* dataTable, uint_t tableLen, order_t sortOrder);
-double sortCorrect(data_t *dataTable, uint_t tableLen);
+double sortCorrect(data_t *dataTable, uint_t tableLen, order_t sortOrder);
 
 #endif
