@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
     data_t *h_outputParallel, *h_outputSequential, *h_outputCorrect, *d_dataTable;
     double **timers;
 
-    uint_t tableLen = (1 << 15);
+    uint_t tableLen = (1 << 20);
     uint_t interval = (1 << 31);
     uint_t testRepetitions = 30;    // How many times are sorts ran
     order_t sortOrder = ORDER_ASC;  // Values: ORDER_ASC, ORDER_DESC
@@ -52,15 +52,14 @@ int main(int argc, char** argv) {
 
         // Sort sequential
         std::copy(h_input, h_input + tableLen, h_outputSequential);
-        timers[SORT_SEQUENTIAL][i] = 99999;
-        // TODO
+        timers[SORT_SEQUENTIAL][i] = sortSequential(h_outputSequential, tableLen, sortOrder);
 
         // Sort correct
         std::copy(h_input, h_input + tableLen, h_outputCorrect);
-        timers[SORT_CORRECT][i] = sortCorrect(h_input, h_outputCorrect, tableLen);
+        timers[SORT_CORRECT][i] = sortCorrect(h_outputCorrect, tableLen);
 
         bool areEqualParallel = compareArrays(h_outputParallel, h_outputCorrect, tableLen);
-        bool areEqualSequential = false;  // TODO
+        bool areEqualSequential = compareArrays(h_outputSequential, h_outputCorrect, tableLen);
 
         parallelSortsCorrectly &= areEqualParallel;
         sequentialSortsCorrectly &= areEqualSequential;
