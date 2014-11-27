@@ -33,7 +33,7 @@
 
 
 /* ---------------- TESTING CONSTANTS ---------------- */
-// How may times are stopwatched (PARALLEL, SEQUENTIAL and CORRECT). DON'T CHANGE!
+// How may timers are stopwatched (PARALLEL, SEQUENTIAL and CORRECT). DON'T CHANGE!
 #define NUM_STOPWATCHES 3
 
 #endif
