@@ -4,8 +4,10 @@
 #include <iostream>
 #include <functional>
 #include <chrono>
+#include <stdint.h>
 
 #include "data_types_common.h"
+#include "cuda.h"
 
 using namespace std;
 
@@ -13,7 +15,7 @@ using namespace std;
 /*
 Fills keys with random numbers.
 */
-void fillTableKeysOnly(data_t *keys, uint_t tableLen, uint_t interval, data_dist_t distribution)
+void fillTableKeysOnly(data_t *keys, uint_t tableLen, uint_t interval, uint_t bucketSize, data_dist_t distribution)
 {
     auto seed = chrono::high_resolution_clock::now().time_since_epoch().count();
     // Choose appropriate random generator according to data type
@@ -27,6 +29,7 @@ void fillTableKeysOnly(data_t *keys, uint_t tableLen, uint_t interval, data_dist
             {
                 keys[i] = generator();
             }
+
             break;
         }
         case DISTRIBUTION_GAUSSIAN:
@@ -35,23 +38,85 @@ void fillTableKeysOnly(data_t *keys, uint_t tableLen, uint_t interval, data_dist
 
             for (uint_t i = 0; i < tableLen; i++)
             {
-                double sum;
+                data_t sum;
+
                 for (uint_t j = 0; j < numValues; j++)
                 {
                     sum += generator();
                 }
+
                 keys[i] = sum / numValues;
             }
+
             break;
         }
         case DISTRIBUTION_ZERO:
         {
-            double value = generator();
+            data_t value = generator();
 
             for (uint_t i = 0; i < tableLen; i++)
             {
                 keys[i] = value;
             }
+
+            break;
+        }
+        case DISTRIBUTION_BUCKET:
+        {
+            uint_t index = 0;
+            data_t bucketIncrement = (UINT32_MAX / bucketSize + 1);
+
+            // Fills the buckets
+            for (uint_t i = 0; i < bucketSize; i++)
+            {
+                for (uint_t j = 0; j < bucketSize; j++)
+                {
+                    for (uint_t k = 0; k < tableLen / bucketSize / bucketSize; k++)
+                    {
+                        keys[index++] = (data_t)(j * bucketIncrement + (generator() >> bucketSize));
+                    }
+                }
+            }
+
+            // Fills the rest of the data into table
+            for (; index < tableLen; index++)
+            {
+                keys[index] = generator();
+            }
+
+            break;
+        }
+        case DISTRIBUTION_STAGGERED:
+        {
+            uint_t index = 0;
+
+            for (uint_t i = 0; i < bucketSize; i++)
+            {
+                uint_t j;
+                data_t bucketIncrement;
+
+                if (i < (bucketSize / 2))
+                {
+                    bucketIncrement = 2 * bucketSize + 1;
+                }
+                else
+                {
+                    bucketIncrement = (i - (bucketSize / 2)) * 2;
+                }
+
+                bucketIncrement = bucketIncrement * ((UINT32_MAX / bucketSize) + 1);
+
+                for (j = 0; j < tableLen / bucketSize; j++)
+                {
+                    keys[index++] = bucketIncrement + ((generator()) / bucketSize) + 1;
+                }
+            }
+
+            for (; index < tableLen; index++)
+            {
+                keys[index] = generator();
+            }
+
             break;
         }
         default:
@@ -70,6 +135,11 @@ void fillTableKeysOnly(data_t *keys, uint_t tableLen, uint_t interval, data_dist
     DISTRIBUTION_STAGGERED,
     DISTRIBUTION_SORTED_ASC,
     DISTRIBUTION_SORTED_DESC*/
+}
+
+void fillTableKeysOnly(data_t *keys, uint_t tableLen, uint_t interval, data_dist_t distribution)
+{
+    fillTableKeysOnly(keys, tableLen, interval, getMaxThreadsPerBlock(), distribution);
 }
 
 /*
