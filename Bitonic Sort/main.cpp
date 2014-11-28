@@ -44,7 +44,7 @@ int main(int argc, char** argv) {
 
     for (uint_t i = 0; i < testRepetitions; i++)
     {
-        fillTableKeysOnly(h_input, tableLen, interval, DISTRIBUTION_UNIFORM);
+        fillTableKeysOnly(h_input, tableLen, interval, DISTRIBUTION_GAUSSIAN);
 
         // Sort parallel
         error = cudaMemcpy(d_dataTable, h_input, tableLen * sizeof(*d_dataTable), cudaMemcpyHostToDevice);

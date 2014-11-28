@@ -10,32 +10,56 @@
 using namespace std;
 
 
-void fillUniform(data_t *keys, uint_t tableLen, uint_t interval)
-{
-    auto seed = chrono::high_resolution_clock::now().time_since_epoch().count();
-    auto generator = std::bind(std::uniform_int_distribution<data_t>(0, interval), mt19937(seed));
-
-    for (uint_t i = 0; i < tableLen; i++)
-    {
-        keys[i] = generator();
-    }
-}
-
 /*
 Fills keys with random numbers.
 */
 void fillTableKeysOnly(data_t *keys, uint_t tableLen, uint_t interval, data_dist_t distribution)
 {
+    auto seed = chrono::high_resolution_clock::now().time_since_epoch().count();
+    // Choose appropriate random generator according to data type
+    auto generator = std::bind(std::uniform_int_distribution<data_t>(0, interval), mt19937(seed));
+
     switch (distribution)
     {
         case DISTRIBUTION_UNIFORM:
-            fillUniform(keys, tableLen, interval);
+        {
+            for (uint_t i = 0; i < tableLen; i++)
+            {
+                keys[i] = generator();
+            }
             break;
+        }
+        case DISTRIBUTION_GAUSSIAN:
+        {
+            double numValues = 4;  // How many values are used for average when generating random numbers
 
+            for (uint_t i = 0; i < tableLen; i++)
+            {
+                double sum;
+                for (uint_t j = 0; j < numValues; j++)
+                {
+                    sum += generator();
+                }
+                keys[i] = sum / numValues;
+            }
+            break;
+        }
+        case DISTRIBUTION_ZERO:
+        {
+            double value = generator();
+
+            for (uint_t i = 0; i < tableLen; i++)
+            {
+                keys[i] = value;
+            }
+            break;
+        }
         default:
+        {
             printf("Invalid distribution parameter.\n");
             getchar();
             exit(EXIT_FAILURE);
+        }
     }
 
     // TODO implement
