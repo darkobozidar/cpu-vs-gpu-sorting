@@ -6,8 +6,6 @@
 void startStopwatch(LARGE_INTEGER* start);
 double endStopwatch(LARGE_INTEGER start, char* comment);
 double endStopwatch(LARGE_INTEGER start);
-void fillTableKeysOnly(data_t *keys, uint_t tableLen, uint_t interval);
-void fillTableKeyValue(data_t *keys, data_t *values, uint_t tableLen, uint_t interval);
 bool compareArrays(data_t* array1, data_t* array2, uint_t arrayLen);
 void printTable(data_t *table, uint_t tableLen);
 void printTable(data_t *table, uint_t startIndex, uint_t endIndex);

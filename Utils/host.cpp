@@ -50,37 +50,6 @@ double endStopwatch(LARGE_INTEGER start)
 }
 
 /*
-Fills keys with random numbers.
-- TODO use twister generator
-*/
-void fillTableKeysOnly(data_t *keys, uint_t tableLen, uint_t interval)
-{
-    std::random_device rd;
-    std::default_random_engine generator(rd());
-    std::uniform_int_distribution<uint_t> distribution(0, interval);
-
-    for (uint_t i = 0; i < tableLen; i++) {
-        keys[i] = distribution(generator);
-    }
-}
-
-/*
-Fills keys with random numbers and values with consectuive values (for stability test).
-- TODO use twister generator
-*/
-void fillTableKeyValue(data_t *keys, data_t *values, uint_t tableLen, uint_t interval)
-{
-    std::random_device rd;
-    std::default_random_engine generator(rd());
-    std::uniform_int_distribution<uint_t> distribution(0, interval);
-
-    for (uint_t i = 0; i < tableLen; i++) {
-        keys[i] = distribution(generator);
-        values[i] = i;
-    }
-}
-
-/*
 Compares two arrays and prints out if they are the same or if they differ.
 */
 bool compareArrays(data_t* array1, data_t* array2, uint_t arrayLen)

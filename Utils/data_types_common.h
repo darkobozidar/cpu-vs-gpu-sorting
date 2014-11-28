@@ -13,16 +13,32 @@ typedef uint32_t data_t;
 typedef enum SortOrder order_t;
 // Determines sort type (parallel, sequential or correct)
 typedef enum SortType sort_type_t;
+// Determines input distribution for random generator
+typedef enum DataDistribution data_dist_t;
 
-enum SortOrder {
+
+enum SortOrder
+{
     ORDER_ASC,
     ORDER_DESC
 };
 
-enum SortType {
+enum SortType
+{
     SORT_PARALLEL,
     SORT_SEQUENTIAL,
     SORT_CORRECT
+};
+
+enum DataDistribution
+{
+    DISTRIBUTION_UNIFORM,
+    DISTRIBUTION_GAUSSIAN,
+    DISTRIBUTION_ZERO,
+    DISTRIBUTION_BUCKET,
+    DISTRIBUTION_STAGGERED,
+    DISTRIBUTION_SORTED_ASC,
+    DISTRIBUTION_SORTED_DESC
 };
 
 #endif

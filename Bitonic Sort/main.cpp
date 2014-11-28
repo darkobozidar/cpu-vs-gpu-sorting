@@ -10,6 +10,7 @@
 #include "../Utils/data_types_common.h"
 #include "../Utils/host.h"
 #include "../Utils/cuda.h"
+#include "../Utils/generator.h"
 #include "../Utils/statistics.h"
 #include "constants.h"
 #include "memory.h"
@@ -43,7 +44,7 @@ int main(int argc, char** argv) {
 
     for (uint_t i = 0; i < testRepetitions; i++)
     {
-        fillTableKeysOnly(h_input, tableLen, interval);
+        fillTableKeysOnly(h_input, tableLen, interval, DISTRIBUTION_UNIFORM);
 
         // Sort parallel
         error = cudaMemcpy(d_dataTable, h_input, tableLen * sizeof(*d_dataTable), cudaMemcpyHostToDevice);
