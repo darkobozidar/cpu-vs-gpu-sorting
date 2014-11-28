@@ -8,6 +8,7 @@
 
 #include "data_types_common.h"
 #include "cuda.h"
+#include "sort_correct.h"
 
 using namespace std;
 
@@ -119,6 +120,16 @@ void fillTableKeysOnly(data_t *keys, uint_t tableLen, uint_t interval, uint_t bu
 
             break;
         }
+        case DISTRIBUTION_SORTED_ASC:
+        {
+            sortCorrect(keys, tableLen, ORDER_ASC);
+            break;
+        }
+        case DISTRIBUTION_SORTED_DESC:
+        {
+            sortCorrect(keys, tableLen, ORDER_DESC);
+            break;
+        }
         default:
         {
             printf("Invalid distribution parameter.\n");
@@ -126,15 +137,6 @@ void fillTableKeysOnly(data_t *keys, uint_t tableLen, uint_t interval, uint_t bu
             exit(EXIT_FAILURE);
         }
     }
-
-    // TODO implement
-    /*DISTRIBUTION_UNIFORM,
-    DISTRIBUTION_GAUSSIAN,
-    DISTRIBUTION_ZERO,
-    DISTRIBUTION_BUCKET,
-    DISTRIBUTION_STAGGERED,
-    DISTRIBUTION_SORTED_ASC,
-    DISTRIBUTION_SORTED_DESC*/
 }
 
 void fillTableKeysOnly(data_t *keys, uint_t tableLen, uint_t interval, data_dist_t distribution)

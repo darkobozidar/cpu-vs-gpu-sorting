@@ -11,6 +11,7 @@
 #include "../Utils/host.h"
 #include "../Utils/cuda.h"
 #include "../Utils/generator.h"
+#include "../Utils/sort_correct.h"
 #include "../Utils/statistics.h"
 #include "constants.h"
 #include "memory.h"
