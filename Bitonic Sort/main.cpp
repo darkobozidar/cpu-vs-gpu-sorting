@@ -31,7 +31,7 @@ int main(int argc, char **argv) {
     data_dist_t distribution = DISTRIBUTION_UNIFORM;
     bool printMeaurements = false;
 
-    // Designates whether paralle/sequential sort has always sorted data correctly. NOT CONFIGURABLE!
+    // Determines whether paralle/sequential sort has always sorted data correctly. NOT CONFIGURABLE!
     bool parallelSortsCorrectly = true, sequentialSortsCorrectly = true;
     cudaError_t error;
 
@@ -43,6 +43,7 @@ int main(int argc, char **argv) {
 
     printf(">>> BITONIC SORT <<<\n\n\n");
     printDataDistribution(distribution);
+    printf("> Array length: %d\n", tableLen);
     if (printMeaurements)
     {
         printf("\n");

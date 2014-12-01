@@ -27,15 +27,17 @@ int main(int argc, char **argv) {
     data_t *d_dataTableKeys, *d_dataTableValues;
     double **timers;
 
-    uint_t tableLen = (1 << 10);
+    uint_t tableLen = (1 << 20);
     uint_t interval = (1 << 31);
     uint_t testRepetitions = 10;    // How many times are sorts ran
     order_t sortOrder = ORDER_ASC;  // Values: ORDER_ASC, ORDER_DESC
     data_dist_t distribution = DISTRIBUTION_UNIFORM;
-    bool printMeaurements = false;
+    bool printMeaurements = true;
 
-    // Designates whether paralle/sequential sort has always sorted data correctly. NOT CONFIGURABLE!
-    bool parallelSortsCorrectly = true, sequentialSortsCorrectly = true;
+    // Determines whether paralle/sequential sort has always sorted data correctly. NOT CONFIGURABLE!
+    bool sortsCorrectlyParallel = true, sortsCorrectlySequential = true;
+    // Determines whether paralle/sequential sort has always been stable. NOT CONFIGURABLE!
+    bool isStableParallel = true, isStableSequential = true;
     cudaError_t error;
 
     // Memory alloc
@@ -47,10 +49,11 @@ int main(int argc, char **argv) {
 
     printf(">>> BITONIC SORT <<<\n\n\n");
     printDataDistribution(distribution);
+    printf("> Array length: %d\n", tableLen);
     if (printMeaurements)
     {
         printf("\n");
-        printTableHeaderKeysOnly();
+        printTableHeaderKeyValue();
     }
 
     for (uint_t i = 0; i < testRepetitions; i++)
@@ -72,6 +75,7 @@ int main(int argc, char **argv) {
 
         // Sort sequential
         std::copy(h_inputKeys, h_inputKeys + tableLen, h_outputSequentialKeys);
+        std::copy(h_inputValues, h_inputValues + tableLen, h_outputSequentialValues);
         timers[SORT_SEQUENTIAL][i] = sortSequential(
             h_outputSequentialKeys, h_outputSequentialValues, tableLen, sortOrder
         );
@@ -80,30 +84,41 @@ int main(int argc, char **argv) {
         std::copy(h_inputKeys, h_inputKeys + tableLen, h_outputCorrect);
         timers[SORT_CORRECT][i] = sortCorrect(h_outputCorrect, tableLen, sortOrder);
 
-        bool areEqualParallel = compareArrays(h_outputParallelKeys, h_outputCorrect, tableLen);
-        bool areEqualSequential = compareArrays(h_outputSequentialKeys, h_outputCorrect, tableLen);
+        bool sortsCorrectlyParallelLocal = compareArrays(h_outputParallelKeys, h_outputCorrect, tableLen);
+        bool sortsCorrectlySequentialLocal = compareArrays(h_outputSequentialKeys, h_outputCorrect, tableLen);
+        bool isStableParallelLocal = isSortStable(h_outputParallelKeys, h_outputParallelValues, tableLen);
+        bool isStableSequentialLocal = isSortStable(h_outputSequentialKeys, h_outputSequentialValues, tableLen);
 
-        parallelSortsCorrectly &= areEqualParallel;
-        sequentialSortsCorrectly &= areEqualSequential;
+        sortsCorrectlyParallel &= sortsCorrectlyParallelLocal;
+        sortsCorrectlySequential &= sortsCorrectlySequentialLocal;
+        isStableParallel &= isStableParallelLocal;
+        isStableSequential &= isStableSequentialLocal;
 
         if (printMeaurements)
         {
-            printTableLineKeysOnly(timers, i, tableLen, areEqualParallel, areEqualSequential);
+            printTableLineKeyValue(
+                timers, i, tableLen, sortsCorrectlyParallelLocal, sortsCorrectlySequentialLocal,
+                isStableParallelLocal, isStableSequentialLocal
+            );
         }
     }
 
     if (printMeaurements)
     {
-        printTableSplitterKeysOnly();
+        printTableSplitterKeyValue();
     }
 
     // Print-out of statistics for PARALLEL sort
     printf("\n- PARALLEL SORT\n");
-    printStatisticsKeysOnly(timers[SORT_PARALLEL], testRepetitions, tableLen, parallelSortsCorrectly);
+    printStatisticsKeyValue(
+        timers[SORT_PARALLEL], testRepetitions, tableLen, sortsCorrectlyParallel, isStableParallel
+    );
 
     // Print-out of statistics for SEQUENTIAL sort
     printf("\n- SEQUENTIAL SORT\n");
-    printStatisticsKeysOnly(timers[SORT_SEQUENTIAL], testRepetitions, tableLen, sequentialSortsCorrectly);
+    printStatisticsKeyValue(
+        timers[SORT_SEQUENTIAL], testRepetitions, tableLen, sortsCorrectlySequential, isStableSequential
+    );
 
     printf(
         "\n- Speedup (SEQUENTIAL/PARALLEL): %.2lf\n",
