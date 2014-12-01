@@ -7,7 +7,7 @@
 
 
 template <order_t sortOrder>
-__global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen);
+__global__ void bitonicSortKernel(data_t *keys, data_t *values, uint_t tableLen);
 
 template <order_t sortOrder, bool isFirstStepOfPhase>
 __global__ void bitonicMergeGlobalKernel(data_t *dataTable, uint_t tableLen, uint_t step);

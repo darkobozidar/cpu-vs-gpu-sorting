@@ -16,24 +16,20 @@
 /*
 Sorts sub-blocks of input data with bitonic sort.
 */
-void runBitoicSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder) {
+void runBitoicSortKernel(data_t *keys, data_t *values, uint_t tableLen, order_t sortOrder) {
     uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
-    uint_t sharedMemSize = elemsPerThreadBlock * sizeof(*dataTable);
+    uint_t sharedMemSize = 2 * elemsPerThreadBlock * sizeof(*keys);  // "2 *" becaues of key-value pairs
 
     dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
     dim3 dimBlock(THREADS_PER_BITONIC_SORT, 1, 1);
 
     if (sortOrder == ORDER_ASC)
     {
-        bitonicSortKernel<ORDER_ASC><<<dimGrid, dimBlock, sharedMemSize>>>(
-            dataTable, tableLen
-        );
+        bitonicSortKernel<ORDER_ASC><<<dimGrid, dimBlock, sharedMemSize>>>(keys, values, tableLen);
     }
     else
     {
-        bitonicSortKernel<ORDER_DESC><<<dimGrid, dimBlock, sharedMemSize>>>(
-            dataTable, tableLen
-        );
+        bitonicSortKernel<ORDER_DESC><<<dimGrid, dimBlock, sharedMemSize>>>(keys, values, tableLen);
     }
 }
 
@@ -119,7 +115,9 @@ void runBitoicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint_t phase,
 /*
 Sorts data with NORMALIZED BITONIC SORT.
 */
-double sortParallel(data_t *h_input, data_t *h_output, data_t *d_dataTable, uint_t tableLen, order_t sortOrder)
+double sortParallel(
+    data_t *h_keys, data_t *h_values, data_t *d_keys, data_t *d_values, uint_t tableLen, order_t sortOrder
+)
 {
     uint_t tableLenPower2 = nextPowerOf2(tableLen);
     uint_t elemsPerBlockBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
@@ -134,7 +132,7 @@ double sortParallel(data_t *h_input, data_t *h_output, data_t *d_dataTable, uint
     cudaError_t error;
 
     startStopwatch(&timer);
-    runBitoicSortKernel(d_dataTable, tableLen, sortOrder);
+    runBitoicSortKernel(d_keys, d_values, tableLen, sortOrder);
 
     // Bitonic merge
     for (uint_t phase = phasesBitonicSort + 1; phase <= phasesAll; phase++)
@@ -142,18 +140,20 @@ double sortParallel(data_t *h_input, data_t *h_output, data_t *d_dataTable, uint
         uint_t step = phase;
         while (step > phasesMergeLocal)
         {
-            runBitonicMergeGlobalKernel(d_dataTable, tableLen, phase, step, sortOrder);
+            runBitonicMergeGlobalKernel(d_keys, tableLen, phase, step, sortOrder);
             step--;
         }
 
-        runBitoicMergeLocalKernel(d_dataTable, tableLen, phase, step, sortOrder);
+        runBitoicMergeLocalKernel(d_keys, tableLen, phase, step, sortOrder);
     }
 
     error = cudaDeviceSynchronize();
     checkCudaError(error);
     double time = endStopwatch(timer);
 
-    error = cudaMemcpy(h_output, d_dataTable, tableLen * sizeof(*h_output), cudaMemcpyDeviceToHost);
+    error = cudaMemcpy(h_keys, d_keys, tableLen * sizeof(*h_keys), cudaMemcpyDeviceToHost);
+    checkCudaError(error);
+    error = cudaMemcpy(h_values, d_values, tableLen * sizeof(*h_values), cudaMemcpyDeviceToHost);
     checkCudaError(error);
 
     return time;

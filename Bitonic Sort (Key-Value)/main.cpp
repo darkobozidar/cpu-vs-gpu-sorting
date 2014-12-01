@@ -55,7 +55,7 @@ int main(int argc, char** argv) {
 
     for (uint_t i = 0; i < testRepetitions; i++)
     {
-        fillTableKeysOnly(h_inputKeys, tableLen, interval, distribution);
+        fillTableKeyValue(h_inputKeys, h_inputValues, tableLen, interval, distribution);
 
         // Sort parallel
         error = cudaMemcpy(
@@ -67,7 +67,7 @@ int main(int argc, char** argv) {
         );
         checkCudaError(error);
         timers[SORT_PARALLEL][i] = sortParallel(
-            h_inputKeys, h_outputParallelKeys, d_dataTableKeys, tableLen, sortOrder
+            h_outputParallelKeys, h_outputParallelValues, d_dataTableKeys, d_dataTableValues, tableLen, sortOrder
         );
 
         // Sort sequential

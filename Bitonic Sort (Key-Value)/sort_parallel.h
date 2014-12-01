@@ -4,6 +4,8 @@
 #include "../Utils/data_types_common.h"
 
 
-double sortParallel(data_t *h_input, data_t *h_output, data_t *d_dataTable, uint_t tableLen, order_t sortOrder);
+double sortParallel(
+    data_t *h_keys, data_t *h_values, data_t *d_keys, data_t *d_values, uint_t tableLen, order_t sortOrder
+);
 
 #endif
