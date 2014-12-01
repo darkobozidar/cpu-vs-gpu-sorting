@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
     data_t *h_outputParallel, *h_outputSequential, *h_outputCorrect, *d_dataTable;
     double **timers;
 
-    uint_t tableLen = (1 << 20);
+    uint_t tableLen = (1 << 10);
     uint_t interval = (1 << 31);
     uint_t testRepetitions = 10;    // How many times are sorts ran
     order_t sortOrder = ORDER_ASC;  // Values: ORDER_ASC, ORDER_DESC
@@ -57,15 +57,15 @@ int main(int argc, char **argv) {
         // Sort parallel
         error = cudaMemcpy(d_dataTable, h_input, tableLen * sizeof(*d_dataTable), cudaMemcpyHostToDevice);
         checkCudaError(error);
-        timers[SORT_PARALLEL][i] = 9999;  // sortParallel(h_outputParallel, d_dataTable, tableLen, sortOrder);
+        timers[SORT_PARALLEL][i] = sortParallel(h_outputParallel, d_dataTable, tableLen, sortOrder);
 
         // Sort sequential
         std::copy(h_input, h_input + tableLen, h_outputSequential);
-        timers[SORT_SEQUENTIAL][i] = 9999;  // sortSequential(h_outputSequential, tableLen, sortOrder);
+        timers[SORT_SEQUENTIAL][i] = sortSequential(h_outputSequential, tableLen, sortOrder);
 
         // Sort correct
         std::copy(h_input, h_input + tableLen, h_outputCorrect);
-        timers[SORT_CORRECT][i] = 9999;  // sortCorrect(h_outputCorrect, tableLen, sortOrder);
+        timers[SORT_CORRECT][i] = sortCorrect(h_outputCorrect, tableLen, sortOrder);
 
         bool areEqualParallel = compareArrays(h_outputParallel, h_outputCorrect, tableLen);
         bool areEqualSequential = compareArrays(h_outputSequential, h_outputCorrect, tableLen);
