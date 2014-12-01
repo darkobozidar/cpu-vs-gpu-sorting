@@ -25,15 +25,11 @@ void runBitoicSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder) 
 
     if (sortOrder == ORDER_ASC)
     {
-        bitonicSortKernel<ORDER_ASC><<<dimGrid, dimBlock, sharedMemSize>>>(
-            dataTable, tableLen
-        );
+        bitonicSortKernel<ORDER_ASC><<<dimGrid, dimBlock, sharedMemSize>>>(dataTable, tableLen);
     }
     else
     {
-        bitonicSortKernel<ORDER_DESC><<<dimGrid, dimBlock, sharedMemSize>>>(
-            dataTable, tableLen
-        );
+        bitonicSortKernel<ORDER_DESC><<<dimGrid, dimBlock, sharedMemSize>>>(dataTable, tableLen);
     }
 }
 
@@ -119,7 +115,7 @@ void runBitoicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint_t phase,
 /*
 Sorts data with NORMALIZED BITONIC SORT.
 */
-double sortParallel(data_t *h_input, data_t *h_output, data_t *d_dataTable, uint_t tableLen, order_t sortOrder)
+double sortParallel(data_t *h_output, data_t *d_dataTable, uint_t tableLen, order_t sortOrder)
 {
     uint_t tableLenPower2 = nextPowerOf2(tableLen);
     uint_t elemsPerBlockBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
