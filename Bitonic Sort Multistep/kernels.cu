@@ -9,11 +9,15 @@
 #include "constants.h"
 
 
+///////////////////////////////////////////////////////////////////
+////////////////////////////// UTILS //////////////////////////////
+///////////////////////////////////////////////////////////////////
+
 /*
 Compares 2 elements and exchanges them according to orderAsc.
 */
 template <order_t sortOrder>
-__device__ void compareExchange(data_t *elem1, data_t *elem2)
+__device__ void compareExchange2(data_t *elem1, data_t *elem2)
 {
     if ((*elem1 > *elem2) ^ sortOrder)
     {
@@ -23,6 +27,136 @@ __device__ void compareExchange(data_t *elem1, data_t *elem2)
     }
 }
 
+template <order_t sortOrder>
+__device__ void compareExchange4(data_t *el1, data_t *el2, data_t *el3, data_t *el4)
+{
+    compareExchange2<sortOrder>(el1, el2);
+    compareExchange2<sortOrder>(el3, el4);
+
+    compareExchange2<sortOrder>(el1, el3);
+    compareExchange2<sortOrder>(el2, el4);
+}
+
+template <order_t sortOrder>
+__device__ void compareExchange8(
+    data_t *el1, data_t *el2, data_t *el3, data_t *el4, data_t *el5, data_t *el6, data_t *el7, data_t *el8
+)
+{
+    compareExchange2<sortOrder>(el1, el2);
+    compareExchange2<sortOrder>(el3, el4);
+    compareExchange2<sortOrder>(el5, el6);
+    compareExchange2<sortOrder>(el7, el8);
+
+    compareExchange4<sortOrder>(el1, el5, el3, el7);
+    compareExchange4<sortOrder>(el2, el6, el4, el8);
+}
+
+template <order_t sortOrder>
+__device__ void compareExchange16(
+    data_t *el1, data_t *el2, data_t *el3, data_t *el4, data_t *el5, data_t *el6, data_t *el7, data_t *el8,
+    data_t *el9, data_t *el10, data_t *el11, data_t *el12, data_t *el13, data_t *el14, data_t *el15, data_t *el16
+)
+{
+    compareExchange2<sortOrder>(el1, el2);
+    compareExchange2<sortOrder>(el3, el4);
+    compareExchange2<sortOrder>(el5, el6);
+    compareExchange2<sortOrder>(el7, el8);
+    compareExchange2<sortOrder>(el9, el10);
+    compareExchange2<sortOrder>(el11, el12);
+    compareExchange2<sortOrder>(el13, el14);
+    compareExchange2<sortOrder>(el15, el16);
+
+    compareExchange8<sortOrder>(el1, el9, el3, el11, el5, el13, el7, el15);
+    compareExchange8<sortOrder>(el2, el10, el4, el12, el6, el14, el8, el16);
+}
+
+__device__ void load2(data_t *table, uint_t stride, data_t *el1, data_t *el2)
+{
+    *el1 = table[0];
+    *el2 = table[stride];
+}
+
+__device__ void store2(data_t *table, uint_t stride, data_t el1, data_t el2)
+{
+    table[0] = el1;
+    table[stride] = el2;
+}
+
+__device__ void load4(
+    data_t *table, uint_t tableOffset, uint_t stride, data_t *el1, data_t *el2, data_t *el3, data_t *el4
+)
+{
+    load2(table, stride, el1, el2);
+    load2(table + tableOffset, stride, el3, el4);
+}
+
+__device__ void store4(
+    data_t *table, uint_t tableOffset, uint_t stride, data_t el1, data_t el2, data_t el3, data_t el4
+)
+{
+    store2(table, stride, el1, el2);
+    store2(table + tableOffset, stride, el3, el4);
+}
+
+__device__ void load8(
+    data_t *table, uint_t tableOffset, uint_t stride, data_t *el1, data_t *el2, data_t *el3, data_t *el4,
+    data_t *el5, data_t *el6, data_t *el7, data_t *el8
+)
+{
+    load4(table, tableOffset, stride, el1, el2, el3, el4);
+    load4(table + 2 * tableOffset, tableOffset, stride, el5, el6, el7, el8);
+}
+
+__device__ void store8(
+    data_t *table, uint_t tableOffset, uint_t stride, data_t el1, data_t el2, data_t el3, data_t el4,
+    data_t el5, data_t el6, data_t el7, data_t el8
+)
+{
+    store4(table, tableOffset, stride, el1, el2, el3, el4);
+    store4(table + 2 * tableOffset, tableOffset, stride, el5, el6, el7, el8);
+}
+
+__device__ void load16(
+    data_t *table, uint_t tableOffset, uint_t stride, data_t *el1, data_t *el2, data_t *el3, data_t *el4,
+    data_t *el5, data_t *el6, data_t *el7, data_t *el8, data_t *el9, data_t *el10, data_t *el11, data_t *el12,
+    data_t *el13, data_t *el14, data_t *el15, data_t *el16
+)
+{
+    load8(table, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7, el8);
+    load8(table + 4 * tableOffset, tableOffset, stride, el9, el10, el11, el12, el13, el14, el15, el16);
+}
+
+__device__ void store16(
+    data_t *table, uint_t tableOffset, uint_t stride, data_t el1, data_t el2, data_t el3, data_t el4,
+    data_t el5, data_t el6, data_t el7, data_t el8, data_t el9, data_t el10, data_t el11, data_t el12,
+    data_t el13, data_t el14, data_t el15, data_t el16
+)
+{
+    store8(table, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7, el8);
+    store8(table + 4 * tableOffset, tableOffset, stride, el9, el10, el11, el12, el13, el14, el15, el16);
+}
+
+/*
+Generates parameters needed for multistep.
+> stride - (gap) between two elements beeing compared
+> threadsPerSubBlocks - how many threads apper per sub-block in current step
+> indexTable - start index, at which thread should start fetching elements
+*/
+__device__ void getMultiStepParams(
+    uint_t phase, uint_t step, uint_t degree, uint_t &stride, uint_t &threadsPerSubBlock, uint_t &indexTable
+)
+{
+    uint_t indexThread = blockIdx.x * blockDim.x + threadIdx.x;
+
+    stride = 1 << (step - 1);
+    threadsPerSubBlock = 1 << (step - degree);
+    indexTable = (indexThread >> (step - degree) << step) + indexThread % threadsPerSubBlock;
+}
+
+
+///////////////////////////////////////////////////////////////////
+///////////////////////////// KERNELS /////////////////////////////
+///////////////////////////////////////////////////////////////////
 
 /*
 Sorts sub-blocks of input data with NORMALIZED bitonic sort.
@@ -71,7 +205,7 @@ __global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen)
                     break;
                 }
 
-                compareExchange<sortOrder>(&bitonicSortTile[index], &bitonicSortTile[index + offset]);
+                compareExchange2<sortOrder>(&bitonicSortTile[index], &bitonicSortTile[index + offset]);
             }
 
             __syncthreads();
@@ -88,148 +222,6 @@ template __global__ void bitonicSortKernel<ORDER_ASC>(data_t *dataTable, uint_t 
 template __global__ void bitonicSortKernel<ORDER_DESC>(data_t *dataTable, uint_t tableLen);
 
 
-//__device__ void compareExchange2(el_t *elem1, el_t *elem2, bool orderAsc) {
-//    if (((int_t)(elem1->key - elem2->key) <= 0) ^ orderAsc) {
-//        el_t temp = *elem1;
-//        *elem1 = *elem2;
-//        *elem2 = temp;
-//    }
-//}
-//
-//__device__ void compareExchange4(el_t *el1, el_t *el2, el_t *el3, el_t *el4, bool direction) {
-//    compareExchange2(el1, el2, direction);
-//    compareExchange2(el3, el4, direction);
-//
-//    compareExchange2(el1, el3, direction);
-//    compareExchange2(el2, el4, direction);
-//}
-//
-//__device__ void compareExchange8(el_t *el1, el_t *el2, el_t *el3, el_t *el4, el_t *el5, el_t *el6,
-//                                 el_t *el7, el_t *el8, bool direction) {
-//    compareExchange2(el1, el2, direction);
-//    compareExchange2(el3, el4, direction);
-//    compareExchange2(el5, el6, direction);
-//    compareExchange2(el7, el8, direction);
-//
-//    compareExchange4(el1, el5, el3, el7, direction);
-//    compareExchange4(el2, el6, el4, el8, direction);
-//}
-//
-//__device__ void compareExchange16(el_t *el1, el_t *el2, el_t *el3, el_t *el4, el_t *el5, el_t *el6, el_t *el7,
-//                                  el_t *el8, el_t *el9, el_t *el10, el_t *el11, el_t *el12, el_t *el13,
-//                                  el_t *el14, el_t *el15, el_t *el16, bool direction) {
-//    compareExchange2(el1, el2, direction);
-//    compareExchange2(el3, el4, direction);
-//    compareExchange2(el5, el6, direction);
-//    compareExchange2(el7, el8, direction);
-//    compareExchange2(el9, el10, direction);
-//    compareExchange2(el11, el12, direction);
-//    compareExchange2(el13, el14, direction);
-//    compareExchange2(el15, el16, direction);
-//
-//    compareExchange8(el1, el9, el3, el11, el5, el13, el7, el15, direction);
-//    compareExchange8(el2, el10, el4, el12, el6, el14, el8, el16, direction);
-//}
-//
-//__device__ void load2(el_t *table, uint_t stride, el_t *el1, el_t *el2) {
-//    *el1 = table[0];
-//    *el2 = table[stride];
-//}
-//
-//__device__ void store2(el_t *table, uint_t stride, el_t el1, el_t el2) {
-//    table[0] = el1;
-//    table[stride] = el2;
-//}
-//
-//__device__ void load4(el_t *table, uint_t tableOffset, uint_t stride, el_t *el1, el_t *el2,
-//                      el_t *el3, el_t *el4) {
-//    load2(table, stride, el1, el2);
-//    load2(table + tableOffset, stride, el3, el4);
-//}
-//
-//__device__ void store4(el_t *table, uint_t tableOffset, uint_t stride, el_t el1, el_t el2,
-//                      el_t el3, el_t el4) {
-//    store2(table, stride, el1, el2);
-//    store2(table + tableOffset, stride, el3, el4);
-//}
-//
-//__device__ void load8(el_t *table, uint_t tableOffset, uint_t stride, el_t *el1, el_t *el2, el_t *el3,
-//                      el_t *el4, el_t *el5, el_t *el6, el_t *el7, el_t *el8) {
-//    load4(table, tableOffset, stride, el1, el2, el3, el4);
-//    load4(table + 2 * tableOffset, tableOffset, stride, el5, el6, el7, el8);
-//}
-//
-//__device__ void store8(el_t *table, uint_t tableOffset, uint_t stride, el_t el1, el_t el2, el_t el3,
-//                       el_t el4, el_t el5, el_t el6, el_t el7, el_t el8) {
-//    store4(table, tableOffset, stride, el1, el2, el3, el4);
-//    store4(table + 2 * tableOffset, tableOffset, stride, el5, el6, el7, el8);
-//}
-//
-//__device__ void load16(el_t *table, uint_t tableOffset, uint_t stride, el_t *el1, el_t *el2, el_t *el3,
-//                       el_t *el4, el_t *el5, el_t *el6, el_t *el7, el_t *el8, el_t *el9, el_t *el10,
-//                       el_t *el11, el_t *el12, el_t *el13, el_t *el14, el_t *el15, el_t *el16) {
-//    load8(table, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7, el8);
-//    load8(table + 4 * tableOffset, tableOffset, stride, el9, el10, el11, el12, el13, el14, el15, el16);
-//}
-//
-//__device__ void store16(el_t *table, uint_t tableOffset, uint_t stride, el_t el1, el_t el2, el_t el3,
-//                        el_t el4, el_t el5, el_t el6, el_t el7, el_t el8, el_t el9, el_t el10,
-//                        el_t el11, el_t el12, el_t el13, el_t el14, el_t el15, el_t el16) {
-//    store8(table, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7, el8);
-//    store8(table + 4 * tableOffset, tableOffset, stride, el9, el10, el11, el12, el13, el14, el15, el16);
-//}
-//
-///*
-//Generates parameters needed for multistep.
-//> stride - (gap) between two elements beeing compared
-//> threadsPerSubBlocks - how many threads apper per sub-block in current step
-//> indexTable - start index, at which thread should start fetching elements
-//> direction - in which direction should elements be sorted
-//*/
-//__device__ void getMultiStepParams(uint_t phase, uint_t step, uint_t degree, uint_t &stride,
-//                                   uint_t &threadsPerSubBlock, uint_t &indexTable, bool &direction) {
-//    uint_t indexThread = blockIdx.x * blockDim.x + threadIdx.x;
-//
-//    stride = 1 << (step - 1);
-//    threadsPerSubBlock = 1 << (step - degree);
-//    indexTable = (indexThread >> (step - degree) << step) + indexThread % threadsPerSubBlock;
-//    direction = (indexThread >> (phase - degree)) & 1;
-//}
-//
-///****************************
-//KERNELS
-//*****************************/
-//
-///*
-//Sorts sub-blocks of input data with bitonic sort.
-//*/
-//__global__ void bitonicSortKernel(el_t *table, bool orderAsc) {
-//    extern __shared__ el_t sortTile[];
-//    // If shared memory size is lower than table length, than every block has to be ordered
-//    // in opposite direction -> bitonic sequence.
-//    bool blockDirection = orderAsc ^ (blockIdx.x & 1);
-//
-//    // Every thread loads 2 elements
-//    uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
-//    sortTile[threadIdx.x] = table[index];
-//    sortTile[blockDim.x + threadIdx.x] = table[blockDim.x + index];
-//
-//    // Bitonic sort
-//    for (uint_t subBlockSize = 1; subBlockSize <= blockDim.x; subBlockSize <<= 1) {
-//        bool direction = blockDirection ^ ((threadIdx.x & subBlockSize) != 0);
-//
-//        for (uint_t stride = subBlockSize; stride > 0; stride >>= 1) {
-//            __syncthreads();
-//            uint_t start = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
-//            compareExchange2(&sortTile[start], &sortTile[start + stride], direction);
-//        }
-//    }
-//
-//    __syncthreads();
-//    table[index] = sortTile[threadIdx.x];
-//    table[blockDim.x + index] = sortTile[blockDim.x + threadIdx.x];
-//}
-//
 //__global__ void multiStep1Kernel(el_t *table, uint_t phase, uint_t step, bool orderAsc) {
 //    uint_t stride, tableOffset, indexTable;
 //    bool direction;

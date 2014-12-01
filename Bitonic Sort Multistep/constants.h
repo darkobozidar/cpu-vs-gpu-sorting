@@ -12,8 +12,10 @@
 #define ELEMS_PER_THREAD_BITONIC_SORT 4
 
 
-#define THREADS_PER_MERGE 256
+/* -------------- MULTISTEP MERGE KERNEL ------------- */
 #define MAX_THREADS_PER_MULTISTEP 128
 #define MAX_MULTI_STEP 4
+
+#define THREADS_PER_MERGE 256
 
 #endif
