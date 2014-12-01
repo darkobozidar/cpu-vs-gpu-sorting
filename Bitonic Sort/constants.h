@@ -1,7 +1,6 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
-
 /* ---------------- BITONIC SORT KERNEL -------------- */
 // Bottom 2 constants are limited by shared memory size
 
@@ -29,10 +28,5 @@
 // How many elements are processed by one thread in LOCAL bitonic merge. Min value is 2.
 // Has to be divisable by 2.
 #define ELEMS_PER_THREAD_LOCAL_MERGE 8
-
-
-/* ---------------- TESTING CONSTANTS ---------------- */
-// How may timers are stopwatched (PARALLEL, SEQUENTIAL and CORRECT). DON'T CHANGE!
-#define NUM_STOPWATCHES 3
 
 #endif

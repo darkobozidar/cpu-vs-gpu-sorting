@@ -4,6 +4,7 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
+#include "../Utils/constants_common.h"
 #include "../Utils/data_types_common.h"
 #include "../Utils/host.h"
 #include "../Utils/cuda.h"
