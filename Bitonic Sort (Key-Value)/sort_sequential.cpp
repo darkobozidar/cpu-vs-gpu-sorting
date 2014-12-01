@@ -9,7 +9,7 @@
 /*
 Sorts data sequentially with NORMALIZED bitonic sort.
 */
-double sortSequential(data_t* dataTable, uint_t tableLen, order_t sortOrder)
+double sortSequential(data_t *keys, data_t *values, uint_t tableLen, order_t sortOrder)
 {
     LARGE_INTEGER timer;
     startStopwatch(&timer);
@@ -40,11 +40,15 @@ double sortSequential(data_t* dataTable, uint_t tableLen, order_t sortOrder)
                     break;
                 }
 
-                if ((dataTable[indexLeft] > dataTable[indexRight]) ^ sortOrder)
+                if ((keys[indexLeft] > keys[indexRight]) ^ sortOrder)
                 {
-                    data_t temp = dataTable[indexLeft];
-                    dataTable[indexLeft] = dataTable[indexRight];
-                    dataTable[indexRight] = temp;
+                    data_t temp = keys[indexLeft];
+                    keys[indexLeft] = keys[indexRight];
+                    keys[indexRight] = temp;
+
+                    temp = values[indexLeft];
+                    values[indexLeft] = values[indexRight];
+                    values[indexRight] = temp;
                 }
             }
         }

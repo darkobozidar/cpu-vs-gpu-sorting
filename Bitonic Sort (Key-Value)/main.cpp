@@ -19,7 +19,7 @@
 #include "sort_sequential.h"
 
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     data_t *h_inputKeys, *h_inputValues;
     data_t *h_outputParallelKeys, *h_outputParallelValues;
     data_t *h_outputSequentialKeys, *h_outputSequentialValues;
@@ -72,7 +72,9 @@ int main(int argc, char** argv) {
 
         // Sort sequential
         std::copy(h_inputKeys, h_inputKeys + tableLen, h_outputSequentialKeys);
-        timers[SORT_SEQUENTIAL][i] = sortSequential(h_outputSequentialKeys, tableLen, sortOrder);
+        timers[SORT_SEQUENTIAL][i] = sortSequential(
+            h_outputSequentialKeys, h_outputSequentialValues, tableLen, sortOrder
+        );
 
         // Sort correct
         std::copy(h_inputKeys, h_inputKeys + tableLen, h_outputCorrect);

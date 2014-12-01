@@ -27,17 +27,6 @@ __device__ void compareExchange(data_t *key1, data_t *key2, data_t *val1, data_t
     }
 }
 
-template <order_t sortOrder>
-__device__ void compareExchange2(data_t *key1, data_t *key2)
-{
-    if ((*key1 > *key1) ^ sortOrder)
-    {
-        data_t temp = *key1;
-        *key1 = *key2;
-        *key2 = temp;
-    }
-}
-
 
 /*
 Sorts sub-blocks of input data with NORMALIZED bitonic sort.
