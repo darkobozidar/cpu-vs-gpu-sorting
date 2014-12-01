@@ -35,9 +35,6 @@ int main(int argc, char** argv) {
     bool parallelSortsCorrectly = true, sequentialSortsCorrectly = true;
     cudaError_t error;
 
-    cudaFree(NULL);     // Initializes CUDA, because CUDA init is lazy
-    srand(time(NULL));  // TODO check if needed
-
     // Memory alloc
     allocHostMemory(
         &h_input, &h_outputParallel, &h_outputSequential, &h_outputCorrect, &timers, tableLen, testRepetitions

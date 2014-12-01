@@ -20,8 +20,11 @@
 
 
 int main(int argc, char** argv) {
-    data_t *h_input;
-    data_t *h_outputParallel, *h_outputSequential, *h_outputCorrect, *d_dataTable;
+    data_t *h_inputKeys, *h_inputValues;
+    data_t *h_outputParallelKeys, *h_outputParallelValues;
+    data_t *h_outputSequentialKeys, *h_outputSequentialValues;
+    data_t *h_outputCorrect;
+    data_t *d_dataTableKeys, *d_dataTableValues;
     double **timers;
 
     uint_t tableLen = (1 << 10);
@@ -35,14 +38,12 @@ int main(int argc, char** argv) {
     bool parallelSortsCorrectly = true, sequentialSortsCorrectly = true;
     cudaError_t error;
 
-    cudaFree(NULL);     // Initializes CUDA, because CUDA init is lazy
-    srand(time(NULL));  // TODO check if needed
-
     // Memory alloc
     allocHostMemory(
-        &h_input, &h_outputParallel, &h_outputSequential, &h_outputCorrect, &timers, tableLen, testRepetitions
+        &h_inputKeys, &h_inputValues, &h_outputParallelKeys, &h_outputParallelValues, &h_outputSequentialKeys,
+        &h_outputSequentialValues, &h_outputCorrect, &timers, tableLen, testRepetitions
     );
-    allocDeviceMemory(&d_dataTable, tableLen);
+    allocDeviceMemory(&d_dataTableKeys, &d_dataTableValues, tableLen);
 
     printf(">>> BITONIC SORT <<<\n\n\n");
     printDataDistribution(distribution);
@@ -54,23 +55,31 @@ int main(int argc, char** argv) {
 
     for (uint_t i = 0; i < testRepetitions; i++)
     {
-        fillTableKeysOnly(h_input, tableLen, interval, distribution);
+        fillTableKeysOnly(h_inputKeys, tableLen, interval, distribution);
 
         // Sort parallel
-        error = cudaMemcpy(d_dataTable, h_input, tableLen * sizeof(*d_dataTable), cudaMemcpyHostToDevice);
+        error = cudaMemcpy(
+            d_dataTableKeys, h_inputKeys, tableLen * sizeof(*d_dataTableKeys), cudaMemcpyHostToDevice
+        );
         checkCudaError(error);
-        timers[SORT_PARALLEL][i] = sortParallel(h_input, h_outputParallel, d_dataTable, tableLen, sortOrder);
+        error = cudaMemcpy(
+            d_dataTableValues, h_inputValues, tableLen * sizeof(*d_dataTableValues), cudaMemcpyHostToDevice
+        );
+        checkCudaError(error);
+        timers[SORT_PARALLEL][i] = sortParallel(
+            h_inputKeys, h_outputParallelKeys, d_dataTableKeys, tableLen, sortOrder
+        );
 
         // Sort sequential
-        std::copy(h_input, h_input + tableLen, h_outputSequential);
-        timers[SORT_SEQUENTIAL][i] = sortSequential(h_outputSequential, tableLen, sortOrder);
+        std::copy(h_inputKeys, h_inputKeys + tableLen, h_outputSequentialKeys);
+        timers[SORT_SEQUENTIAL][i] = sortSequential(h_outputSequentialKeys, tableLen, sortOrder);
 
         // Sort correct
-        std::copy(h_input, h_input + tableLen, h_outputCorrect);
+        std::copy(h_inputKeys, h_inputKeys + tableLen, h_outputCorrect);
         timers[SORT_CORRECT][i] = sortCorrect(h_outputCorrect, tableLen, sortOrder);
 
-        bool areEqualParallel = compareArrays(h_outputParallel, h_outputCorrect, tableLen);
-        bool areEqualSequential = compareArrays(h_outputSequential, h_outputCorrect, tableLen);
+        bool areEqualParallel = compareArrays(h_outputParallelKeys, h_outputCorrect, tableLen);
+        bool areEqualSequential = compareArrays(h_outputSequentialKeys, h_outputCorrect, tableLen);
 
         parallelSortsCorrectly &= areEqualParallel;
         sequentialSortsCorrectly &= areEqualSequential;
@@ -104,8 +113,11 @@ int main(int argc, char** argv) {
     );
 
     // Memory free
-    freeHostMemory(h_input, h_outputParallel, h_outputSequential, h_outputCorrect, timers);
-    freeDeviceMemory(d_dataTable);
+    freeHostMemory(
+        h_inputKeys, h_inputValues, h_outputParallelKeys, h_outputParallelValues, h_outputSequentialKeys,
+        h_outputSequentialValues, h_outputCorrect, timers
+    );
+    freeDeviceMemory(d_dataTableKeys, d_dataTableValues);
 
     getchar();
     return 0;
