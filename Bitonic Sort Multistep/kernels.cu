@@ -143,7 +143,7 @@ Generates parameters needed for multistep.
 > indexTable - start index, at which thread should start fetching elements
 */
 __device__ void getMultiStepParams(
-    uint_t phase, uint_t step, uint_t degree, uint_t &stride, uint_t &threadsPerSubBlock, uint_t &indexTable
+    uint_t step, uint_t degree, uint_t &stride, uint_t &threadsPerSubBlock, uint_t &indexTable
 )
 {
     uint_t indexThread = blockIdx.x * blockDim.x + threadIdx.x;
@@ -222,19 +222,25 @@ template __global__ void bitonicSortKernel<ORDER_ASC>(data_t *dataTable, uint_t 
 template __global__ void bitonicSortKernel<ORDER_DESC>(data_t *dataTable, uint_t tableLen);
 
 
-//__global__ void multiStep1Kernel(el_t *table, uint_t phase, uint_t step, bool orderAsc) {
-//    uint_t stride, tableOffset, indexTable;
-//    bool direction;
-//    el_t el1, el2;
-//
-//    getMultiStepParams(phase, step, 1, stride, tableOffset, indexTable, direction);
-//    table += indexTable;
-//
-//    load2(table, stride, &el1, &el2);
-//    compareExchange2(&el1, &el2, direction ^ orderAsc);
-//    store2(table, stride, el1, el2);
-//}
-//
+template <order_t sortOrder>
+__global__ void multiStep1Kernel(data_t *table, uint_t step)
+{
+    uint_t stride, tableOffset, indexTable;
+    bool direction;
+    data_t el1, el2;
+
+    getMultiStepParams(step, 1, stride, tableOffset, indexTable);
+    table += indexTable;
+
+    load2(table, stride, &el1, &el2);
+    compareExchange2<sortOrder>(&el1, &el2);
+    store2(table, stride, el1, el2);
+}
+
+template __global__ void multiStep1Kernel<ORDER_ASC>(data_t *table, uint_t step);
+template __global__ void multiStep1Kernel<ORDER_DESC>(data_t *table, uint_t step);
+
+
 //__global__ void multiStep2Kernel(el_t *table, uint_t phase, uint_t step, bool orderAsc) {
 //    uint_t stride, tableOffset, indexTable;
 //    bool direction;

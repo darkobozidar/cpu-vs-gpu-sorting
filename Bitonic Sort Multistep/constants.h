@@ -13,9 +13,16 @@
 
 
 /* -------------- MULTISTEP MERGE KERNEL ------------- */
-#define MAX_THREADS_PER_MULTISTEP 128
+#define THREADS_PER_MULTISTEP_MERGE 128
 #define MAX_MULTI_STEP 4
 
-#define THREADS_PER_MERGE 256
+
+/* --------------- BITONIC MERGE LOCAL --------------- */
+
+// How many threads are used per one thread block in LOCAL bitonic merge. Has to be power of 2.
+#define THREADS_PER_LOCAL_MERGE 256
+// How many elements are processed by one thread in LOCAL bitonic merge. Min value is 2.
+// Has to be divisable by 2.
+#define ELEMS_PER_THREAD_LOCAL_MERGE 8
 
 #endif
