@@ -84,7 +84,8 @@ void runBitoicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint_t phase,
 
     if (sortOrder == ORDER_ASC)
     {
-        if (isFirstStepOfPhase) {
+        if (isFirstStepOfPhase)
+        {
             bitonicMergeLocalKernel<ORDER_ASC, true><<<dimGrid, dimBlock, sharedMemSize>>>(
                 dataTable, tableLen, step
             );
@@ -98,7 +99,8 @@ void runBitoicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint_t phase,
     }
     else
     {
-        if (isFirstStepOfPhase) {
+        if (isFirstStepOfPhase)
+        {
             bitonicMergeLocalKernel<ORDER_DESC, true><<<dimGrid, dimBlock, sharedMemSize>>>(
                 dataTable, tableLen, step
             );

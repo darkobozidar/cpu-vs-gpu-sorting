@@ -17,13 +17,13 @@
 Compares 2 elements and exchanges them according to orderAsc.
 */
 template <order_t sortOrder>
-__device__ void compareExchange2(data_t *elem1, data_t *elem2)
+__device__ void compareExchange2(data_t *el1, data_t *el2)
 {
-    if ((*elem1 > *elem2) ^ sortOrder)
+    if ((*el1 > *el2) ^ sortOrder)
     {
-        data_t temp = *elem1;
-        *elem1 = *elem2;
-        *elem2 = temp;
+        data_t temp = *el1;
+        *el1 = *el2;
+        *el2 = temp;
     }
 }
 
@@ -136,6 +136,7 @@ __device__ void store16(
     store8(table + 4 * tableOffset, tableOffset, stride, el9, el10, el11, el12, el13, el14, el15, el16);
 }
 
+
 /*
 Generates parameters needed for multistep.
 > stride - (gap) between two elements beeing compared
@@ -226,7 +227,6 @@ template <order_t sortOrder>
 __global__ void multiStep1Kernel(data_t *table, uint_t step)
 {
     uint_t stride, tableOffset, indexTable;
-    bool direction;
     data_t el1, el2;
 
     getMultiStepParams(step, 1, stride, tableOffset, indexTable);
@@ -241,75 +241,154 @@ template __global__ void multiStep1Kernel<ORDER_ASC>(data_t *table, uint_t step)
 template __global__ void multiStep1Kernel<ORDER_DESC>(data_t *table, uint_t step);
 
 
-//__global__ void multiStep2Kernel(el_t *table, uint_t phase, uint_t step, bool orderAsc) {
-//    uint_t stride, tableOffset, indexTable;
-//    bool direction;
-//    el_t el1, el2, el3, el4;
-//
-//    getMultiStepParams(phase, step, 2, stride, tableOffset, indexTable, direction);
-//    table += indexTable;
-//
-//    load4(table, tableOffset, stride, &el1, &el2, &el3, &el4);
-//    compareExchange4(&el1, &el2, &el3, &el4, direction ^ orderAsc);
-//    store4(table, tableOffset, stride, el1, el2, el3, el4);
-//}
-//
-//__global__ void multiStep3Kernel(el_t *table, uint_t phase, uint_t step, bool orderAsc) {
-//    uint_t stride, tableOffset, indexTable;
-//    bool direction;
-//    el_t el1, el2, el3, el4, el5, el6, el7, el8;
-//
-//    getMultiStepParams(phase, step, 3, stride, tableOffset, indexTable, direction);
-//    table += indexTable;
-//
-//    load8(table, tableOffset, stride, &el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8);
-//    compareExchange8(&el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8, direction ^ orderAsc);
-//    store8(table, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7, el8);
-//}
-//
-//__global__ void multiStep4Kernel(el_t *table, uint_t phase, uint_t step, bool orderAsc) {
-//    uint_t stride, tableOffset, indexTable;
-//    bool direction;
-//    el_t el1, el2, el3, el4, el5, el6, el7, el8, el9, el10, el11, el12, el13, el14, el15, el16;
-//
-//    getMultiStepParams(phase, step, 4, stride, tableOffset, indexTable, direction);
-//    table += indexTable;
-//
-//    load16(
-//        table, tableOffset, stride, &el1, &el2, &el3, &el4, &el5, &el6, &el7,
-//        &el8, &el9, &el10, &el11, &el12, &el13, &el14, &el15, &el16
-//    );
-//    compareExchange16(
-//        &el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8, &el9, &el10, &el11, &el12, &el13,
-//        &el14, &el15, &el16, direction ^ orderAsc
-//    );
-//    store16(
-//        table, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7,
-//        el8, el9, el10, el11, el12, el13, el14, el15, el16
-//    );
-//}
-//
-///*
-//Global bitonic merge for sections, where stride IS GREATER OR EQUAL than max shared memory.
-//*/
-//__global__ void bitonicMergeKernel(el_t *table, uint_t phase, bool orderAsc) {
-//    extern __shared__ el_t mergeTile[];
-//    uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
-//    // Elements inside same sub-block have to be ordered in same direction
-//    bool direction = orderAsc ^ ((index >> phase) & 1);
-//
-//    // Every thread loads 2 elements
-//    mergeTile[threadIdx.x] = table[index];
-//    mergeTile[blockDim.x + threadIdx.x] = table[blockDim.x + index];
-//
-//    // Bitonic merge
-//    for (uint_t stride = blockDim.x; stride > 0; stride >>= 1) {
-//        __syncthreads();
-//        uint_t start = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
-//        compareExchange2(&mergeTile[start], &mergeTile[start + stride], direction);
-//    }
-//
-//    __syncthreads();
-//    table[index] = mergeTile[threadIdx.x];
-//    table[blockDim.x + index] = mergeTile[blockDim.x + threadIdx.x];
-//}
+template <order_t sortOrder>
+__global__ void multiStep2Kernel(data_t *table, uint_t step)
+{
+    uint_t stride, tableOffset, indexTable;
+    data_t el1, el2, el3, el4;
+
+    getMultiStepParams(step, 2, stride, tableOffset, indexTable);
+    table += indexTable;
+
+    load4(table, tableOffset, stride, &el1, &el2, &el3, &el4);
+    compareExchange4<sortOrder>(&el1, &el2, &el3, &el4);
+    store4(table, tableOffset, stride, el1, el2, el3, el4);
+}
+
+template __global__ void multiStep2Kernel<ORDER_ASC>(data_t *table, uint_t step);
+template __global__ void multiStep2Kernel<ORDER_DESC>(data_t *table, uint_t step);
+
+
+template <order_t sortOrder>
+__global__ void multiStep3Kernel(data_t *table, uint_t step)
+{
+    uint_t stride, tableOffset, indexTable;
+    data_t el1, el2, el3, el4, el5, el6, el7, el8;
+
+    getMultiStepParams(step, 3, stride, tableOffset, indexTable);
+    table += indexTable;
+
+    load8(table, tableOffset, stride, &el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8);
+    compareExchange8<sortOrder>(&el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8);
+    store8(table, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7, el8);
+}
+
+template __global__ void multiStep3Kernel<ORDER_ASC>(data_t *table, uint_t step);
+template __global__ void multiStep3Kernel<ORDER_DESC>(data_t *table, uint_t step);
+
+
+template <order_t sortOrder>
+__global__ void multiStep4Kernel(data_t *table, uint_t step)
+{
+    uint_t stride, tableOffset, indexTable;
+    data_t el1, el2, el3, el4, el5, el6, el7, el8, el9, el10, el11, el12, el13, el14, el15, el16;
+
+    getMultiStepParams(step, 4, stride, tableOffset, indexTable);
+    table += indexTable;
+
+    load16(
+        table, tableOffset, stride, &el1, &el2, &el3, &el4, &el5, &el6, &el7,
+        &el8, &el9, &el10, &el11, &el12, &el13, &el14, &el15, &el16
+    );
+    compareExchange16<sortOrder>(
+        &el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8, &el9, &el10, &el11, &el12, &el13, &el14, &el15, &el16
+    );
+    store16(
+        table, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7,
+        el8, el9, el10, el11, el12, el13, el14, el15, el16
+    );
+}
+
+template __global__ void multiStep4Kernel<ORDER_ASC>(data_t *table, uint_t step);
+template __global__ void multiStep4Kernel<ORDER_DESC>(data_t *table, uint_t step);
+
+
+/*
+Needed for first step of every phase.
+*/
+template <order_t sortOrder>
+__global__ void bitonicMergeGlobalKernel(data_t *dataTable, uint_t tableLen, uint_t step)
+{
+    uint_t stride = 1 << (step - 1);
+    uint_t pairsPerThreadBlock = (THREADS_PER_GLOBAL_MERGE * ELEMS_PER_THREAD_GLOBAL_MERGE) >> 1;
+    uint_t indexGlobal = blockIdx.x * pairsPerThreadBlock + threadIdx.x;
+
+    for (uint_t i = 0; i < ELEMS_PER_THREAD_GLOBAL_MERGE >> 1; i++)
+    {
+        uint_t indexThread = indexGlobal + i * THREADS_PER_GLOBAL_MERGE;
+        uint_t offset = ((indexThread & (stride - 1)) << 1) + 1;
+        indexThread = (indexThread / stride) * stride + ((stride - 1) - (indexThread % stride));
+
+        uint_t index = (indexThread << 1) - (indexThread & (stride - 1));
+        if (index + offset >= tableLen)
+        {
+            break;
+        }
+
+        compareExchange2<sortOrder>(&dataTable[index], &dataTable[index + offset]);
+    }
+}
+
+template __global__ void bitonicMergeGlobalKernel<ORDER_ASC>(data_t *dataTable, uint_t tableLen, uint_t step);
+template __global__ void bitonicMergeGlobalKernel<ORDER_DESC>(data_t *dataTable, uint_t tableLen, uint_t step);
+
+
+/*
+Global bitonic merge for sections, where stride IS LOWER OR EQUAL than max shared memory.
+*/
+template <order_t sortOrder, bool isFirstStepOfPhase>
+__global__ void bitonicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint_t step)
+{
+    extern __shared__ data_t mergeTile[];
+    bool firstStepOfPhaseCopy = isFirstStepOfPhase;  // isFirstStepOfPhase is not editable (constant)
+
+    uint_t elemsPerThreadBlock = THREADS_PER_LOCAL_MERGE * ELEMS_PER_THREAD_LOCAL_MERGE;
+    uint_t offset = blockIdx.x * elemsPerThreadBlock;
+    uint_t dataBlockLength = offset + elemsPerThreadBlock <= tableLen ? elemsPerThreadBlock : tableLen - offset;
+    uint_t pairsPerBlockLength = dataBlockLength >> 1;
+
+    // Reads data from global to shared memory.
+    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_LOCAL_MERGE)
+    {
+        mergeTile[tx] = dataTable[offset + tx];
+    }
+    __syncthreads();
+
+    // Bitonic merge
+    for (uint_t stride = 1 << (step - 1); stride > 0; stride >>= 1)
+    {
+        for (uint_t tx = threadIdx.x; tx < pairsPerBlockLength; tx += THREADS_PER_LOCAL_MERGE)
+        {
+            uint_t indexThread = tx;
+            uint_t offset = stride;
+
+            // In normalized bitonic sort, first STEP of every PHASE uses different offset than all other STEPS.
+            if (firstStepOfPhaseCopy)
+            {
+                offset = ((tx & (stride - 1)) << 1) + 1;
+                indexThread = (tx / stride) * stride + ((stride - 1) - (tx % stride));
+                firstStepOfPhaseCopy = false;
+            }
+
+            uint_t index = (indexThread << 1) - (indexThread & (stride - 1));
+            if (index + offset >= dataBlockLength)
+            {
+                break;
+            }
+
+            compareExchange2<sortOrder>(&mergeTile[index], &mergeTile[index + offset]);
+        }
+        __syncthreads();
+    }
+
+    // Stores data from shared to global memory
+    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_LOCAL_MERGE)
+    {
+        dataTable[offset + tx] = mergeTile[tx];
+    }
+}
+
+template __global__ void bitonicMergeLocalKernel<ORDER_ASC, true>(data_t *dataTable, uint_t tableLen, uint_t step);
+template __global__ void bitonicMergeLocalKernel<ORDER_ASC, false>(data_t *dataTable, uint_t tableLen, uint_t step);
+template __global__ void bitonicMergeLocalKernel<ORDER_DESC, true>(data_t *dataTable, uint_t tableLen, uint_t step);
+template __global__ void bitonicMergeLocalKernel<ORDER_DESC, false>(data_t *dataTable, uint_t tableLen, uint_t step);
