@@ -139,6 +139,9 @@ void fillTableKeysOnly(data_t *keys, uint_t tableLen, uint_t interval, uint_t bu
     }
 }
 
+/*
+Fills keys with random values on provided interval.
+*/
 void fillTableKeysOnly(data_t *keys, uint_t tableLen, uint_t interval, data_dist_t distribution)
 {
     fillTableKeysOnly(keys, tableLen, interval, getMaxThreadsPerBlock(), distribution);

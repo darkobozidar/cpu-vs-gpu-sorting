@@ -15,10 +15,8 @@ void printTableSplitterKeysOnly()
 /*
 Prints out table header if only keys are sorted.
 */
-void printTableHeaderKeysOnly(char *sortName)
+void printTableHeaderKeysOnly()
 {
-    printf("> %s\n\n", sortName);
-
     printTableSplitterKeysOnly();
     printf("||     # ||             PARALLEL              ||             SEQUENTIAL            ||   CORRECT   ||\n");
     printTableSplitterKeysOnly();
@@ -36,9 +34,9 @@ void printTableLineKeysOnly(
     printf(
         "|| %5d || %8.2lf ms | %8.2lf M/s | %s  || %8.2lf ms | %8.2lf M/s | %s  || %8.2lf ms ||\n", iter + 1,
         timers[SORT_PARALLEL][iter], tableLen / 1000.0 / timers[SORT_PARALLEL][iter],
-        areEqualParallel ? "YES" : "NO ",
+        areEqualParallel ? "YES" : " NO",
         timers[SORT_SEQUENTIAL][iter], tableLen / 1000.0 / timers[SORT_SEQUENTIAL][iter],
-        areEqualSequential ? "YES" : "NO ",
+        areEqualSequential ? "YES" : " NO",
         timers[SORT_CORRECT][iter]
     );
 }

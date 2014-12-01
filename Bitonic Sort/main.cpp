@@ -26,10 +26,12 @@ int main(int argc, char** argv) {
 
     uint_t tableLen = (1 << 20);
     uint_t interval = (1 << 31);
-    uint_t testRepetitions = 20;    // How many times are sorts ran
+    uint_t testRepetitions = 10;    // How many times are sorts ran
     order_t sortOrder = ORDER_ASC;  // Values: ORDER_ASC, ORDER_DESC
+    data_dist_t distribution = DISTRIBUTION_UNIFORM;
+    bool printMeaurements = false;
 
-    // Designates whether paralle/sequential sort has always sorted data correctly
+    // Designates whether paralle/sequential sort has always sorted data correctly. NOT CONFIGURABLE!
     bool parallelSortsCorrectly = true, sequentialSortsCorrectly = true;
     cudaError_t error;
 
@@ -41,11 +43,18 @@ int main(int argc, char** argv) {
         &h_input, &h_outputParallel, &h_outputSequential, &h_outputCorrect, &timers, tableLen, testRepetitions
     );
     allocDeviceMemory(&d_dataTable, tableLen);
-    printTableHeaderKeysOnly("BITONIC SORT");
+
+    printf(">>> BITONIC SORT <<<\n\n\n");
+    printDataDistribution(distribution);
+    if (printMeaurements)
+    {
+        printf("\n");
+        printTableHeaderKeysOnly();
+    }
 
     for (uint_t i = 0; i < testRepetitions; i++)
     {
-        fillTableKeysOnly(h_input, tableLen, interval, DISTRIBUTION_UNIFORM);
+        fillTableKeysOnly(h_input, tableLen, interval, distribution);
 
         // Sort parallel
         error = cudaMemcpy(d_dataTable, h_input, tableLen * sizeof(*d_dataTable), cudaMemcpyHostToDevice);
@@ -66,21 +75,27 @@ int main(int argc, char** argv) {
         parallelSortsCorrectly &= areEqualParallel;
         sequentialSortsCorrectly &= areEqualSequential;
 
-        printTableLineKeysOnly(timers, i, tableLen, areEqualParallel, areEqualSequential);
+        if (printMeaurements)
+        {
+            printTableLineKeysOnly(timers, i, tableLen, areEqualParallel, areEqualSequential);
+        }
     }
 
-    printTableSplitterKeysOnly();
+    if (printMeaurements)
+    {
+        printTableSplitterKeysOnly();
+    }
 
     // Print-out of statistics for PARALLEL sort
-    printf("\n\n- PARALLEL SORT\n");
+    printf("\n- PARALLEL SORT\n");
     printStatisticsKeysOnly(timers[SORT_PARALLEL], testRepetitions, tableLen, parallelSortsCorrectly);
 
     // Print-out of statistics for SEQUENTIAL sort
-    printf("\n\n- SEQUENTIAL SORT\n");
+    printf("\n- SEQUENTIAL SORT\n");
     printStatisticsKeysOnly(timers[SORT_SEQUENTIAL], testRepetitions, tableLen, sequentialSortsCorrectly);
 
     printf(
-        "\n\n- Speedup (SEQUENTIAL/PARALLEL): %.2lf\n",
+        "\n- Speedup (SEQUENTIAL/PARALLEL): %.2lf\n",
         getSpeedup(timers, SORT_SEQUENTIAL, SORT_PARALLEL, testRepetitions)
     );
     printf(

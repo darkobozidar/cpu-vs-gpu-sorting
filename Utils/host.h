@@ -11,5 +11,6 @@ void printTable(data_t *table, uint_t tableLen);
 void printTable(data_t *table, uint_t startIndex, uint_t endIndex);
 void checkMallocError(void *ptr);
 uint_t nextPowerOf2(uint_t value);
+void printDataDistribution(data_dist_t distribution);
 
 #endif

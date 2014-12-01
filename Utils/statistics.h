@@ -2,7 +2,7 @@
 #define STATISTICS_H
 
 void printTableSplitterKeysOnly();
-void printTableHeaderKeysOnly(char *sortName);
+void printTableHeaderKeysOnly();
 void printTableLineKeysOnly(
     double **timers, uint_t iter, uint_t tableLen, bool areEqualParallel, bool areEqualSequential
 );

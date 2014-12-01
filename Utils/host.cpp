@@ -115,3 +115,56 @@ uint_t nextPowerOf2(uint_t value)
 
     return value;
 }
+
+/*
+According to provided distribution type prints out distribution name.
+*/
+void printDataDistribution(data_dist_t distribution)
+{
+    printf("> ");
+
+    switch (distribution)
+    {
+        case DISTRIBUTION_UNIFORM:
+        {
+            printf("UNIFORM DISTRIBUTION\n");
+            break;
+        }
+        case DISTRIBUTION_GAUSSIAN:
+        {
+            printf("GAUSSIAN DISTRIBUTION\n");
+            break;
+        }
+        case DISTRIBUTION_ZERO:
+        {
+            printf("ZERO DISTRIBUTION\n");
+            break;
+        }
+        case DISTRIBUTION_BUCKET:
+        {
+            printf("BUCKET DISTRIBUTION\n");
+            break;
+        }
+        case DISTRIBUTION_STAGGERED:
+        {
+            printf("STAGGERED DISTRIBUTION\n");
+            break;
+        }
+        case DISTRIBUTION_SORTED_ASC:
+        {
+            printf("SORTED ASC DISTRIBUTION\n");
+            break;
+        }
+        case DISTRIBUTION_SORTED_DESC:
+        {
+            printf("SORTED DESC DISTRIBUTION\n");
+            break;
+        }
+        default:
+        {
+            printf("Invalid distribution provided.\n");
+            getchar();
+            exit(EXIT_FAILURE);
+        }
+    }
+}
