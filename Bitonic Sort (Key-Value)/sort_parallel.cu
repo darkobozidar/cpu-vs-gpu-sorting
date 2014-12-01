@@ -37,7 +37,9 @@ void runBitoicSortKernel(data_t *keys, data_t *values, uint_t tableLen, order_t 
 Merges array, if data blocks are larger than shared memory size. It executes only of STEP on PHASE per
 kernel launch.
 */
-void runBitonicMergeGlobalKernel(data_t *dataTable, uint_t tableLen, uint_t phase, uint_t step, order_t sortOrder)
+void runBitonicMergeGlobalKernel(
+    data_t *keys, data_t *values, uint_t tableLen, uint_t phase, uint_t step, order_t sortOrder
+)
 {
     uint_t elemsPerThreadBlock = THREADS_PER_GLOBAL_MERGE * ELEMS_PER_THREAD_GLOBAL_MERGE;
     dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
@@ -49,22 +51,22 @@ void runBitonicMergeGlobalKernel(data_t *dataTable, uint_t tableLen, uint_t phas
     {
         if (isFirstStepOfPhase)
         {
-            bitonicMergeGlobalKernel<ORDER_ASC, true><<<dimGrid, dimBlock>>>(dataTable, tableLen, step);
+            bitonicMergeGlobalKernel<ORDER_ASC, true><<<dimGrid, dimBlock>>>(keys, values, tableLen, step);
         }
         else
         {
-            bitonicMergeGlobalKernel<ORDER_ASC, false><<<dimGrid, dimBlock>>>(dataTable, tableLen, step);
+            bitonicMergeGlobalKernel<ORDER_ASC, false><<<dimGrid, dimBlock>>>(keys, values, tableLen, step);
         }
     }
     else
     {
         if (isFirstStepOfPhase)
         {
-            bitonicMergeGlobalKernel<ORDER_DESC, true><<<dimGrid, dimBlock>>>(dataTable, tableLen, step);
+            bitonicMergeGlobalKernel<ORDER_DESC, true><<<dimGrid, dimBlock>>>(keys, values, tableLen, step);
         }
         else
         {
-            bitonicMergeGlobalKernel<ORDER_DESC, false><<<dimGrid, dimBlock>>>(dataTable, tableLen, step);
+            bitonicMergeGlobalKernel<ORDER_DESC, false><<<dimGrid, dimBlock>>>(keys, values, tableLen, step);
         }
     }
 }
@@ -72,11 +74,11 @@ void runBitonicMergeGlobalKernel(data_t *dataTable, uint_t tableLen, uint_t phas
 /*
 Merges array when stride is lower than shared memory size. It executes all remaining STEPS of current PHASE.
 */
-void runBitoicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint_t phase, uint_t step, order_t sortOrder)
+void runBitoicMergeLocalKernel(data_t *keys, data_t *values, uint_t tableLen, uint_t phase, uint_t step, order_t sortOrder)
 {
     // Every thread loads and sorts 2 elements
     uint_t elemsPerThreadBlock = THREADS_PER_LOCAL_MERGE * ELEMS_PER_THREAD_LOCAL_MERGE;
-    uint_t sharedMemSize = elemsPerThreadBlock * sizeof(*dataTable);
+    uint_t sharedMemSize = 2 * elemsPerThreadBlock * sizeof(*keys);  // "2 *" becaues of key-value pairs
     dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
     dim3 dimBlock(THREADS_PER_LOCAL_MERGE, 1, 1);
 
@@ -86,13 +88,13 @@ void runBitoicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint_t phase,
     {
         if (isFirstStepOfPhase) {
             bitonicMergeLocalKernel<ORDER_ASC, true><<<dimGrid, dimBlock, sharedMemSize>>>(
-                dataTable, tableLen, step
+                keys, values, tableLen, step
             );
         }
         else
         {
             bitonicMergeLocalKernel<ORDER_ASC, false><<<dimGrid, dimBlock, sharedMemSize>>>(
-                dataTable, tableLen, step
+                keys, values, tableLen, step
             );
         }
     }
@@ -100,13 +102,13 @@ void runBitoicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint_t phase,
     {
         if (isFirstStepOfPhase) {
             bitonicMergeLocalKernel<ORDER_DESC, true><<<dimGrid, dimBlock, sharedMemSize>>>(
-                dataTable, tableLen, step
+                keys, values, tableLen, step
             );
         }
         else
         {
             bitonicMergeLocalKernel<ORDER_DESC, false><<<dimGrid, dimBlock, sharedMemSize>>>(
-                dataTable, tableLen, step
+                keys, values, tableLen, step
             );
         }
     }
@@ -140,11 +142,11 @@ double sortParallel(
         uint_t step = phase;
         while (step > phasesMergeLocal)
         {
-            runBitonicMergeGlobalKernel(d_keys, tableLen, phase, step, sortOrder);
+            runBitonicMergeGlobalKernel(d_keys, d_values, tableLen, phase, step, sortOrder);
             step--;
         }
 
-        runBitoicMergeLocalKernel(d_keys, tableLen, phase, step, sortOrder);
+        runBitoicMergeLocalKernel(d_keys, d_values, tableLen, phase, step, sortOrder);
     }
 
     error = cudaDeviceSynchronize();
