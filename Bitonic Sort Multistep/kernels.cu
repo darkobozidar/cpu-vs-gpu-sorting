@@ -70,70 +70,84 @@ __device__ void compareExchange16(
     compareExchange8<sortOrder>(el2, el10, el4, el12, el6, el14, el8, el16);
 }
 
-__device__ void load2(data_t *table, uint_t stride, data_t *el1, data_t *el2)
+template <order_t sortOrder>
+__device__ void load2(data_t *table, uint_t stride, uint_t tableLen, data_t *el1, data_t *el2)
 {
     *el1 = table[0];
     *el2 = table[stride];
 }
 
-__device__ void store2(data_t *table, uint_t stride, data_t el1, data_t el2)
+template <order_t sortOrder>
+__device__ void store2(data_t *table, uint_t stride, uint_t tableLen, data_t el1, data_t el2)
 {
     table[0] = el1;
     table[stride] = el2;
 }
 
+template <order_t sortOrder>
 __device__ void load4(
-    data_t *table, uint_t tableOffset, uint_t stride, data_t *el1, data_t *el2, data_t *el3, data_t *el4
+    data_t *table, uint_t tableOffset, uint_t stride, uint_t tableLen, data_t *el1, data_t *el2, data_t *el3,
+    data_t *el4
 )
 {
-    load2(table, stride, el1, el2);
-    load2(table + tableOffset, stride, el3, el4);
+    load2<sortOrder>(table, stride, tableLen, el1, el2);
+    load2<sortOrder>(table + tableOffset, stride, tableLen, el3, el4);
 }
 
+template <order_t sortOrder>
 __device__ void store4(
-    data_t *table, uint_t tableOffset, uint_t stride, data_t el1, data_t el2, data_t el3, data_t el4
+    data_t *table, uint_t tableOffset, uint_t stride, uint_t tableLen, data_t el1, data_t el2, data_t el3,
+    data_t el4
 )
 {
-    store2(table, stride, el1, el2);
-    store2(table + tableOffset, stride, el3, el4);
+    store2<sortOrder>(table, stride, tableLen, el1, el2);
+    store2<sortOrder>(table + tableOffset, stride, tableLen, el3, el4);
 }
 
+template <order_t sortOrder>
 __device__ void load8(
-    data_t *table, uint_t tableOffset, uint_t stride, data_t *el1, data_t *el2, data_t *el3, data_t *el4,
-    data_t *el5, data_t *el6, data_t *el7, data_t *el8
+    data_t *table, uint_t tableOffset, uint_t stride, uint_t tableLen, data_t *el1, data_t *el2, data_t *el3,
+    data_t *el4, data_t *el5, data_t *el6, data_t *el7, data_t *el8
 )
 {
-    load4(table, tableOffset, stride, el1, el2, el3, el4);
-    load4(table + 2 * tableOffset, tableOffset, stride, el5, el6, el7, el8);
+    load4<sortOrder>(table, tableOffset, stride, tableLen, el1, el2, el3, el4);
+    load4<sortOrder>(table + 2 * tableOffset, tableOffset, stride, tableLen, el5, el6, el7, el8);
 }
 
+template <order_t sortOrder>
 __device__ void store8(
-    data_t *table, uint_t tableOffset, uint_t stride, data_t el1, data_t el2, data_t el3, data_t el4,
-    data_t el5, data_t el6, data_t el7, data_t el8
+    data_t *table, uint_t tableOffset, uint_t stride, uint_t tableLen, data_t el1, data_t el2, data_t el3,
+    data_t el4, data_t el5, data_t el6, data_t el7, data_t el8
 )
 {
-    store4(table, tableOffset, stride, el1, el2, el3, el4);
-    store4(table + 2 * tableOffset, tableOffset, stride, el5, el6, el7, el8);
+    store4<sortOrder>(table, tableOffset, stride, tableLen, el1, el2, el3, el4);
+    store4<sortOrder>(table + 2 * tableOffset, tableOffset, stride, tableLen, el5, el6, el7, el8);
 }
 
+template <order_t sortOrder>
 __device__ void load16(
-    data_t *table, uint_t tableOffset, uint_t stride, data_t *el1, data_t *el2, data_t *el3, data_t *el4,
-    data_t *el5, data_t *el6, data_t *el7, data_t *el8, data_t *el9, data_t *el10, data_t *el11, data_t *el12,
-    data_t *el13, data_t *el14, data_t *el15, data_t *el16
+    data_t *table, uint_t tableOffset, uint_t stride, uint_t tableLen, data_t *el1, data_t *el2, data_t *el3,
+    data_t *el4, data_t *el5, data_t *el6, data_t *el7, data_t *el8, data_t *el9, data_t *el10, data_t *el11,
+    data_t *el12, data_t *el13, data_t *el14, data_t *el15, data_t *el16
 )
 {
-    load8(table, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7, el8);
-    load8(table + 4 * tableOffset, tableOffset, stride, el9, el10, el11, el12, el13, el14, el15, el16);
+    load8<sortOrder>(table, tableOffset, stride, tableLen, el1, el2, el3, el4, el5, el6, el7, el8);
+    load8<sortOrder>(
+        table + 4 * tableOffset, tableOffset, stride, tableLen, el9, el10, el11, el12, el13, el14, el15, el16
+    );
 }
 
+template <order_t sortOrder>
 __device__ void store16(
-    data_t *table, uint_t tableOffset, uint_t stride, data_t el1, data_t el2, data_t el3, data_t el4,
-    data_t el5, data_t el6, data_t el7, data_t el8, data_t el9, data_t el10, data_t el11, data_t el12,
-    data_t el13, data_t el14, data_t el15, data_t el16
+    data_t *table, uint_t tableOffset, uint_t stride, uint_t tableLen, data_t el1, data_t el2, data_t el3,
+    data_t el4, data_t el5, data_t el6, data_t el7, data_t el8, data_t el9, data_t el10, data_t el11,
+    data_t el12, data_t el13, data_t el14, data_t el15, data_t el16
 )
 {
-    store8(table, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7, el8);
-    store8(table + 4 * tableOffset, tableOffset, stride, el9, el10, el11, el12, el13, el14, el15, el16);
+    store8<sortOrder>(table, tableOffset, stride, tableLen, el1, el2, el3, el4, el5, el6, el7, el8);
+    store8<sortOrder>(
+        table + 4 * tableOffset, tableOffset, stride, tableLen, el9, el10, el11, el12, el13, el14, el15, el16
+    );
 }
 
 
@@ -224,7 +238,7 @@ template __global__ void bitonicSortKernel<ORDER_DESC>(data_t *dataTable, uint_t
 
 
 template <order_t sortOrder>
-__global__ void multiStep1Kernel(data_t *table, uint_t step)
+__global__ void multiStep1Kernel(data_t *table, uint_t tableLen, uint_t step)
 {
     uint_t stride, tableOffset, indexTable;
     data_t el1, el2;
@@ -232,17 +246,17 @@ __global__ void multiStep1Kernel(data_t *table, uint_t step)
     getMultiStepParams(step, 1, stride, tableOffset, indexTable);
     table += indexTable;
 
-    load2(table, stride, &el1, &el2);
+    load2<sortOrder>(table, stride, tableLen, &el1, &el2);
     compareExchange2<sortOrder>(&el1, &el2);
-    store2(table, stride, el1, el2);
+    store2<sortOrder>(table, stride, tableLen, el1, el2);
 }
 
-template __global__ void multiStep1Kernel<ORDER_ASC>(data_t *table, uint_t step);
-template __global__ void multiStep1Kernel<ORDER_DESC>(data_t *table, uint_t step);
+template __global__ void multiStep1Kernel<ORDER_ASC>(data_t *table, uint_t tableLen, uint_t step);
+template __global__ void multiStep1Kernel<ORDER_DESC>(data_t *table, uint_t tableLen, uint_t step);
 
 
 template <order_t sortOrder>
-__global__ void multiStep2Kernel(data_t *table, uint_t step)
+__global__ void multiStep2Kernel(data_t *table, uint_t tableLen, uint_t step)
 {
     uint_t stride, tableOffset, indexTable;
     data_t el1, el2, el3, el4;
@@ -250,17 +264,17 @@ __global__ void multiStep2Kernel(data_t *table, uint_t step)
     getMultiStepParams(step, 2, stride, tableOffset, indexTable);
     table += indexTable;
 
-    load4(table, tableOffset, stride, &el1, &el2, &el3, &el4);
+    load4<sortOrder>(table, tableOffset, stride, tableLen, &el1, &el2, &el3, &el4);
     compareExchange4<sortOrder>(&el1, &el2, &el3, &el4);
-    store4(table, tableOffset, stride, el1, el2, el3, el4);
+    store4<sortOrder>(table, tableOffset, stride, tableLen, el1, el2, el3, el4);
 }
 
-template __global__ void multiStep2Kernel<ORDER_ASC>(data_t *table, uint_t step);
-template __global__ void multiStep2Kernel<ORDER_DESC>(data_t *table, uint_t step);
+template __global__ void multiStep2Kernel<ORDER_ASC>(data_t *table, uint_t tableLen, uint_t step);
+template __global__ void multiStep2Kernel<ORDER_DESC>(data_t *table, uint_t tableLen, uint_t step);
 
 
 template <order_t sortOrder>
-__global__ void multiStep3Kernel(data_t *table, uint_t step)
+__global__ void multiStep3Kernel(data_t *table, uint_t tableLen, uint_t step)
 {
     uint_t stride, tableOffset, indexTable;
     data_t el1, el2, el3, el4, el5, el6, el7, el8;
@@ -268,17 +282,17 @@ __global__ void multiStep3Kernel(data_t *table, uint_t step)
     getMultiStepParams(step, 3, stride, tableOffset, indexTable);
     table += indexTable;
 
-    load8(table, tableOffset, stride, &el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8);
+    load8<sortOrder>(table, tableOffset, stride, tableLen, &el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8);
     compareExchange8<sortOrder>(&el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8);
-    store8(table, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7, el8);
+    store8<sortOrder>(table, tableOffset, stride, tableLen, el1, el2, el3, el4, el5, el6, el7, el8);
 }
 
-template __global__ void multiStep3Kernel<ORDER_ASC>(data_t *table, uint_t step);
-template __global__ void multiStep3Kernel<ORDER_DESC>(data_t *table, uint_t step);
+template __global__ void multiStep3Kernel<ORDER_ASC>(data_t *table, uint_t tableLen, uint_t step);
+template __global__ void multiStep3Kernel<ORDER_DESC>(data_t *table, uint_t tableLen, uint_t step);
 
 
 template <order_t sortOrder>
-__global__ void multiStep4Kernel(data_t *table, uint_t step)
+__global__ void multiStep4Kernel(data_t *table, uint_t tableLen, uint_t step)
 {
     uint_t stride, tableOffset, indexTable;
     data_t el1, el2, el3, el4, el5, el6, el7, el8, el9, el10, el11, el12, el13, el14, el15, el16;
@@ -286,21 +300,21 @@ __global__ void multiStep4Kernel(data_t *table, uint_t step)
     getMultiStepParams(step, 4, stride, tableOffset, indexTable);
     table += indexTable;
 
-    load16(
-        table, tableOffset, stride, &el1, &el2, &el3, &el4, &el5, &el6, &el7,
+    load16<sortOrder>(
+        table, tableOffset, stride, tableLen, &el1, &el2, &el3, &el4, &el5, &el6, &el7,
         &el8, &el9, &el10, &el11, &el12, &el13, &el14, &el15, &el16
     );
     compareExchange16<sortOrder>(
         &el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8, &el9, &el10, &el11, &el12, &el13, &el14, &el15, &el16
     );
-    store16(
-        table, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7,
+    store16<sortOrder>(
+        table, tableOffset, stride, tableLen, el1, el2, el3, el4, el5, el6, el7,
         el8, el9, el10, el11, el12, el13, el14, el15, el16
     );
 }
 
-template __global__ void multiStep4Kernel<ORDER_ASC>(data_t *table, uint_t step);
-template __global__ void multiStep4Kernel<ORDER_DESC>(data_t *table, uint_t step);
+template __global__ void multiStep4Kernel<ORDER_ASC>(data_t *table, uint_t tableLen, uint_t step);
+template __global__ void multiStep4Kernel<ORDER_DESC>(data_t *table, uint_t tableLen, uint_t step);
 
 
 /*

@@ -51,44 +51,44 @@ void runMultiStepKernel(
     {
         if (sortOrder == ORDER_ASC)
         {
-            multiStep1Kernel<ORDER_ASC><<<dimGrid, dimBlock>>>(table, step);
+            multiStep1Kernel<ORDER_ASC><<<dimGrid, dimBlock>>>(table, tableLen, step);
         }
         else
         {
-            multiStep1Kernel<ORDER_DESC><<<dimGrid, dimBlock>>>(table, step);
+            multiStep1Kernel<ORDER_DESC><<<dimGrid, dimBlock>>>(table, tableLen, step);
         }
     }
     else if (degree == 2)
     {
         if (sortOrder == ORDER_ASC)
         {
-            multiStep2Kernel<ORDER_ASC><<<dimGrid, dimBlock>>>(table, step);
+            multiStep2Kernel<ORDER_ASC><<<dimGrid, dimBlock>>>(table, tableLen, step);
         }
         else
         {
-            multiStep2Kernel<ORDER_DESC><<<dimGrid, dimBlock>>>(table, step);
+            multiStep2Kernel<ORDER_DESC><<<dimGrid, dimBlock>>>(table, tableLen, step);
         }
     }
     else if (degree == 3)
     {
         if (sortOrder == ORDER_ASC)
         {
-            multiStep3Kernel<ORDER_ASC><<<dimGrid, dimBlock>>>(table, step);
+            multiStep3Kernel<ORDER_ASC><<<dimGrid, dimBlock>>>(table, tableLen, step);
         }
         else
         {
-            multiStep3Kernel<ORDER_DESC><<<dimGrid, dimBlock>>>(table, step);
+            multiStep3Kernel<ORDER_DESC><<<dimGrid, dimBlock>>>(table, tableLen, step);
         }
     }
     else if (degree == 4)
     {
         if (sortOrder == ORDER_ASC)
         {
-            multiStep4Kernel<ORDER_ASC><<<dimGrid, dimBlock>>>(table, step);
+            multiStep4Kernel<ORDER_ASC><<<dimGrid, dimBlock>>>(table, tableLen, step);
         }
         else
         {
-            multiStep4Kernel<ORDER_DESC><<<dimGrid, dimBlock>>>(table, step);
+            multiStep4Kernel<ORDER_DESC><<<dimGrid, dimBlock>>>(table, tableLen, step);
         }
     }
 }
