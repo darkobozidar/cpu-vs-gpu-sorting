@@ -192,7 +192,7 @@ double sortParallel(data_t *h_output, data_t *d_dataTable, uint_t tableLen, orde
             // Multisteps
             for (uint_t degree = MAX_MULTI_STEP; degree > 0; degree--)
             {
-                for (; step > phasesMergeLocal + degree; step -= degree)
+                for (; step >= phasesMergeLocal + degree; step -= degree)
                 {
                     runMultiStepKernel(d_dataTable, tableLen, phase, step, degree, sortOrder);
                 }
