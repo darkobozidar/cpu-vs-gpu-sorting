@@ -40,9 +40,9 @@ void runMultiStepKernel(
     data_t *table, uint_t tableLen, uint_t phase, uint_t step, uint_t degree, order_t sortOrder
 )
 {
-    uint_t partitionSize = tableLen / (1 << degree);
+    uint_t partitionSize = (tableLen - 1) / (1 << degree) + 1;
     uint_t threadBlockSize = min(partitionSize, THREADS_PER_MULTISTEP_MERGE);
-    dim3 dimGrid(partitionSize / threadBlockSize, 1, 1);
+    dim3 dimGrid((partitionSize - 1) / threadBlockSize + 1, 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
 
     bool isFirstStepOfPhase = phase == step;
@@ -130,7 +130,7 @@ void runBitoicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint_t phase,
     {
         if (isFirstStepOfPhase)
         {
-            bitonicMergeLocalKernel<ORDER_ASC, true> << <dimGrid, dimBlock, sharedMemSize>>>(
+            bitonicMergeLocalKernel<ORDER_ASC, true><<<dimGrid, dimBlock, sharedMemSize>>>(
                 dataTable, tableLen, step
             );
         }
@@ -190,7 +190,7 @@ double sortParallel(data_t *h_output, data_t *d_dataTable, uint_t tableLen, orde
             step--;
 
             // Multisteps
-            for (uint_t degree = MAX_MULTI_STEP; degree > 0; degree--)
+            for (uint_t degree = min(MAX_MULTI_STEP, step - phasesMergeLocal); degree > 0; degree--)
             {
                 for (; step >= phasesMergeLocal + degree; step -= degree)
                 {
