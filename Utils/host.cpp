@@ -101,10 +101,23 @@ void checkMallocError(void *ptr)
 }
 
 /*
+Tests if number is power of 2.
+*/
+bool isPowerOfTwo(uint_t value)
+{
+    return (value != 0) && ((value & (value - 1)) == 0);
+}
+
+/*
 Return the next power of 2 for provided value. If value is already power of 2, it returns value.
 */
 uint_t nextPowerOf2(uint_t value)
 {
+    if (isPowerOfTwo(value))
+    {
+        return value;
+    }
+
     value--;
     value |= value >> 1;
     value |= value >> 2;
@@ -112,6 +125,27 @@ uint_t nextPowerOf2(uint_t value)
     value |= value >> 8;
     value |= value >> 16;
     value++;
+
+    return value;
+}
+
+/*
+Returns the previous power of 2 for provided value. If value is already power of 2, it returns value.
+*/
+uint_t previousPowerOf2(uint_t value)
+{
+    if (isPowerOfTwo(value))
+    {
+        return value;
+    }
+
+    value--;
+    value |= value >> 1;
+    value |= value >> 2;
+    value |= value >> 4;
+    value |= value >> 8;
+    value |= value >> 16;
+    value -= value >> 1;
 
     return value;
 }

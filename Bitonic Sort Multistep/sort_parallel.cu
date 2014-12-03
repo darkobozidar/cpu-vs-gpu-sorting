@@ -40,7 +40,17 @@ void runMultiStepKernel(
     data_t *table, uint_t tableLen, uint_t phase, uint_t step, uint_t degree, order_t sortOrder
 )
 {
-    uint_t partitionSize = (tableLen - 1) / (1 << degree) + 1;
+    uint_t power2tableLen = previousPowerOf2(tableLen);
+    uint_t residueTableLen = tableLen % power2tableLen;
+
+    uint_t partitionSize = (power2tableLen - 1) / (1 << degree) + 1;
+    if (residueTableLen > 0)
+    {
+        uint_t stepBetween2Elems = 1 << (step - degree);
+        uint_t elemsPerSubBlock = min((residueTableLen - 1) / stepBetween2Elems + 1, 1 << degree);
+        partitionSize += (residueTableLen - 1) / elemsPerSubBlock + 1;
+    }
+
     uint_t threadBlockSize = min(partitionSize, THREADS_PER_MULTISTEP_MERGE);
     dim3 dimGrid((partitionSize - 1) / threadBlockSize + 1, 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);

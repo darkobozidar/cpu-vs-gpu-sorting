@@ -10,7 +10,9 @@ bool compareArrays(data_t* array1, data_t* array2, uint_t arrayLen);
 void printTable(data_t *table, uint_t tableLen);
 void printTable(data_t *table, uint_t startIndex, uint_t endIndex);
 void checkMallocError(void *ptr);
+bool isPowerOfTwo(uint_t value);
 uint_t nextPowerOf2(uint_t value);
+uint_t previousPowerOf2(uint_t value);
 void printDataDistribution(data_dist_t distribution);
 
 #endif
