@@ -46,9 +46,9 @@ void runMultiStepKernel(
     uint_t partitionSize = (power2tableLen - 1) / (1 << degree) + 1;
     if (residueTableLen > 0)
     {
-        uint_t stepBetween2Elems = 1 << (step - degree);
-        uint_t elemsPerSubBlock = min((residueTableLen - 1) / stepBetween2Elems + 1, 1 << degree);
-        partitionSize += (residueTableLen - 1) / elemsPerSubBlock + 1;
+        uint_t subBlockSize = 1 << step;
+        residueTableLen = roundUp(residueTableLen, subBlockSize);
+        partitionSize += (residueTableLen - 1) / (1 << degree) + 1;
     }
 
     uint_t threadBlockSize = min(partitionSize, THREADS_PER_MULTISTEP_MERGE);

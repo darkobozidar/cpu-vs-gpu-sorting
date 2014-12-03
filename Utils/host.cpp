@@ -150,6 +150,19 @@ uint_t previousPowerOf2(uint_t value)
     return value;
 }
 
+int roundUp(int numToRound, int multiple)
+{
+    if (multiple == 0)
+    {
+        return numToRound;
+    }
+
+    int remainder = numToRound % multiple;
+    if (remainder == 0)
+        return numToRound;
+    return numToRound + multiple - remainder;
+}
+
 /*
 According to provided distribution type prints out distribution name.
 */
