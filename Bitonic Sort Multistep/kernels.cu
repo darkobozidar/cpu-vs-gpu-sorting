@@ -75,7 +75,7 @@ __device__ void load2(data_t *table, int_t stride, int_t tableLen, data_t *el1, 
 {
     data_t val = sortOrder == ORDER_ASC ? MAX_VAL : MIN_VAL;
     *el1 = tableLen >= 0 ? table[0] : val;
-    *el2 = stride < tableLen ? table[stride] : val;
+    *el2 = stride <= tableLen ? table[stride] : val;
 }
 
 template <order_t sortOrder>
@@ -85,7 +85,7 @@ __device__ void store2(data_t *table, int_t stride, int_t tableLen, data_t el1, 
     {
         table[0] = el1;
     }
-    if (stride < tableLen)
+    if (stride <= tableLen)
     {
         table[stride] = el2;
     }
@@ -254,7 +254,7 @@ __global__ void multiStep1Kernel(data_t *table, int_t tableLen, uint_t step)
 
     getMultiStepParams(step, 1, stride, tableOffset, indexTable);
     table += indexTable;
-    tableLen -= indexTable;
+    tableLen -= indexTable + 1;
 
     load2<sortOrder>(table, stride, tableLen, &el1, &el2);
     compareExchange2<sortOrder>(&el1, &el2);
@@ -273,7 +273,7 @@ __global__ void multiStep2Kernel(data_t *table, int_t tableLen, uint_t step)
 
     getMultiStepParams(step, 2, stride, tableOffset, indexTable);
     table += indexTable;
-    tableLen -= indexTable;
+    tableLen -= indexTable + 1;
 
     load4<sortOrder>(table, tableOffset, stride, tableLen, &el1, &el2, &el3, &el4);
     compareExchange4<sortOrder>(&el1, &el2, &el3, &el4);
@@ -292,7 +292,7 @@ __global__ void multiStep3Kernel(data_t *table, int_t tableLen, uint_t step)
 
     getMultiStepParams(step, 3, stride, tableOffset, indexTable);
     table += indexTable;
-    tableLen -= indexTable;
+    tableLen -= indexTable + 1;
 
     load8<sortOrder>(table, tableOffset, stride, tableLen, &el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8);
     compareExchange8<sortOrder>(&el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8);
@@ -311,7 +311,7 @@ __global__ void multiStep4Kernel(data_t *table, int_t tableLen, uint_t step)
 
     getMultiStepParams(step, 4, stride, tableOffset, indexTable);
     table += indexTable;
-    tableLen -= indexTable;
+    tableLen -= indexTable + 1;
 
     load16<sortOrder>(
         table, tableOffset, stride, tableLen, &el1, &el2, &el3, &el4, &el5, &el6, &el7,
