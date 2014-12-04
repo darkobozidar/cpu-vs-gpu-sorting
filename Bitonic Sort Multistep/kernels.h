@@ -17,6 +17,8 @@ template <order_t sortOrder>
 __global__ void multiStep4Kernel(data_t *table, uint_t tableLen, uint_t step);
 template <order_t sortOrder>
 __global__ void multiStep5Kernel(data_t *table, uint_t tableLen, uint_t step);
+template <order_t sortOrder>
+__global__ void multiStep6Kernel(data_t *table, uint_t tableLen, uint_t step);
 
 // Bitonic merge
 template <order_t sortOrder>
