@@ -129,24 +129,24 @@ Loads 2 elements if they are inside table length boundaries. In opposite case MI
 (in order not to influence the sort which follows the load).
 */
 template <order_t sortOrder>
-__device__ void load2(data_t *table, int_t stride, int_t tableLen, data_t *el1, data_t *el2)
+__device__ void load2(data_t *table, data_t *tableEnd, uint_t stride, data_t *el1, data_t *el2)
 {
     data_t val = sortOrder == ORDER_ASC ? MAX_VAL : MIN_VAL;
-    *el1 = tableLen >= 0 ? table[0] : val;
-    *el2 = stride <= tableLen ? table[stride] : val;
+    *el1 = table < tableEnd ? table[0] : val;
+    *el2 = table + stride < tableEnd ? table[stride] : val;
 }
 
 /*
 Stores 2 elements if they are inside table length boundaries.
 */
 template <order_t sortOrder>
-__device__ void store2(data_t *table, int_t stride, int_t tableLen, data_t el1, data_t el2)
+__device__ void store2(data_t *table, data_t *tableEnd, uint_t stride, data_t el1, data_t el2)
 {
-    if (tableLen >= 0)
+    if (table < tableEnd)
     {
         table[0] = el1;
     }
-    if (stride <= tableLen)
+    if (table + stride < tableEnd)
     {
         table[stride] = el2;
     }
@@ -157,12 +157,12 @@ Loads 4 elements according to bitonic sort indexes.
 */
 template <order_t sortOrder>
 __device__ void load4(
-    data_t *table, uint_t tableOffset, int_t stride, int_t tableLen, data_t *el1, data_t *el2, data_t *el3,
+    data_t *table, data_t *tableEnd, uint_t tableOffset, uint_t stride, data_t *el1, data_t *el2, data_t *el3,
     data_t *el4
 )
 {
-    load2<sortOrder>(table, stride, tableLen, el1, el2);
-    load2<sortOrder>(table + tableOffset, stride, tableLen - tableOffset, el3, el4);
+    load2<sortOrder>(table, tableEnd, stride, el1, el2);
+    load2<sortOrder>(table + tableOffset, tableEnd, stride, el3, el4);
 }
 
 /*
@@ -170,12 +170,12 @@ Stores 4 elements according to bitonic sort indexes.
 */
 template <order_t sortOrder>
 __device__ void store4(
-    data_t *table, uint_t tableOffset, int_t stride, int_t tableLen, data_t el1, data_t el2, data_t el3,
+    data_t *table, data_t *tableEnd, uint_t tableOffset, uint_t stride, data_t el1, data_t el2, data_t el3,
     data_t el4
 )
 {
-    store2<sortOrder>(table, stride, tableLen, el1, el2);
-    store2<sortOrder>(table + tableOffset, stride, tableLen - tableOffset, el3, el4);
+    store2<sortOrder>(table, tableEnd, stride, el1, el2);
+    store2<sortOrder>(table + tableOffset, tableEnd, stride, el3, el4);
 }
 
 /*
@@ -183,12 +183,12 @@ Loads 8 elements according to bitonic sort indexes.
 */
 template <order_t sortOrder>
 __device__ void load8(
-    data_t *table, uint_t tableOffset, int_t stride, int_t tableLen, data_t *el1, data_t *el2, data_t *el3,
+    data_t *table, data_t *tableEnd, uint_t tableOffset, uint_t stride, data_t *el1, data_t *el2, data_t *el3,
     data_t *el4, data_t *el5, data_t *el6, data_t *el7, data_t *el8
 )
 {
-    load4<sortOrder>(table, tableOffset, stride, tableLen, el1, el2, el3, el4);
-    load4<sortOrder>(table + 2 * tableOffset, tableOffset, stride, tableLen - 2 * tableOffset, el5, el6, el7, el8);
+    load4<sortOrder>(table, tableEnd, tableOffset, stride, el1, el2, el3, el4);
+    load4<sortOrder>(table + 2 * tableOffset, tableEnd, tableOffset, stride, el5, el6, el7, el8);
 }
 
 /*
@@ -196,12 +196,12 @@ Stores 8 elements according to bitonic sort indexes.
 */
 template <order_t sortOrder>
 __device__ void store8(
-    data_t *table, uint_t tableOffset, int_t stride, int_t tableLen, data_t el1, data_t el2, data_t el3,
+    data_t *table, data_t *tableEnd, uint_t tableOffset, uint_t stride, data_t el1, data_t el2, data_t el3,
     data_t el4, data_t el5, data_t el6, data_t el7, data_t el8
 )
 {
-    store4<sortOrder>(table, tableOffset, stride, tableLen, el1, el2, el3, el4);
-    store4<sortOrder>(table + 2 * tableOffset, tableOffset, stride, tableLen - 2 * tableOffset, el5, el6, el7, el8);
+    store4<sortOrder>(table, tableEnd, tableOffset, stride, el1, el2, el3, el4);
+    store4<sortOrder>(table + 2 * tableOffset, tableEnd, tableOffset, stride, el5, el6, el7, el8);
 }
 
 /*
@@ -209,15 +209,14 @@ Loads 16 elements according to bitonic sort indexes.
 */
 template <order_t sortOrder>
 __device__ void load16(
-    data_t *table, uint_t tableOffset, int_t stride, int_t tableLen, data_t *el1, data_t *el2, data_t *el3,
+    data_t *table, data_t *tableEnd, uint_t tableOffset, uint_t stride, data_t *el1, data_t *el2, data_t *el3,
     data_t *el4, data_t *el5, data_t *el6, data_t *el7, data_t *el8, data_t *el9, data_t *el10, data_t *el11,
     data_t *el12, data_t *el13, data_t *el14, data_t *el15, data_t *el16
 )
 {
-    load8<sortOrder>(table, tableOffset, stride, tableLen, el1, el2, el3, el4, el5, el6, el7, el8);
+    load8<sortOrder>(table, tableEnd, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7, el8);
     load8<sortOrder>(
-        table + 4 * tableOffset, tableOffset, stride, tableLen - 4 * tableOffset, el9, el10, el11, el12, el13,
-        el14, el15, el16
+        table + 4 * tableOffset, tableEnd, tableOffset, stride, el9, el10, el11, el12, el13, el14, el15, el16
     );
 }
 
@@ -226,15 +225,14 @@ Stores 16 elements according to bitonic sort indexes.
 */
 template <order_t sortOrder>
 __device__ void store16(
-    data_t *table, uint_t tableOffset, int_t stride, int_t tableLen, data_t el1, data_t el2, data_t el3,
+    data_t *table, data_t *tableEnd, uint_t tableOffset, uint_t stride, data_t el1, data_t el2, data_t el3,
     data_t el4, data_t el5, data_t el6, data_t el7, data_t el8, data_t el9, data_t el10, data_t el11,
     data_t el12, data_t el13, data_t el14, data_t el15, data_t el16
 )
 {
-    store8<sortOrder>(table, tableOffset, stride, tableLen, el1, el2, el3, el4, el5, el6, el7, el8);
+    store8<sortOrder>(table, tableEnd, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7, el8);
     store8<sortOrder>(
-        table + 4 * tableOffset, tableOffset, stride, tableLen - 4 * tableOffset, el9, el10, el11, el12, el13,
-        el14, el15, el16
+        table + 4 * tableOffset, tableEnd, tableOffset, stride, el9, el10, el11, el12, el13, el14, el15, el16
     );
 }
 
@@ -243,7 +241,7 @@ Loads 32 elements according to bitonic sort indexes.
 */
 template <order_t sortOrder>
 __device__ void load32(
-    data_t *table, uint_t tableOffset, int_t stride, int_t tableLen, data_t *el1, data_t *el2, data_t *el3,
+    data_t *table, data_t *tableEnd, uint_t tableOffset, uint_t stride, data_t *el1, data_t *el2, data_t *el3,
     data_t *el4, data_t *el5, data_t *el6, data_t *el7, data_t *el8, data_t *el9, data_t *el10, data_t *el11,
     data_t *el12, data_t *el13, data_t *el14, data_t *el15, data_t *el16, data_t *el17, data_t *el18, data_t *el19,
     data_t *el20, data_t *el21, data_t *el22, data_t *el23, data_t *el24, data_t *el25, data_t *el26, data_t *el27,
@@ -251,12 +249,12 @@ __device__ void load32(
 )
 {
     load16<sortOrder>(
-        table, tableOffset, stride, tableLen, el1, el2, el3, el4, el5, el6, el7, el8, el9, el10, el11, el12,
+        table, tableEnd, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7, el8, el9, el10, el11, el12,
         el13, el14, el15, el16
     );
     load16<sortOrder>(
-        table + 8 * tableOffset, tableOffset, stride, tableLen - 8 * tableOffset, el17, el18, el19, el20,
-        el21, el22, el23, el24, el25, el26, el27, el28, el29, el30, el31, el32
+        table + 8 * tableOffset, tableEnd, tableOffset, stride, el17, el18, el19, el20, el21, el22, el23,
+        el24, el25, el26, el27, el28, el29, el30, el31, el32
     );
 }
 
@@ -265,7 +263,7 @@ Stores 32 elements according to bitonic sort indexes.
 */
 template <order_t sortOrder>
 __device__ void store32(
-    data_t *table, uint_t tableOffset, int_t stride, int_t tableLen, data_t el1, data_t el2, data_t el3,
+    data_t *table, data_t *tableEnd, uint_t tableOffset, uint_t stride, data_t el1, data_t el2, data_t el3,
     data_t el4, data_t el5, data_t el6, data_t el7, data_t el8, data_t el9, data_t el10, data_t el11,
     data_t el12, data_t el13, data_t el14, data_t el15, data_t el16, data_t el17, data_t el18, data_t el19,
     data_t el20, data_t el21, data_t el22, data_t el23, data_t el24, data_t el25, data_t el26, data_t el27,
@@ -273,12 +271,12 @@ __device__ void store32(
 )
 {
     store16<sortOrder>(
-        table, tableOffset, stride, tableLen, el1, el2, el3, el4, el5, el6, el7, el8, el9, el10, el11, el12,
+        table, tableEnd, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7, el8, el9, el10, el11, el12,
         el13, el14, el15, el16
     );
     store16<sortOrder>(
-        table + 8 * tableOffset, tableOffset, stride, tableLen - 8 * tableOffset, el17, el18, el19, el20, el21,
-        el22, el23, el24, el25, el26, el27, el28, el29, el30, el31, el32
+        table + 8 * tableOffset, tableEnd, tableOffset, stride, el17, el18, el19, el20, el21, el22, el23,
+        el24, el25, el26, el27, el28, el29, el30, el31, el32
     );
 }
 
@@ -373,47 +371,47 @@ template __global__ void bitonicSortKernel<ORDER_DESC>(data_t *dataTable, uint_t
 Performs bitonic merge with 1-multistep (sorts 2 elements per thread).
 */
 template <order_t sortOrder>
-__global__ void multiStep1Kernel(data_t *table, int_t tableLen, uint_t step)
+__global__ void multiStep1Kernel(data_t *table, uint_t tableLen, uint_t step)
 {
     uint_t stride, tableOffset, indexTable;
     data_t el1, el2;
 
     getMultiStepParams(step, 1, stride, tableOffset, indexTable);
 
-    load2<sortOrder>(table + indexTable, stride, tableLen - indexTable - 1, &el1, &el2);
+    load2<sortOrder>(table + indexTable, table + tableLen, stride, &el1, &el2);
     compareExchange2<sortOrder>(&el1, &el2);
-    store2<sortOrder>(table + indexTable, stride, tableLen - indexTable - 1, el1, el2);
+    store2<sortOrder>(table + indexTable, table + tableLen, stride, el1, el2);
 }
 
-template __global__ void multiStep1Kernel<ORDER_ASC>(data_t *table, int_t tableLen, uint_t step);
-template __global__ void multiStep1Kernel<ORDER_DESC>(data_t *table, int_t tableLen, uint_t step);
+template __global__ void multiStep1Kernel<ORDER_ASC>(data_t *table, uint_t tableLen, uint_t step);
+template __global__ void multiStep1Kernel<ORDER_DESC>(data_t *table, uint_t tableLen, uint_t step);
 
 
 /*
 Performs bitonic merge with 2-multistep (sorts 4 elements per thread).
 */
 template <order_t sortOrder>
-__global__ void multiStep2Kernel(data_t *table, int_t tableLen, uint_t step)
+__global__ void multiStep2Kernel(data_t *table, uint_t tableLen, uint_t step)
 {
     uint_t stride, tableOffset, indexTable;
     data_t el1, el2, el3, el4;
 
     getMultiStepParams(step, 2, stride, tableOffset, indexTable);
 
-    load4<sortOrder>(table + indexTable, tableOffset, stride, tableLen - indexTable - 1, &el1, &el2, &el3, &el4);
+    load4<sortOrder>(table + indexTable, table + tableLen, tableOffset, stride, &el1, &el2, &el3, &el4);
     compareExchange4<sortOrder>(&el1, &el2, &el3, &el4);
-    store4<sortOrder>(table + indexTable, tableOffset, stride, tableLen - indexTable - 1, el1, el2, el3, el4);
+    store4<sortOrder>(table + indexTable, table + tableLen, tableOffset, stride, el1, el2, el3, el4);
 }
 
-template __global__ void multiStep2Kernel<ORDER_ASC>(data_t *table, int_t tableLen, uint_t step);
-template __global__ void multiStep2Kernel<ORDER_DESC>(data_t *table, int_t tableLen, uint_t step);
+template __global__ void multiStep2Kernel<ORDER_ASC>(data_t *table, uint_t tableLen, uint_t step);
+template __global__ void multiStep2Kernel<ORDER_DESC>(data_t *table, uint_t tableLen, uint_t step);
 
 
 /*
 Performs bitonic merge with 3-multistep (sorts 8 elements per thread).
 */
 template <order_t sortOrder>
-__global__ void multiStep3Kernel(data_t *table, int_t tableLen, uint_t step)
+__global__ void multiStep3Kernel(data_t *table, uint_t tableLen, uint_t step)
 {
     uint_t stride, tableOffset, indexTable;
     data_t el1, el2, el3, el4, el5, el6, el7, el8;
@@ -421,25 +419,24 @@ __global__ void multiStep3Kernel(data_t *table, int_t tableLen, uint_t step)
     getMultiStepParams(step, 3, stride, tableOffset, indexTable);
 
     load8<sortOrder>(
-        table + indexTable, tableOffset, stride, tableLen - indexTable - 1, &el1, &el2, &el3, &el4, &el5, &el6,
+        table + indexTable, table + tableLen, tableOffset, stride, &el1, &el2, &el3, &el4, &el5, &el6,
         &el7, &el8
     );
     compareExchange8<sortOrder>(&el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8);
     store8<sortOrder>(
-        table + indexTable, tableOffset, stride, tableLen - indexTable - 1, el1, el2, el3, el4, el5, el6,
-        el7, el8
+        table + indexTable, table + tableLen, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7, el8
     );
 }
 
-template __global__ void multiStep3Kernel<ORDER_ASC>(data_t *table, int_t tableLen, uint_t step);
-template __global__ void multiStep3Kernel<ORDER_DESC>(data_t *table, int_t tableLen, uint_t step);
+template __global__ void multiStep3Kernel<ORDER_ASC>(data_t *table, uint_t tableLen, uint_t step);
+template __global__ void multiStep3Kernel<ORDER_DESC>(data_t *table, uint_t tableLen, uint_t step);
 
 
 /*
 Performs bitonic merge with 4-multistep (sorts 16 elements per thread).
 */
 template <order_t sortOrder>
-__global__ void multiStep4Kernel(data_t *table, int_t tableLen, uint_t step)
+__global__ void multiStep4Kernel(data_t *table, uint_t tableLen, uint_t step)
 {
     uint_t stride, tableOffset, indexTable;
     data_t el1, el2, el3, el4, el5, el6, el7, el8, el9, el10, el11, el12, el13, el14, el15, el16;
@@ -447,27 +444,27 @@ __global__ void multiStep4Kernel(data_t *table, int_t tableLen, uint_t step)
     getMultiStepParams(step, 4, stride, tableOffset, indexTable);
 
     load16<sortOrder>(
-        table + indexTable, tableOffset, stride, tableLen - indexTable - 1, &el1, &el2, &el3, &el4, &el5,
-        &el6, &el7, &el8, &el9, &el10, &el11, &el12, &el13, &el14, &el15, &el16
+        table + indexTable, table + tableLen, tableOffset, stride, &el1, &el2, &el3, &el4, &el5, &el6, &el7,
+        &el8, &el9, &el10, &el11, &el12, &el13, &el14, &el15, &el16
     );
     compareExchange16<sortOrder>(
         &el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8, &el9, &el10, &el11, &el12, &el13, &el14, &el15, &el16
     );
     store16<sortOrder>(
-        table + indexTable, tableOffset, stride, tableLen - indexTable - 1, el1, el2, el3, el4, el5,
-        el6, el7, el8, el9, el10, el11, el12, el13, el14, el15, el16
+        table + indexTable, table + tableLen, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7, el8,
+        el9, el10, el11, el12, el13, el14, el15, el16
     );
 }
 
-template __global__ void multiStep4Kernel<ORDER_ASC>(data_t *table, int_t tableLen, uint_t step);
-template __global__ void multiStep4Kernel<ORDER_DESC>(data_t *table, int_t tableLen, uint_t step);
+template __global__ void multiStep4Kernel<ORDER_ASC>(data_t *table, uint_t tableLen, uint_t step);
+template __global__ void multiStep4Kernel<ORDER_DESC>(data_t *table, uint_t tableLen, uint_t step);
 
 
 /*
 Performs bitonic merge with 5-multistep (sorts 32 elements per thread).
 */
 template <order_t sortOrder>
-__global__ void multiStep5Kernel(data_t *table, int_t tableLen, uint_t step)
+__global__ void multiStep5Kernel(data_t *table, uint_t tableLen, uint_t step)
 {
     uint_t stride, tableOffset, indexTable;
     data_t el1, el2, el3, el4, el5, el6, el7, el8, el9, el10, el11, el12, el13, el14, el15, el16, el17,
@@ -476,9 +473,9 @@ __global__ void multiStep5Kernel(data_t *table, int_t tableLen, uint_t step)
     getMultiStepParams(step, 5, stride, tableOffset, indexTable);
 
     load32<sortOrder>(
-        table + indexTable, tableOffset, stride, tableLen - indexTable - 1, &el1, &el2, &el3, &el4, &el5,
-        &el6, &el7, &el8, &el9, &el10, &el11, &el12, &el13, &el14, &el15, &el16, &el17, &el18, &el19, &el20,
-        &el21, &el22, &el23, &el24, &el25, &el26, &el27, &el28, &el29, &el30, &el31, &el32
+        table + indexTable, table + tableLen, tableOffset, stride, &el1, &el2, &el3, &el4, &el5, &el6, &el7,
+        &el8, &el9, &el10, &el11, &el12, &el13, &el14, &el15, &el16, &el17, &el18, &el19, &el20, &el21,
+        &el22, &el23, &el24, &el25, &el26, &el27, &el28, &el29, &el30, &el31, &el32
     );
     compareExchange32<sortOrder>(
         &el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8, &el9, &el10, &el11, &el12, &el13, &el14, &el15, &el16,
@@ -486,14 +483,14 @@ __global__ void multiStep5Kernel(data_t *table, int_t tableLen, uint_t step)
         &el31, &el32
     );
     store32<sortOrder>(
-        table + indexTable, tableOffset, stride, tableLen - indexTable - 1, el1, el2, el3, el4, el5, el6,
-        el7, el8, el9, el10, el11, el12, el13, el14, el15, el16, el17, el18, el19, el20, el21, el22, el23,
-        el24, el25, el26, el27, el28, el29, el30, el31, el32
+        table + indexTable, table + tableLen, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7, el8,
+        el9, el10, el11, el12, el13, el14, el15, el16, el17, el18, el19, el20, el21, el22, el23, el24, el25,
+        el26, el27, el28, el29, el30, el31, el32
     );
 }
 
-template __global__ void multiStep5Kernel<ORDER_ASC>(data_t *table, int_t tableLen, uint_t step);
-template __global__ void multiStep5Kernel<ORDER_DESC>(data_t *table, int_t tableLen, uint_t step);
+template __global__ void multiStep5Kernel<ORDER_ASC>(data_t *table, uint_t tableLen, uint_t step);
+template __global__ void multiStep5Kernel<ORDER_DESC>(data_t *table, uint_t tableLen, uint_t step);
 
 
 /*
