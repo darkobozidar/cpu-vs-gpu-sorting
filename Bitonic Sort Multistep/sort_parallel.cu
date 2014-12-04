@@ -34,19 +34,25 @@ void runBitoicSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder) 
 }
 
 /*
-Runs multistep kernel, which uses registers.
+Runs bitonic multistep merge kernel, which uses registers. Multistep means, that every thread reads
+multiple elements and sorts them according to bitonic sort exchanges for N steps ahead.
 */
 void runMultiStepKernel(
     data_t *table, uint_t tableLen, uint_t phase, uint_t step, uint_t degree, order_t sortOrder
 )
 {
+    // Breaks table len into its power of 2 length and the remainder.
     uint_t power2tableLen = previousPowerOf2(tableLen);
     uint_t residueTableLen = tableLen % power2tableLen;
 
     uint_t partitionSize = (power2tableLen - 1) / (1 << degree) + 1;
+    // For remainder the size of partition has to be calculated explicitly, becaause it depends on
+    // remainder size, step and degree
     if (residueTableLen > 0)
     {
+        // The size of one sub-block which is sorted with same group of comparissons.
         uint_t subBlockSize = 1 << step;
+        // Rouns the residue size to the next power of sub-block size
         uint_t power2residueTableLen = roundUp(residueTableLen, subBlockSize);
         partitionSize += min(residueTableLen, (power2residueTableLen - 1) / (1 << degree) + 1);
     }
@@ -204,9 +210,10 @@ double sortParallel(data_t *h_output, data_t *d_dataTable, uint_t tableLen, orde
     {
         uint_t step = phase;
 
-        // Global bitonic merge for first step of phase when different elements are required than in other steps
         if (step > phasesMergeLocal && step == phase)
         {
+            // Global NORMALIZED bitonic merge for first step of phase, where different pattern of exchanges
+            // is used compared to other steps
             runBitonicMergeGlobalKernel(d_dataTable, tableLen, phase, step, sortOrder);
             step--;
 

@@ -10,7 +10,7 @@
 
 
 /*
-Compares 2 elements and exchanges them according to orderAsc.
+Compares 2 elements and exchanges them according to sortOrder.
 */
 template <order_t sortOrder>
 __device__ void compareExchange(data_t *elem1, data_t *elem2)
@@ -127,7 +127,7 @@ template __global__ void bitonicMergeGlobalKernel<ORDER_DESC, false>(data_t *dat
 
 
 /*
-Global bitonic merge for sections, where stride IS LOWER OR EQUAL than max shared memory.
+Local bitonic merge for sections, where stride IS LOWER OR EQUAL than max shared memory.
 */
 template <order_t sortOrder, bool isFirstStepOfPhase>
 __global__ void bitonicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint_t step)
