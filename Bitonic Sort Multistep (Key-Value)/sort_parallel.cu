@@ -38,7 +38,7 @@ Runs bitonic multistep merge kernel, which uses registers. Multistep means, that
 multiple elements and sorts them according to bitonic sort exchanges for N steps ahead.
 */
 void runMultiStepKernel(
-    data_t *table, uint_t tableLen, uint_t phase, uint_t step, uint_t degree, order_t sortOrder
+    data_t *keys, data_t *values, uint_t tableLen, uint_t phase, uint_t step, uint_t degree, order_t sortOrder
 )
 {
     // Breaks table len into its power of 2 length and the remainder.
@@ -67,14 +67,14 @@ void runMultiStepKernel(
     {
         if (sortOrder == ORDER_ASC)
         {
-            multiStep1Kernel<ORDER_ASC><<<dimGrid, dimBlock>>>(table, tableLen, step);
+            multiStep1Kernel<ORDER_ASC><<<dimGrid, dimBlock>>>(keys, values, tableLen, step);
         }
         else
         {
-            multiStep1Kernel<ORDER_DESC><<<dimGrid, dimBlock>>>(table, tableLen, step);
+            multiStep1Kernel<ORDER_DESC><<<dimGrid, dimBlock>>>(keys, values, tableLen, step);
         }
     }
-    else if (degree == 2)
+    /*else if (degree == 2)
     {
         if (sortOrder == ORDER_ASC)
         {
@@ -128,7 +128,7 @@ void runMultiStepKernel(
         {
             multiStep6Kernel<ORDER_DESC><<<dimGrid, dimBlock>>>(table, tableLen, step);
         }
-    }
+    }*/
 }
 
 /*
@@ -235,7 +235,7 @@ double sortParallel(
             {
                 for (; step >= phasesMergeLocal + degree; step -= degree)
                 {
-                    runMultiStepKernel(d_keys, tableLen, phase, step, degree, sortOrder);
+                    runMultiStepKernel(d_keys, d_values, tableLen, phase, step, degree, sortOrder);
                 }
             }
         }
