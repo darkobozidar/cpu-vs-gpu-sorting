@@ -191,9 +191,23 @@ Loads 2 elements if they are inside table length boundaries. In opposite case MI
 template <order_t sortOrder>
 __device__ void load2(data_t *table, data_t *tableEnd, uint_t stride, data_t *el1, data_t *el2)
 {
-    data_t val = sortOrder == ORDER_ASC ? MAX_VAL : MIN_VAL;
-    *el1 = table < tableEnd ? table[0] : val;
-    *el2 = table + stride < tableEnd ? table[stride] : val;
+    if (table < tableEnd)
+    {
+        *el1 = table[0];
+    }
+    else
+    {
+        *el1 = sortOrder == ORDER_ASC ? MAX_VAL : MIN_VAL;
+    }
+
+    if (table + stride < tableEnd)
+    {
+        *el2 = table[stride];
+    }
+    else
+    {
+        *el2 = sortOrder == ORDER_ASC ? MAX_VAL : MIN_VAL;
+    }
 }
 
 /*
