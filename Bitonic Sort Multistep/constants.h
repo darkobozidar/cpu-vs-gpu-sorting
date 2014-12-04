@@ -2,7 +2,6 @@
 #define CONSTANTS_H
 
 /* ---------------- BITONIC SORT KERNEL -------------- */
-// Bottom 2 constants are limited by shared memory size
 
 // How many threads are used per one thread block for bitonic sort, which is performed entirely
 // in shared memory. Has to be power of 2.
@@ -13,8 +12,11 @@
 
 
 /* -------------- MULTISTEP MERGE KERNEL ------------- */
+
+// How many threads are used per one thread block in multistep kernel. Has to be power of 2.
 #define THREADS_PER_MULTISTEP_MERGE 512
-// Max value is 5.
+// How much is the biggest allowed multistep - how many elements are sorted by one thread.
+// Min value is 1, max value is 5.
 #define MAX_MULTI_STEP 5
 
 

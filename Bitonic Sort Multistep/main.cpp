@@ -41,7 +41,7 @@ int main(int argc, char **argv) {
     );
     allocDeviceMemory(&d_dataTable, tableLen);
 
-    printf(">>> BITONIC SORT <<<\n\n\n");
+    printf(">>> MULTISTEP BITONIC SORT <<<\n\n\n");
     printDataDistribution(distribution);
     printf("> Array length: %d\n", tableLen);
     if (printMeaurements)

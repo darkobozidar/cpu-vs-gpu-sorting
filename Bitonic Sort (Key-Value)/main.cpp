@@ -69,6 +69,8 @@ int main(int argc, char **argv) {
             d_dataTableValues, h_inputValues, tableLen * sizeof(*d_dataTableValues), cudaMemcpyHostToDevice
         );
         checkCudaError(error);
+        error = cudaDeviceSynchronize();
+        checkCudaError(error);
         timers[SORT_PARALLEL][i] = sortParallel(
             h_outputParallelKeys, h_outputParallelValues, d_dataTableKeys, d_dataTableValues, tableLen, sortOrder
         );

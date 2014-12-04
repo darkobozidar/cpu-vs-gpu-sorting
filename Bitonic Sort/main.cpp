@@ -57,6 +57,8 @@ int main(int argc, char **argv) {
         // Sort parallel
         error = cudaMemcpy(d_dataTable, h_input, tableLen * sizeof(*d_dataTable), cudaMemcpyHostToDevice);
         checkCudaError(error);
+        error = cudaDeviceSynchronize();
+        checkCudaError(error);
         timers[SORT_PARALLEL][i] = sortParallel(h_outputParallel, d_dataTable, tableLen, sortOrder);
 
         // Sort sequential

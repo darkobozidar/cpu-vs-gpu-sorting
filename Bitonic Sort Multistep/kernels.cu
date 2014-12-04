@@ -199,7 +199,7 @@ __device__ void load32(
     data_t *el12, data_t *el13, data_t *el14, data_t *el15, data_t *el16, data_t *el17, data_t *el18, data_t *el19,
     data_t *el20, data_t *el21, data_t *el22, data_t *el23, data_t *el24, data_t *el25, data_t *el26, data_t *el27,
     data_t *el28, data_t *el29, data_t *el30, data_t *el31, data_t *el32
-    )
+)
 {
     load16<sortOrder>(
         table, tableOffset, stride, tableLen, el1, el2, el3, el4, el5, el6, el7, el8, el9, el10, el11, el12,
@@ -218,7 +218,7 @@ __device__ void store32(
     data_t el12, data_t el13, data_t el14, data_t el15, data_t el16, data_t el17, data_t el18, data_t el19,
     data_t el20, data_t el21, data_t el22, data_t el23, data_t el24, data_t el25, data_t el26, data_t el27,
     data_t el28, data_t el29, data_t el30, data_t el31, data_t el32
-    )
+)
 {
     store16<sortOrder>(
         table, tableOffset, stride, tableLen, el1, el2, el3, el4, el5, el6, el7, el8, el9, el10, el11, el12,

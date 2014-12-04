@@ -3,7 +3,6 @@
 
 
 /* ---------------- BITONIC SORT KERNEL -------------- */
-// Bottom 2 constants are limited by shared memory size
 
 // How many threads are used per one thread block for bitonic sort, which is performed entirely
 // in shared memory. Has to be power of 2.
