@@ -28,6 +28,24 @@ __device__ void compareExchange2(data_t *el1, data_t *el2)
 }
 
 /*
+Compares 2 elements and exchanges them according to sortOrder.
+*/
+template <order_t sortOrder>
+__device__ void compareExchange(data_t *key1, data_t *key2, data_t *val1, data_t *val2)
+{
+    if ((*key1 > *key2) ^ sortOrder)
+    {
+        data_t temp = *key1;
+        *key1 = *key2;
+        *key2 = temp;
+
+        temp = *val1;
+        *val1 = *val2;
+        *val2 = temp;
+    }
+}
+
+/*
 Compares and exchanges elements according to bitonic sort for 4 elements.
 */
 template <order_t sortOrder>
@@ -423,7 +441,7 @@ __device__ void getMultiStepParams(
 Sorts sub-blocks of input data with NORMALIZED bitonic sort.
 */
 template <order_t sortOrder>
-__global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen)
+__global__ void bitonicSortKernel(data_t *keys, data_t *values, uint_t tableLen)
 {
     extern __shared__ data_t bitonicSortTile[];
 
@@ -431,10 +449,14 @@ __global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen)
     uint_t offset = blockIdx.x * elemsPerThreadBlock;
     uint_t dataBlockLength = offset + elemsPerThreadBlock <= tableLen ? elemsPerThreadBlock : tableLen - offset;
 
+    data_t *keysTile = bitonicSortTile;
+    data_t *valuesTile = bitonicSortTile + dataBlockLength;
+
     // Reads data from global to shared memory.
     for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_BITONIC_SORT)
     {
-        bitonicSortTile[tx] = dataTable[offset + tx];
+        keysTile[tx] = keys[offset + tx];
+        valuesTile[tx] = values[offset + tx];
     }
     __syncthreads();
 
@@ -466,7 +488,9 @@ __global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen)
                     break;
                 }
 
-                compareExchange2<sortOrder>(&bitonicSortTile[index], &bitonicSortTile[index + offset]);
+                compareExchange<sortOrder>(
+                    &keysTile[index], &keysTile[index + offset], &valuesTile[index], &valuesTile[index + offset]
+                );
             }
 
             __syncthreads();
@@ -475,12 +499,13 @@ __global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen)
 
     // Stores data from shared to global memory
     for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_BITONIC_SORT) {
-        dataTable[offset + tx] = bitonicSortTile[tx];
+        keys[offset + tx] = keysTile[tx];
+        values[offset + tx] = valuesTile[tx];
     }
 }
 
-template __global__ void bitonicSortKernel<ORDER_ASC>(data_t *dataTable, uint_t tableLen);
-template __global__ void bitonicSortKernel<ORDER_DESC>(data_t *dataTable, uint_t tableLen);
+template __global__ void bitonicSortKernel<ORDER_ASC>(data_t *keys, data_t *values, uint_t tableLen);
+template __global__ void bitonicSortKernel<ORDER_DESC>(data_t *keys, data_t *values, uint_t tableLen);
 
 
 /*

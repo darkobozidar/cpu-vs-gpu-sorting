@@ -4,7 +4,7 @@
 
 // Bitonic sort
 template <order_t sortOrder>
-__global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen);
+__global__ void bitonicSortKernel(data_t *keys, data_t *values, uint_t tableLen);
 
 // Bitonic multistep merge
 template <order_t sortOrder>
