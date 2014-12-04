@@ -14,7 +14,8 @@
 
 /* -------------- MULTISTEP MERGE KERNEL ------------- */
 #define THREADS_PER_MULTISTEP_MERGE 512
-#define MAX_MULTI_STEP 4
+// Max value is 5.
+#define MAX_MULTI_STEP 5
 
 
 /* --------------- BITONIC MERGE GLOBAL -------------- */

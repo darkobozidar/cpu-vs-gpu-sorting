@@ -101,6 +101,17 @@ void runMultiStepKernel(
             multiStep4Kernel<ORDER_DESC><<<dimGrid, dimBlock>>>(table, tableLen, step);
         }
     }
+    else if (degree == 5)
+    {
+        if (sortOrder == ORDER_ASC)
+        {
+            multiStep5Kernel<ORDER_ASC><<<dimGrid, dimBlock>>>(table, tableLen, step);
+        }
+        else
+        {
+            multiStep5Kernel<ORDER_DESC><<<dimGrid, dimBlock>>>(table, tableLen, step);
+        }
+    }
 }
 
 /*
