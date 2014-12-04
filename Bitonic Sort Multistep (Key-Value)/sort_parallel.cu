@@ -135,7 +135,9 @@ void runMultiStepKernel(
 Merges array, if data blocks are larger than shared memory size. It executes only of STEP on PHASE per
 kernel launch.
 */
-void runBitonicMergeGlobalKernel(data_t *dataTable, uint_t tableLen, uint_t phase, uint_t step, order_t sortOrder)
+void runBitonicMergeGlobalKernel(
+    data_t *keys, data_t *values, uint_t tableLen, uint_t phase, uint_t step, order_t sortOrder
+)
 {
     uint_t elemsPerThreadBlock = THREADS_PER_GLOBAL_MERGE * ELEMS_PER_THREAD_GLOBAL_MERGE;
     dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
@@ -143,22 +145,22 @@ void runBitonicMergeGlobalKernel(data_t *dataTable, uint_t tableLen, uint_t phas
 
     if (sortOrder == ORDER_ASC)
     {
-        bitonicMergeGlobalKernel<ORDER_ASC><<<dimGrid, dimBlock>>>(dataTable, tableLen, step);
+        bitonicMergeGlobalKernel<ORDER_ASC><<<dimGrid, dimBlock>>>(keys, values, tableLen, step);
     }
     else
     {
-        bitonicMergeGlobalKernel<ORDER_DESC><<<dimGrid, dimBlock>>>(dataTable, tableLen, step);
+        bitonicMergeGlobalKernel<ORDER_DESC><<<dimGrid, dimBlock>>>(keys, values, tableLen, step);
     }
 }
 
 /*
 Merges array when stride is lower than shared memory size. It executes all remaining STEPS of current PHASE.
 */
-void runBitoicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint_t phase, uint_t step, order_t sortOrder)
+void runBitoicMergeLocalKernel(data_t *keys, data_t *values, uint_t tableLen, uint_t phase, uint_t step, order_t sortOrder)
 {
     // Every thread loads and sorts 2 elements
     uint_t elemsPerThreadBlock = THREADS_PER_LOCAL_MERGE * ELEMS_PER_THREAD_LOCAL_MERGE;
-    uint_t sharedMemSize = elemsPerThreadBlock * sizeof(*dataTable);
+    uint_t sharedMemSize = 2 * elemsPerThreadBlock * sizeof(*keys);  // "2 *" becaues of key-value pairs
     dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
     dim3 dimBlock(THREADS_PER_LOCAL_MERGE, 1, 1);
 
@@ -166,31 +168,29 @@ void runBitoicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint_t phase,
 
     if (sortOrder == ORDER_ASC)
     {
-        if (isFirstStepOfPhase)
-        {
+        if (isFirstStepOfPhase) {
             bitonicMergeLocalKernel<ORDER_ASC, true><<<dimGrid, dimBlock, sharedMemSize>>>(
-                dataTable, tableLen, step
+                keys, values, tableLen, step
             );
         }
         else
         {
             bitonicMergeLocalKernel<ORDER_ASC, false><<<dimGrid, dimBlock, sharedMemSize>>>(
-                dataTable, tableLen, step
+                keys, values, tableLen, step
             );
         }
     }
     else
     {
-        if (isFirstStepOfPhase)
-        {
+        if (isFirstStepOfPhase) {
             bitonicMergeLocalKernel<ORDER_DESC, true><<<dimGrid, dimBlock, sharedMemSize>>>(
-                dataTable, tableLen, step
+                keys, values, tableLen, step
             );
         }
         else
         {
             bitonicMergeLocalKernel<ORDER_DESC, false><<<dimGrid, dimBlock, sharedMemSize>>>(
-                dataTable, tableLen, step
+                keys, values, tableLen, step
             );
         }
     }
@@ -227,7 +227,7 @@ double sortParallel(
         {
             // Global NORMALIZED bitonic merge for first step of phase, where different pattern of exchanges
             // is used compared to other steps
-            runBitonicMergeGlobalKernel(d_keys, tableLen, phase, step, sortOrder);
+            runBitonicMergeGlobalKernel(d_keys, d_values, tableLen, phase, step, sortOrder);
             step--;
 
             // Multisteps
@@ -240,7 +240,7 @@ double sortParallel(
             }
         }
 
-        runBitoicMergeLocalKernel(d_keys, tableLen, phase, step, sortOrder);
+        runBitoicMergeLocalKernel(d_keys, d_values, tableLen, phase, step, sortOrder);
     }
 
     error = cudaDeviceSynchronize();
@@ -248,6 +248,8 @@ double sortParallel(
     double time = endStopwatch(timer);
 
     error = cudaMemcpy(h_keys, d_keys, tableLen * sizeof(*h_keys), cudaMemcpyDeviceToHost);
+    checkCudaError(error);
+    error = cudaMemcpy(h_values, d_values, tableLen * sizeof(*h_values), cudaMemcpyDeviceToHost);
     checkCudaError(error);
 
     return time;
