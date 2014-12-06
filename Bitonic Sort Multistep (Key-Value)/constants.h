@@ -17,7 +17,7 @@
 #define THREADS_PER_MULTISTEP_MERGE 512
 // How much is the biggest allowed multistep - how many elements are sorted by one thread.
 // Min value is 1, max value is 6.
-#define MAX_MULTI_STEP 1
+#define MAX_MULTI_STEP 2
 
 
 /* --------------- BITONIC MERGE GLOBAL -------------- */

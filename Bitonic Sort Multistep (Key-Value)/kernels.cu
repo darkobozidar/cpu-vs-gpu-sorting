@@ -32,21 +32,23 @@ __device__ void compareExchange2(data_t *key1, data_t *key2, data_t *val1, data_
     }
 }
 
-///*
-//Compares and exchanges elements according to bitonic sort for 4 elements.
-//*/
-//template <order_t sortOrder>
-//__device__ void compareExchange4(data_t *el1, data_t *el2, data_t *el3, data_t *el4)
-//{
-//    // Step n + 1
-//    compareExchange2<sortOrder>(el1, el2);
-//    compareExchange2<sortOrder>(el3, el4);
-//
-//    // Step n
-//    compareExchange2<sortOrder>(el1, el3);
-//    compareExchange2<sortOrder>(el2, el4);
-//}
-//
+/*
+Compares and exchanges elements according to bitonic sort for 4 elements.
+*/
+template <order_t sortOrder>
+__device__ void compareExchange4(
+    data_t *key1, data_t *key2, data_t *key3, data_t *key4, data_t *val1, data_t *val2, data_t *val3, data_t *val4
+)
+{
+    // Step n + 1
+    compareExchange2<sortOrder>(key1, key2, val1, val2);
+    compareExchange2<sortOrder>(key3, key4, val3, val4);
+
+    // Step n
+    compareExchange2<sortOrder>(key1, key3, val1, val3);
+    compareExchange2<sortOrder>(key2, key4, val2, val4);
+}
+
 ///*
 //Compares and exchanges elements according to bitonic sort for 8 elements.
 //*/
@@ -242,32 +244,36 @@ __device__ void store2(
     }
 }
 
-///*
-//Loads 4 elements according to bitonic sort indexes.
-//*/
-//template <order_t sortOrder>
-//__device__ void load4(
-//    data_t *table, data_t *tableEnd, uint_t tableOffset, uint_t stride, data_t *el1, data_t *el2, data_t *el3,
-//    data_t *el4
-//)
-//{
-//    load2<sortOrder>(table, tableEnd, stride, el1, el2);
-//    load2<sortOrder>(table + tableOffset, tableEnd, stride, el3, el4);
-//}
-//
-///*
-//Stores 4 elements according to bitonic sort indexes.
-//*/
-//template <order_t sortOrder>
-//__device__ void store4(
-//    data_t *table, data_t *tableEnd, uint_t tableOffset, uint_t stride, data_t el1, data_t el2, data_t el3,
-//    data_t el4
-//)
-//{
-//    store2<sortOrder>(table, tableEnd, stride, el1, el2);
-//    store2<sortOrder>(table + tableOffset, tableEnd, stride, el3, el4);
-//}
-//
+/*
+Loads 4 elements according to bitonic sort indexes.
+*/
+template <order_t sortOrder>
+__device__ void load4(
+    data_t *keys, data_t *values, int_t tableLen, uint_t tableOffset, int_t stride, data_t *key1, data_t *key2,
+    data_t *key3, data_t *key4, data_t *val1, data_t *val2, data_t *val3, data_t *val4
+)
+{
+    load2<sortOrder>(keys, values, tableLen, stride, key1, key2, val1, val2);
+    load2<sortOrder>(
+        keys + tableOffset, values + tableOffset, tableLen - tableOffset, stride, key3, key4, val3, val4
+    );
+}
+
+/*
+Stores 4 elements according to bitonic sort indexes.
+*/
+template <order_t sortOrder>
+__device__ void store4(
+    data_t *keys, data_t *values, int_t tableLen, uint_t tableOffset, int_t stride, data_t key1, data_t key2,
+    data_t key3, data_t key4, data_t val1, data_t val2, data_t val3, data_t val4
+)
+{
+    store2<sortOrder>(keys, values, tableLen, stride, key1, key2, val1, val2);
+    store2<sortOrder>(
+        keys + tableOffset, values + tableOffset, tableLen - tableOffset, stride, key3, key4, val3, val4
+    );
+}
+
 //*
 //Loads 8 elements according to bitonic sort indexes.
 //*/
@@ -524,7 +530,7 @@ template __global__ void bitonicSortKernel<ORDER_DESC>(data_t *keys, data_t *val
 Performs bitonic merge with 1-multistep (sorts 2 elements per thread).
 */
 template <order_t sortOrder>
-__global__ void multiStep1Kernel(data_t *keys, data_t *values, uint_t tableLen, uint_t step)
+__global__ void multiStep1Kernel(data_t *keys, data_t *values, int_t tableLen, uint_t step)
 {
     uint_t stride, tableOffset, indexTable;
     data_t key1, key2;
@@ -541,30 +547,37 @@ __global__ void multiStep1Kernel(data_t *keys, data_t *values, uint_t tableLen, 
     );
 }
 
-template __global__ void multiStep1Kernel<ORDER_ASC>(data_t *key, data_t *values, uint_t tableLen, uint_t step);
-template __global__ void multiStep1Kernel<ORDER_DESC>(data_t *key, data_t *values, uint_t tableLen, uint_t step);
+template __global__ void multiStep1Kernel<ORDER_ASC>(data_t *key, data_t *values, int_t tableLen, uint_t step);
+template __global__ void multiStep1Kernel<ORDER_DESC>(data_t *key, data_t *values, int_t tableLen, uint_t step);
 
 
-///*
-//Performs bitonic merge with 2-multistep (sorts 4 elements per thread).
-//*/
-//template <order_t sortOrder>
-//__global__ void multiStep2Kernel(data_t *table, uint_t tableLen, uint_t step)
-//{
-//    uint_t stride, tableOffset, indexTable;
-//    data_t el1, el2, el3, el4;
-//
-//    getMultiStepParams(step, 2, stride, tableOffset, indexTable);
-//
-//    load4<sortOrder>(table + indexTable, table + tableLen, tableOffset, stride, &el1, &el2, &el3, &el4);
-//    compareExchange4<sortOrder>(&el1, &el2, &el3, &el4);
-//    store4<sortOrder>(table + indexTable, table + tableLen, tableOffset, stride, el1, el2, el3, el4);
-//}
-//
-//template __global__ void multiStep2Kernel<ORDER_ASC>(data_t *table, uint_t tableLen, uint_t step);
-//template __global__ void multiStep2Kernel<ORDER_DESC>(data_t *table, uint_t tableLen, uint_t step);
-//
-//
+/*
+Performs bitonic merge with 2-multistep (sorts 4 elements per thread).
+*/
+template <order_t sortOrder>
+__global__ void multiStep2Kernel(data_t *keys, data_t *values, int_t tableLen, uint_t step)
+{
+    uint_t stride, tableOffset, indexTable;
+    data_t key1, key2, key3, key4;
+    data_t val1, val2, val3, val4;
+
+    getMultiStepParams(step, 2, stride, tableOffset, indexTable);
+
+    load4<sortOrder>(
+        keys + indexTable, values + indexTable, tableLen - indexTable - 1, tableOffset, stride,
+        &key1, &key2, &key3, &key4, &val1, &val2, &val3, &val4
+    );
+    compareExchange4<sortOrder>(&key1, &key2, &key3, &key4, &val1, &val2, &val3, &val4);
+    store4<sortOrder>(
+        keys + indexTable, values + indexTable, tableLen - indexTable - 1, tableOffset, stride,
+        key1, key2, key3, key4, val1, val2, val3, val4
+    );
+}
+
+template __global__ void multiStep2Kernel<ORDER_ASC>(data_t *keys, data_t *values, int_t tableLen, uint_t step);
+template __global__ void multiStep2Kernel<ORDER_DESC>(data_t *keys, data_t *values, int_t tableLen, uint_t step);
+
+
 ///*
 //Performs bitonic merge with 3-multistep (sorts 8 elements per thread).
 //*/
