@@ -100,44 +100,52 @@ __device__ void compareExchange16(
     );
 }
 
-///*
-//Compares and exchanges elements according to bitonic sort for 32 elements.
-//*/
-//template <order_t sortOrder>
-//__device__ void compareExchange32(
-//    data_t *el1, data_t *el2, data_t *el3, data_t *el4, data_t *el5, data_t *el6, data_t *el7, data_t *el8,
-//    data_t *el9, data_t *el10, data_t *el11, data_t *el12, data_t *el13, data_t *el14, data_t *el15, data_t *el16,
-//    data_t *el17, data_t *el18, data_t *el19, data_t *el20, data_t *el21, data_t *el22, data_t *el23, data_t *el24,
-//    data_t *el25, data_t *el26, data_t *el27, data_t *el28, data_t *el29, data_t *el30, data_t *el31, data_t *el32
-//)
-//{
-//    // Step n + 4
-//    compareExchange2<sortOrder>(el1, el2);
-//    compareExchange2<sortOrder>(el3, el4);
-//    compareExchange2<sortOrder>(el5, el6);
-//    compareExchange2<sortOrder>(el7, el8);
-//    compareExchange2<sortOrder>(el9, el10);
-//    compareExchange2<sortOrder>(el11, el12);
-//    compareExchange2<sortOrder>(el13, el14);
-//    compareExchange2<sortOrder>(el15, el16);
-//    compareExchange2<sortOrder>(el17, el18);
-//    compareExchange2<sortOrder>(el19, el20);
-//    compareExchange2<sortOrder>(el21, el22);
-//    compareExchange2<sortOrder>(el23, el24);
-//    compareExchange2<sortOrder>(el25, el26);
-//    compareExchange2<sortOrder>(el27, el28);
-//    compareExchange2<sortOrder>(el29, el30);
-//    compareExchange2<sortOrder>(el31, el32);
-//
-//    // Steps n + 3, n + 2, n + 1, n
-//    compareExchange16<sortOrder>(
-//        el1, el17, el3, el19, el5, el21, el7, el23, el9, el25, el11, el27, el13, el29, el15, el31
-//    );
-//    compareExchange16<sortOrder>(
-//        el2, el18, el4, el20, el6, el22, el8, el24, el10, el26, el12, el28, el14, el30, el16, el32
-//    );
-//}
-//
+/*
+Compares and exchanges elements according to bitonic sort for 32 elements.
+*/
+template <order_t sortOrder>
+__device__ void compareExchange32(
+    data_t *key1, data_t *key2, data_t *key3, data_t *key4, data_t *key5, data_t *key6, data_t *key7,
+    data_t *key8, data_t *key9, data_t *key10, data_t *key11, data_t *key12, data_t *key13, data_t *key14,
+    data_t *key15, data_t *key16, data_t *key17, data_t *key18, data_t *key19, data_t *key20, data_t *key21,
+    data_t *key22, data_t *key23, data_t *key24, data_t *key25, data_t *key26, data_t *key27, data_t *key28,
+    data_t *key29, data_t *key30, data_t *key31, data_t *key32, data_t *val1, data_t *val2, data_t *val3,
+    data_t *val4, data_t *val5, data_t *val6, data_t *val7, data_t *val8, data_t *val9, data_t *val10,
+    data_t *val11, data_t *val12, data_t *val13, data_t *val14, data_t *val15, data_t *val16, data_t *val17,
+    data_t *val18, data_t *val19, data_t *val20, data_t *val21, data_t *val22, data_t *val23, data_t *val24,
+    data_t *val25, data_t *val26, data_t *val27, data_t *val28, data_t *val29, data_t *val30, data_t *val31,
+    data_t *val32
+)
+{
+    // Step n + 4
+    compareExchange2<sortOrder>(key1, key2, val1, val2);
+    compareExchange2<sortOrder>(key3, key4, val3, val4);
+    compareExchange2<sortOrder>(key5, key6, val5, val6);
+    compareExchange2<sortOrder>(key7, key8, val7, val8);
+    compareExchange2<sortOrder>(key9, key10, val9, val10);
+    compareExchange2<sortOrder>(key11, key12, val11, val12);
+    compareExchange2<sortOrder>(key13, key14, val13, val14);
+    compareExchange2<sortOrder>(key15, key16, val15, val16);
+    compareExchange2<sortOrder>(key17, key18, val17, val18);
+    compareExchange2<sortOrder>(key19, key20, val19, val20);
+    compareExchange2<sortOrder>(key21, key22, val21, val22);
+    compareExchange2<sortOrder>(key23, key24, val23, val24);
+    compareExchange2<sortOrder>(key25, key26, val25, val26);
+    compareExchange2<sortOrder>(key27, key28, val27, val28);
+    compareExchange2<sortOrder>(key29, key30, val29, val30);
+    compareExchange2<sortOrder>(key31, key32, val31, val32);
+
+    // Steps n + 3, n + 2, n + 1, n
+    compareExchange16<sortOrder>(
+        key1, key17, key3, key19, key5, key21, key7, key23, key9, key25, key11, key27, key13, key29, key15, key31,
+        val1, val17, val3, val19, val5, val21, val7, val23, val9, val25, val11, val27, val13, val29, val15, val31
+    );
+    compareExchange16<sortOrder>(
+        key2, key18, key4, key20, key6, key22, key8, key24, key10, key26, key12, key28, key14, key30, key16, key32,
+        val2, val18, val4, val20, val6, val22, val8, val24, val10, val26, val12, val28, val14, val30, val16, val32
+    );
+}
+
 ///*
 //Compares and exchanges elements according to bitonic sort for 32 elements.
 //*/
@@ -364,50 +372,64 @@ __device__ void store16(
     );
 }
 
-///*
-//Loads 32 elements according to bitonic sort indexes.
-//*/
-//template <order_t sortOrder>
-//__device__ void load32(
-//    data_t *table, data_t *tableEnd, uint_t tableOffset, uint_t stride, data_t *el1, data_t *el2, data_t *el3,
-//    data_t *el4, data_t *el5, data_t *el6, data_t *el7, data_t *el8, data_t *el9, data_t *el10, data_t *el11,
-//    data_t *el12, data_t *el13, data_t *el14, data_t *el15, data_t *el16, data_t *el17, data_t *el18, data_t *el19,
-//    data_t *el20, data_t *el21, data_t *el22, data_t *el23, data_t *el24, data_t *el25, data_t *el26, data_t *el27,
-//    data_t *el28, data_t *el29, data_t *el30, data_t *el31, data_t *el32
-//)
-//{
-//    load16<sortOrder>(
-//        table, tableEnd, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7, el8, el9, el10, el11, el12,
-//        el13, el14, el15, el16
-//    );
-//    load16<sortOrder>(
-//        table + 8 * tableOffset, tableEnd, tableOffset, stride, el17, el18, el19, el20, el21, el22, el23,
-//        el24, el25, el26, el27, el28, el29, el30, el31, el32
-//    );
-//}
-//
-///*
-//Stores 32 elements according to bitonic sort indexes.
-//*/
-//template <order_t sortOrder>
-//__device__ void store32(
-//    data_t *table, data_t *tableEnd, uint_t tableOffset, uint_t stride, data_t el1, data_t el2, data_t el3,
-//    data_t el4, data_t el5, data_t el6, data_t el7, data_t el8, data_t el9, data_t el10, data_t el11,
-//    data_t el12, data_t el13, data_t el14, data_t el15, data_t el16, data_t el17, data_t el18, data_t el19,
-//    data_t el20, data_t el21, data_t el22, data_t el23, data_t el24, data_t el25, data_t el26, data_t el27,
-//    data_t el28, data_t el29, data_t el30, data_t el31, data_t el32
-//)
-//{
-//    store16<sortOrder>(
-//        table, tableEnd, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7, el8, el9, el10, el11, el12,
-//        el13, el14, el15, el16
-//    );
-//    store16<sortOrder>(
-//        table + 8 * tableOffset, tableEnd, tableOffset, stride, el17, el18, el19, el20, el21, el22, el23,
-//        el24, el25, el26, el27, el28, el29, el30, el31, el32
-//    );
-//}
-//
+/*
+Loads 32 elements according to bitonic sort indexes.
+*/
+template <order_t sortOrder>
+__device__ void load32(
+    data_t *keys, data_t *values, int_t tableLen, uint_t tableOffset, int_t stride, data_t *key1, data_t *key2,
+    data_t *key3, data_t *key4, data_t *key5, data_t *key6, data_t *key7, data_t *key8, data_t *key9,
+    data_t *key10, data_t *key11, data_t *key12, data_t *key13, data_t *key14, data_t *key15, data_t *key16,
+    data_t *key17, data_t *key18, data_t *key19, data_t *key20, data_t *key21, data_t *key22, data_t *key23,
+    data_t *key24, data_t *key25, data_t *key26, data_t *key27, data_t *key28, data_t *key29, data_t *key30,
+    data_t *key31, data_t *key32, data_t *val1, data_t *val2, data_t *val3, data_t *val4, data_t *val5,
+    data_t *val6, data_t *val7, data_t *val8, data_t *val9, data_t *val10, data_t *val11, data_t *val12,
+    data_t *val13, data_t *val14, data_t *val15, data_t *val16, data_t *val17, data_t *val18, data_t *val19,
+    data_t *val20, data_t *val21, data_t *val22, data_t *val23, data_t *val24, data_t *val25, data_t *val26,
+    data_t *val27, data_t *val28, data_t *val29, data_t *val30, data_t *val31, data_t *val32
+)
+{
+    load16<sortOrder>(
+        keys, values, tableLen, tableOffset, stride, key1, key2, key3, key4, key5, key6, key7, key8, key9, key10,
+        key11, key12, key13, key14, key15, key16, val1, val2, val3, val4, val5, val6, val7, val8, val9, val10,
+        val11, val12, val13, val14, val15, val16
+    );
+    load16<sortOrder>(
+        keys + 8 * tableOffset, values + 8 * tableOffset, tableLen - 8 * tableOffset, tableOffset, stride, key17,
+        key18, key19, key20, key21, key22, key23, key24, key25, key26, key27, key28, key29, key30, key31, key32,
+        val17, val18, val19, val20, val21, val22, val23, val24, val25, val26, val27, val28, val29, val30, val31, val32
+    );
+}
+
+/*
+Stores 32 elements according to bitonic sort indexes.
+*/
+template <order_t sortOrder>
+__device__ void store32(
+    data_t *keys, data_t *values, int_t tableLen, uint_t tableOffset, int_t stride, data_t key1, data_t key2,
+    data_t key3, data_t key4, data_t key5, data_t key6, data_t key7, data_t key8, data_t key9, data_t key10,
+    data_t key11, data_t key12, data_t key13, data_t key14, data_t key15, data_t key16, data_t key17,
+    data_t key18, data_t key19, data_t key20, data_t key21, data_t key22, data_t key23, data_t key24,
+    data_t key25, data_t key26, data_t key27, data_t key28, data_t key29, data_t key30, data_t key31,
+    data_t key32, data_t val1, data_t val2, data_t val3, data_t val4, data_t val5, data_t val6, data_t val7,
+    data_t val8, data_t val9, data_t val10, data_t val11, data_t val12, data_t val13, data_t val14, data_t val15,
+    data_t val16, data_t val17, data_t val18, data_t val19, data_t val20, data_t val21, data_t val22,
+    data_t val23, data_t val24, data_t val25, data_t val26, data_t val27, data_t val28, data_t val29,
+    data_t val30, data_t val31, data_t val32
+)
+{
+    store16<sortOrder>(
+        keys, values, tableLen, tableOffset, stride, key1, key2, key3, key4, key5, key6, key7, key8, key9, key10,
+        key11, key12, key13, key14, key15, key16, val1, val2, val3, val4, val5, val6, val7, val8, val9, val10,
+        val11, val12, val13, val14, val15, val16
+    );
+    store16<sortOrder>(
+        keys + 8 * tableOffset, values + 8 * tableOffset, tableLen - 8 * tableOffset, tableOffset, stride, key17,
+        key18, key19, key20, key21, key22, key23, key24, key25, key26, key27, key28, key29, key30, key31, key32,
+        val17, val18, val19, val20, val21, val22, val23, val24, val25, val26, val27, val28, val29, val30, val31, val32
+    );
+}
+
 ///*
 //Loads 32 elements according to bitonic sort indexes.
 //*/
@@ -674,39 +696,49 @@ template __global__ void multiStep4Kernel<ORDER_ASC>(data_t *keys, data_t *value
 template __global__ void multiStep4Kernel<ORDER_DESC>(data_t *keys, data_t *values, int_t tableLen, uint_t step);
 
 
-///*
-//Performs bitonic merge with 5-multistep (sorts 32 elements per thread).
-//*/
-//template <order_t sortOrder>
-//__global__ void multiStep5Kernel(data_t *table, uint_t tableLen, uint_t step)
-//{
-//    uint_t stride, tableOffset, indexTable;
-//    data_t el1, el2, el3, el4, el5, el6, el7, el8, el9, el10, el11, el12, el13, el14, el15, el16, el17,
-//        el18, el19, el20, el21, el22, el23, el24, el25, el26, el27, el28, el29, el30, el31, el32;
-//
-//    getMultiStepParams(step, 5, stride, tableOffset, indexTable);
-//
-//    load32<sortOrder>(
-//        table + indexTable, table + tableLen, tableOffset, stride, &el1, &el2, &el3, &el4, &el5, &el6, &el7,
-//        &el8, &el9, &el10, &el11, &el12, &el13, &el14, &el15, &el16, &el17, &el18, &el19, &el20, &el21,
-//        &el22, &el23, &el24, &el25, &el26, &el27, &el28, &el29, &el30, &el31, &el32
-//    );
-//    compareExchange32<sortOrder>(
-//        &el1, &el2, &el3, &el4, &el5, &el6, &el7, &el8, &el9, &el10, &el11, &el12, &el13, &el14, &el15, &el16,
-//        &el17, &el18, &el19, &el20, &el21, &el22, &el23, &el24, &el25, &el26, &el27, &el28, &el29, &el30,
-//        &el31, &el32
-//    );
-//    store32<sortOrder>(
-//        table + indexTable, table + tableLen, tableOffset, stride, el1, el2, el3, el4, el5, el6, el7, el8,
-//        el9, el10, el11, el12, el13, el14, el15, el16, el17, el18, el19, el20, el21, el22, el23, el24, el25,
-//        el26, el27, el28, el29, el30, el31, el32
-//    );
-//}
-//
-//template __global__ void multiStep5Kernel<ORDER_ASC>(data_t *table, uint_t tableLen, uint_t step);
-//template __global__ void multiStep5Kernel<ORDER_DESC>(data_t *table, uint_t tableLen, uint_t step);
-//
-//
+/*
+Performs bitonic merge with 5-multistep (sorts 32 elements per thread).
+*/
+template <order_t sortOrder>
+__global__ void multiStep5Kernel(data_t *keys, data_t *values, int_t tableLen, uint_t step)
+{
+    uint_t stride, tableOffset, indexTable;
+    data_t key1, key2, key3, key4, key5, key6, key7, key8, key9, key10, key11, key12, key13, key14, key15, key16,
+        key17, key18, key19, key20, key21, key22, key23, key24, key25, key26, key27, key28, key29, key30, key31, key32;
+    data_t val1, val2, val3, val4, val5, val6, val7, val8, val9, val10, val11, val12, val13, val14, val15, val16,
+        val17, val18, val19, val20, val21, val22, val23, val24, val25, val26, val27, val28, val29, val30, val31, val32;
+
+    getMultiStepParams(step, 5, stride, tableOffset, indexTable);
+
+    load32<sortOrder>(
+        keys + indexTable, values + indexTable, tableLen - indexTable - 1, tableOffset, stride, &key1, &key2,
+        &key3, &key4, &key5, &key6, &key7, &key8, &key9, &key10, &key11, &key12, &key13, &key14, &key15, &key16,
+        &key17, &key18, &key19, &key20, &key21, &key22, &key23, &key24, &key25, &key26, &key27, &key28, &key29,
+        &key30, &key31, &key32, &val1, &val2, &val3, &val4, &val5, &val6, &val7, &val8, &val9, &val10, &val11,
+        &val12, &val13, &val14, &val15, &val16, &val17, &val18, &val19, &val20, &val21, &val22, &val23, &val24,
+        &val25, &val26, &val27, &val28, &val29, &val30, &val31, &val32
+    );
+    compareExchange32<sortOrder>(
+        &key1, &key2, &key3, &key4, &key5, &key6, &key7, &key8, &key9, &key10, &key11, &key12, &key13, &key14,
+        &key15, &key16, &key17, &key18, &key19, &key20, &key21, &key22, &key23, &key24, &key25, &key26, &key27,
+        &key28, &key29, &key30, &key31, &key32, &val1, &val2, &val3, &val4, &val5, &val6, &val7, &val8, &val9,
+        &val10, &val11, &val12, &val13, &val14, &val15, &val16, &val17, &val18, &val19, &val20, &val21, &val22,
+        &val23, &val24, &val25, &val26, &val27, &val28, &val29, &val30, &val31, &val32
+    );
+    store32<sortOrder>(
+        keys + indexTable, values + indexTable, tableLen - indexTable - 1, tableOffset, stride, key1, key2,
+        key3, key4, key5, key6, key7, key8, key9, key10, key11, key12, key13, key14, key15, key16, key17,
+        key18, key19, key20, key21, key22, key23, key24, key25, key26, key27, key28, key29, key30, key31,
+        key32, val1, val2, val3, val4, val5, val6, val7, val8, val9, val10, val11, val12, val13, val14,
+        val15, val16, val17, val18, val19, val20, val21, val22, val23, val24, val25, val26, val27, val28,
+        val29, val30, val31, val32
+    );
+}
+
+template __global__ void multiStep5Kernel<ORDER_ASC>(data_t *keys, data_t *values, int_t tableLen, uint_t step);
+template __global__ void multiStep5Kernel<ORDER_DESC>(data_t *keys, data_t *values, int_t tableLen, uint_t step);
+
+
 ///*
 //Performs bitonic merge with 6-multistep (sorts 64 elements per thread).
 //*/

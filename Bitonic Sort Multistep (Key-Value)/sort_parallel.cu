@@ -107,18 +107,18 @@ void runMultiStepKernel(
             multiStep4Kernel<ORDER_DESC><<<dimGrid, dimBlock>>>(keys, values, tableLen, step);
         }
     }
-    /*else if (degree == 5)
+    else if (degree == 5)
     {
         if (sortOrder == ORDER_ASC)
         {
-            multiStep5Kernel<ORDER_ASC><<<dimGrid, dimBlock>>>(table, tableLen, step);
+            multiStep5Kernel<ORDER_ASC><<<dimGrid, dimBlock>>>(keys, values, tableLen, step);
         }
         else
         {
-            multiStep5Kernel<ORDER_DESC><<<dimGrid, dimBlock>>>(table, tableLen, step);
+            multiStep5Kernel<ORDER_DESC><<<dimGrid, dimBlock>>>(keys, values, tableLen, step);
         }
     }
-    else if (degree == 6)
+    /*else if (degree == 6)
     {
         if (sortOrder == ORDER_ASC)
         {
