@@ -13,8 +13,8 @@ template <order_t sortOrder>
 __global__ void multiStep2Kernel(data_t *key, data_t *values, int_t tableLen, uint_t step);
 template <order_t sortOrder>
 __global__ void multiStep3Kernel(data_t *key, data_t *values, int_t tableLen, uint_t step);
-//template <order_t sortOrder>
-//__global__ void multiStep4Kernel(data_t *table, uint_t tableLen, uint_t step);
+template <order_t sortOrder>
+__global__ void multiStep4Kernel(data_t *key, data_t *values, int_t tableLen, uint_t step);
 //template <order_t sortOrder>
 //__global__ void multiStep5Kernel(data_t *table, uint_t tableLen, uint_t step);
 //template <order_t sortOrder>
