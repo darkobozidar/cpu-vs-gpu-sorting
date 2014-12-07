@@ -1,30 +1,54 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <array>
+#include <math.h>
 
-#include "data_types.h"
-#include "utils_host.h"
+#include "../Utils/data_types_common.h"
+#include "../Utils/host.h"
 
 
-// TODO figure out, how to use only one compare function for parallel and sequential implementation.
-int_t compareSeq(const void* elem1, const void* elem2) {
-    return (((el_t*)elem1)->key - ((el_t*)elem2)->key);
-}
-
-void sortSequential(data_t* inputHost, data_t* outputHost, uint_t arrayLen, bool orderAsc) {
-    // TODO
-}
-
-el_t* sortCorrect(el_t* input, uint_t tableLen) {
-    el_t* output;
+/*
+Sorts data sequentially with NORMALIZED bitonic sort.
+*/
+double sortSequential(data_t* dataTable, uint_t tableLen, order_t sortOrder)
+{
     LARGE_INTEGER timer;
-
-    output = (el_t*)malloc(tableLen * sizeof(*output));
-    std::copy(input, input + tableLen, output);
-
     startStopwatch(&timer);
-    qsort(output, tableLen, sizeof(*output), compareSeq);
-    endStopwatch(timer, "Executing C sort implementation");
 
-    return output;
+    for (uint_t subBlockSize = 1; subBlockSize < tableLen; subBlockSize <<= 1)
+    {
+        for (uint_t stride = subBlockSize; stride > 0; stride >>= 1)
+        {
+            bool isFirstStepOfPhase = stride == subBlockSize;
+
+            for (uint_t el = 0; el < tableLen >> 1; el++)
+            {
+                uint_t index = el;
+                uint_t offset = stride;
+
+                // In normalized bitonic sort, first STEP of every PHASE uses different offset than all other STEPS.
+                if (isFirstStepOfPhase)
+                {
+                    index = (el / stride) * stride + ((stride - 1) - (el % stride));
+                    offset = ((el & (stride - 1)) << 1) + 1;
+                }
+
+                // Calculates index of left and right element, which are candidates for exchange
+                uint_t indexLeft = (index << 1) - (index & (stride - 1));
+                uint_t indexRight = indexLeft + offset;
+                if (indexRight >= tableLen)
+                {
+                    break;
+                }
+
+                if ((dataTable[indexLeft] > dataTable[indexRight]) ^ sortOrder)
+                {
+                    data_t temp = dataTable[indexLeft];
+                    dataTable[indexLeft] = dataTable[indexRight];
+                    dataTable[indexRight] = temp;
+                }
+            }
+        }
+    }
+
+    return endStopwatch(timer);
 }
