@@ -10,30 +10,30 @@
 #include "../Utils/cuda.h"
 #include "../Utils/host.h"
 #include "constants.h"
+#include "data_types.h"
 #include "kernels.h"
 
 
-///*
-//Sorts sub-blocks of input data with bitonic sort.
-//*/
-//void runBitoicSortKernel(el_t *table, uint_t tableLen, uint_t phasesBitonicSort, bool orderAsc) {
-//    cudaError_t error;
-//    LARGE_INTEGER timer;
-//
-//    // Every thread loads and sorts 2 elements
-//    uint_t subBlockSize = 1 << phasesBitonicSort;
-//    dim3 dimGrid(tableLen / subBlockSize, 1, 1);
-//    dim3 dimBlock(subBlockSize / 2, 1, 1);
-//
-//    startStopwatch(&timer);
-//    bitonicSortKernel<<<dimGrid, dimBlock, subBlockSize * sizeof(*table)>>>(
-//        table, orderAsc
-//    );
-//    /*error = cudaDeviceSynchronize();
-//    checkCudaError(error);
-//    endStopwatch(timer, "Executing bitonic sort kernel");*/
-//}
-//
+/*
+Sorts sub-blocks of input data with bitonic sort.
+*/
+void runBitoicSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder) {
+    uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+    uint_t sharedMemSize = elemsPerThreadBlock * sizeof(*dataTable);
+
+    dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
+    dim3 dimBlock(THREADS_PER_BITONIC_SORT, 1, 1);
+
+    if (sortOrder == ORDER_ASC)
+    {
+        bitonicSortKernel<ORDER_ASC><<<dimGrid, dimBlock, sharedMemSize>>>(dataTable, tableLen);
+    }
+    else
+    {
+        bitonicSortKernel<ORDER_DESC><<<dimGrid, dimBlock, sharedMemSize>>>(dataTable, tableLen);
+    }
+}
+
 //void runInitIntervalsKernel(el_t *table, interval_t *intervals, uint_t tableLen, uint_t phasesAll,
 //                            uint_t stepStart, uint_t stepEnd) {
 //    cudaError_t error;
@@ -97,9 +97,13 @@ double sortParallel(
 )
 {
     interval_t *d_intervals, *d_intervalsBuffer;
+
+    uint_t tableLenPower2 = nextPowerOf2(tableLen);
+    uint_t elemsPerBlockBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+
     // Every thread loads and processes 2 elements
-    uint_t phasesAll = log2((double)tableLen);
-    uint_t phasesBitonicSort = log2((double)min(tableLen, 2 * THREADS_PER_SORT));
+    uint_t phasesAll = log2((double)tableLenPower2);
+    uint_t phasesBitonicSort = log2((double)min(tableLenPower2, elemsPerBlockBitonicSort));
     uint_t phasesBitonicMerge = log2((double)2 * THREADS_PER_MERGE);
     uint_t phasesInitIntervals = log2((double)2 * THREADS_PER_INIT_INTERVALS);
     uint_t phasesGenerateIntervals = log2((double)2 * THREADS_PER_GEN_INTERVALS);
@@ -109,7 +113,7 @@ double sortParallel(
     cudaError_t error;
 
     startStopwatch(&timer);
-    /*runBitoicSortKernel(d_table, tableLen, phasesBitonicSort, orderAsc);*/
+    runBitoicSortKernel(d_dataTable, tableLen, sortOrder);
 
     //for (uint_t phase = phasesBitonicSort + 1; phase <= phasesAll; phase++) {
     //    uint_t stepStart = phase;

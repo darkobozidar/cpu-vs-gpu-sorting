@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 
+// TODO comment
 typedef struct Interval interval_t;
 
 struct Interval {
