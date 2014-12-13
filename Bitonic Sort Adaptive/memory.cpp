@@ -77,9 +77,10 @@ void allocDeviceMemory(
 
     cudaError_t error;
 
-    error = cudaMalloc(dataTable, tableLen * sizeof(**dataTable));
+    // Table is padded to next power of 2 in length
+    error = cudaMalloc(dataTable, tableLenPower2 * sizeof(**dataTable));
     checkCudaError(error);
-    error = cudaMalloc(dataBuffer, tableLen * sizeof(**dataBuffer));
+    error = cudaMalloc(dataBuffer, tableLenPower2 * sizeof(**dataBuffer));
     checkCudaError(error);
 
     error = cudaMalloc(d_intervals, intervalsLen * sizeof(**d_intervals));

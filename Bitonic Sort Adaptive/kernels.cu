@@ -135,6 +135,34 @@ __device__ void generateIntervals(
 -----------------------------------------------------------*/
 
 /*
+Adds the padding to table from start index to the end of the array. Needed because of bitonic sort, for which
+table length divisable by 2 is needed.
+*/
+template <data_t value>
+__global__ void addPaddingKernel(data_t *dataTable, data_t *dataBuffer, uint_t start, uint_t length)
+{
+    uint_t elemsPerThreadBlock = THREADS_PER_PADDING * ELEMS_PER_THREAD_PADDING;
+    uint_t offset = blockIdx.x * elemsPerThreadBlock;
+    uint_t dataBlockLength = offset + elemsPerThreadBlock <= length ? elemsPerThreadBlock : length - offset;
+    offset += start;
+
+    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_PADDING)
+    {
+        uint_t index = offset + tx;
+        dataTable[index] = value;
+        dataBuffer[index] = value;
+    }
+}
+
+template __global__ void addPaddingKernel<MIN_VAL>(
+    data_t *dataTable, data_t *dataBuffer, uint_t start, uint_t length
+);
+template __global__ void addPaddingKernel<MAX_VAL>(
+    data_t *dataTable, data_t *dataBuffer, uint_t start, uint_t length
+);
+
+
+/*
 Sorts sub-blocks of input data with bitonic sort.
 */
 template <order_t sortOrder>

@@ -15,6 +15,35 @@
 
 
 /*
+Adds padding of MAX/MIN values to input table, deppending if sort order is ascending or descending. This is
+needed, if table length is not power of 2. In order for bitonic sort to work, table length has to be power of 2.
+*/
+void runAddPaddingKernel(data_t *dataTable, data_t *dataBuffer, uint_t tableLen, order_t sortOrder)
+{
+    uint_t tableLenPower2 = nextPowerOf2(tableLen);
+    uint_t paddingLength = tableLenPower2 - tableLen;
+
+    uint_t elemsPerThreadBlock = THREADS_PER_PADDING * ELEMS_PER_THREAD_PADDING;;
+    dim3 dimGrid((paddingLength - 1) / elemsPerThreadBlock + 1, 1, 1);
+    dim3 dimBlock(THREADS_PER_PADDING, 1, 1);
+
+    if (tableLen == tableLenPower2)
+    {
+        return;
+    }
+
+    // Depending on sort order different value is added for padding.
+    if (sortOrder == ORDER_ASC)
+    {
+        addPaddingKernel<MAX_VAL><<<dimGrid, dimBlock>>>(dataTable, dataBuffer, tableLen, paddingLength);
+    }
+    else
+    {
+        addPaddingKernel<MIN_VAL><<<dimGrid, dimBlock>>>(dataTable, dataBuffer, tableLen, paddingLength);
+    }
+}
+
+/*
 Sorts sub-blocks of input data with bitonic sort.
 */
 void runBitoicSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder) {
@@ -108,12 +137,13 @@ double sortParallel(
     cudaError_t error;
 
     startStopwatch(&timer);
+    runAddPaddingKernel(d_dataTable, d_dataBuffer, tableLen, sortOrder);
     runBitoicSortKernel(d_dataTable, tableLen, sortOrder);
 
     for (uint_t phase = phasesBitonicSort + 1; phase <= phasesAll; phase++) {
         uint_t stepStart = phase;
         uint_t stepEnd = max((double)phasesBitonicMerge, (double)phase - phasesInitIntervals);
-        runInitIntervalsKernel(d_dataTable, d_intervals, tableLen, phasesAll, stepStart, stepEnd);
+        runInitIntervalsKernel(d_dataTable, d_intervals, tableLenPower2, phasesAll, stepStart, stepEnd);
 
         // After initial intervals were generated intervals have to be evolved to the end
         while (stepEnd > phasesBitonicMerge) {
@@ -124,13 +154,13 @@ double sortParallel(
             stepStart = stepEnd;
             stepEnd = max((double)phasesBitonicMerge, (double)stepStart - phasesGenerateIntervals);
             runGenerateIntervalsKernel(
-                d_dataTable, d_intervalsBuffer, d_intervals, tableLen, phasesAll, phase, stepStart, stepEnd
+                d_dataTable, d_intervalsBuffer, d_intervals, tableLenPower2, phasesAll, phase, stepStart, stepEnd
             );
         }
 
         // Global merge with intervals
         runBitoicMergeKernel(
-            d_dataTable, d_dataBuffer, d_intervals, tableLen, phasesBitonicMerge, phase, sortOrder
+            d_dataTable, d_dataBuffer, d_intervals, tableLenPower2, phasesBitonicMerge, phase, sortOrder
         );
 
         data_t *tempTable = d_dataTable;

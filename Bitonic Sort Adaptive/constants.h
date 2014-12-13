@@ -1,6 +1,13 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
+/* ------------------ PADDING KERNEL ----------------- */
+
+// How many threads are used per on thread block for padding. Has to be power of 2.
+#define THREADS_PER_PADDING 256
+// How many elements are processed by one thread in padding kernel. Min value is 2.
+#define ELEMS_PER_THREAD_PADDING 2
+
 /* ---------------- BITONIC SORT KERNEL -------------- */
 
 // How many threads are used per one thread block for bitonic sort, which is performed entirely

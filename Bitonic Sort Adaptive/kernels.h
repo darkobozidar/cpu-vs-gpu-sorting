@@ -6,6 +6,9 @@
 #include "../Utils/data_types_common.h"
 
 
+template <data_t value>
+__global__ void addPaddingKernel(data_t *dataTable, data_t *dataBuffer, uint_t start, uint_t length);
+
 template <order_t sortOrder>
 __global__ void bitonicSortKernel(data_t *dataTable);
 
