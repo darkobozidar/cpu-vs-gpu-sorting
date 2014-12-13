@@ -64,7 +64,8 @@ void runBitoicSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder) 
 }
 
 void runInitIntervalsKernel(
-    data_t *table, interval_t *intervals, uint_t tableLen, uint_t phasesAll, uint_t stepStart, uint_t stepEnd
+    data_t *table, interval_t *intervals, uint_t tableLen, uint_t phasesAll, uint_t stepStart, uint_t stepEnd,
+    order_t sortOrder
 )
 {
     uint_t intervalsLen = 1 << (phasesAll - stepEnd);
@@ -72,14 +73,23 @@ void runInitIntervalsKernel(
     dim3 dimGrid(intervalsLen / (2 * threadBlockSize), 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
 
-    initIntervalsKernel<<<dimGrid, dimBlock, 2 * threadBlockSize * sizeof(*intervals)>>>(
-        table, intervals, tableLen, stepStart, stepEnd
-    );
+    if (sortOrder == ORDER_ASC)
+    {
+        initIntervalsKernel<ORDER_ASC><<<dimGrid, dimBlock, 2 * threadBlockSize * sizeof(*intervals)>>>(
+            table, intervals, tableLen, stepStart, stepEnd
+        );
+    }
+    else
+    {
+        initIntervalsKernel<ORDER_DESC><<<dimGrid, dimBlock, 2 * threadBlockSize * sizeof(*intervals)>>>(
+            table, intervals, tableLen, stepStart, stepEnd
+        );
+    }
 }
 
 void runGenerateIntervalsKernel(
     data_t *table, interval_t *input, interval_t *output, uint_t tableLen, uint_t phasesAll, uint_t phase,
-    uint_t stepStart, uint_t stepEnd
+    uint_t stepStart, uint_t stepEnd, order_t sortOrder
 )
 {
     uint_t intervalsLen = 1 << (phasesAll - stepEnd);
@@ -87,9 +97,18 @@ void runGenerateIntervalsKernel(
     dim3 dimGrid(intervalsLen / (2 * threadBlockSize), 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
 
-    generateIntervalsKernel<<<dimGrid, dimBlock, 2 * threadBlockSize * sizeof(*input)>>>(
-        table, input, output, tableLen, phase, stepStart, stepEnd
-    );
+    if (sortOrder == ORDER_ASC)
+    {
+        generateIntervalsKernel<ORDER_ASC><<<dimGrid, dimBlock, 2 * threadBlockSize * sizeof(*input)>>>(
+            table, input, output, tableLen, phase, stepStart, stepEnd
+        );
+    }
+    else
+    {
+        generateIntervalsKernel<ORDER_DESC><<<dimGrid, dimBlock, 2 * threadBlockSize * sizeof(*input)>>>(
+            table, input, output, tableLen, phase, stepStart, stepEnd
+        );
+    }
 }
 
 void runBitoicMergeKernel(
@@ -138,12 +157,14 @@ double sortParallel(
 
     startStopwatch(&timer);
     runAddPaddingKernel(d_dataTable, d_dataBuffer, tableLen, sortOrder);
-    runBitoicSortKernel(d_dataTable, tableLen, sortOrder);
+    runBitoicSortKernel(d_dataTable, tableLenPower2, sortOrder);
 
     for (uint_t phase = phasesBitonicSort + 1; phase <= phasesAll; phase++) {
         uint_t stepStart = phase;
         uint_t stepEnd = max((double)phasesBitonicMerge, (double)phase - phasesInitIntervals);
-        runInitIntervalsKernel(d_dataTable, d_intervals, tableLenPower2, phasesAll, stepStart, stepEnd);
+        runInitIntervalsKernel(
+            d_dataTable, d_intervals, tableLenPower2, phasesAll, stepStart, stepEnd, sortOrder
+        );
 
         // After initial intervals were generated intervals have to be evolved to the end
         while (stepEnd > phasesBitonicMerge) {
@@ -154,7 +175,8 @@ double sortParallel(
             stepStart = stepEnd;
             stepEnd = max((double)phasesBitonicMerge, (double)stepStart - phasesGenerateIntervals);
             runGenerateIntervalsKernel(
-                d_dataTable, d_intervalsBuffer, d_intervals, tableLenPower2, phasesAll, phase, stepStart, stepEnd
+                d_dataTable, d_intervalsBuffer, d_intervals, tableLenPower2, phasesAll, phase, stepStart,
+                stepEnd, sortOrder
             );
         }
 

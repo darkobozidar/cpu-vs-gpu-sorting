@@ -78,6 +78,7 @@ __device__ int_t binarySearch(data_t* table, interval_t interval, uint_t subBloc
 Generates intervals in provided table until size of sub block is grater than end sub block size.
 Sub block size is the size of one block in bitonic merge step.
 */
+template <order_t sortOrder>
 __device__ void generateIntervals(
     data_t *table, interval_t *intervals, uint_t subBlockSize, uint_t subBlockSizeEnd, uint_t stride,
     uint_t activeThreadsPerBlock
@@ -97,7 +98,7 @@ __device__ void generateIntervals(
 
         if (isThreadActive) {
             uint_t intervalIndex = blockIdx.x * activeThreadsPerBlock + threadIdx.x;
-            bool orderAsc = (intervalIndex / stride) & 1;
+            bool orderAsc = sortOrder ^ ((intervalIndex / stride) & 1);
             uint_t q;
 
             if (orderAsc)
@@ -220,6 +221,7 @@ template __global__ void bitonicSortKernel<ORDER_DESC>(data_t *dataTable, uint_t
 /*
 Generates initial intervals and continues to evolve them until the end step.
 */
+template <order_t sortOrder>
 __global__ void initIntervalsKernel(
     data_t *table, interval_t *intervals, uint_t tableLen, uint_t stepStart, uint_t stepEnd
 )
@@ -241,16 +243,25 @@ __global__ void initIntervalsKernel(
         intervalsTile[threadIdx.x].length1 = subBlockSize / 2;
     }
 
-    generateIntervals(table, intervalsTile, subBlockSize, 1 << stepEnd, 1, activeThreadsPerBlock);
+    generateIntervals<sortOrder>(table, intervalsTile, subBlockSize, 1 << stepEnd, 1, activeThreadsPerBlock);
 
     uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
     intervals[index] = intervalsTile[threadIdx.x];
     intervals[blockDim.x + index] = intervalsTile[blockDim.x + threadIdx.x];
 }
 
+template __global__ void initIntervalsKernel<ORDER_ASC>(
+    data_t *table, interval_t *intervals, uint_t tableLen, uint_t stepStart, uint_t stepEnd
+);
+template __global__ void initIntervalsKernel<ORDER_DESC>(
+    data_t *table, interval_t *intervals, uint_t tableLen, uint_t stepStart, uint_t stepEnd
+);
+
+
 /*
 Reads the existing intervals from global memory and evolve them until the end step.
 */
+template <order_t sortOrder>
 __global__ void generateIntervalsKernel(
     data_t *table, interval_t *input, interval_t *output, uint_t tableLen, uint_t phase, uint_t stepStart,
     uint_t stepEnd
@@ -265,7 +276,7 @@ __global__ void generateIntervalsKernel(
         intervalsTile[threadIdx.x] = input[blockIdx.x * activeThreadsPerBlock + threadIdx.x];
     }
 
-    generateIntervals(
+    generateIntervals<sortOrder>(
         table, intervalsTile, subBlockSize, 1 << stepEnd, 1 << (phase - stepStart), activeThreadsPerBlock
     );
 
@@ -273,6 +284,16 @@ __global__ void generateIntervalsKernel(
     output[index] = intervalsTile[threadIdx.x];
     output[blockDim.x + index] = intervalsTile[blockDim.x + threadIdx.x];
 }
+
+template __global__ void generateIntervalsKernel<ORDER_ASC>(
+    data_t *table, interval_t *input, interval_t *output, uint_t tableLen, uint_t phase, uint_t stepStart,
+    uint_t stepEnd
+);
+template __global__ void generateIntervalsKernel<ORDER_DESC>(
+    data_t *table, interval_t *input, interval_t *output, uint_t tableLen, uint_t phase, uint_t stepStart,
+    uint_t stepEnd
+);
+
 
 /*
 Global bitonic merge for sections, where stride IS GREATER OR EQUAL than max shared memory.
