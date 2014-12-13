@@ -291,3 +291,10 @@ __global__ void bitonicMergeKernel(data_t *input, data_t *output, interval_t *in
     output[index] = mergeTile[threadIdx.x];
     output[blockDim.x + index] = mergeTile[blockDim.x + threadIdx.x];
 }
+
+template __global__ void bitonicMergeKernel<ORDER_ASC>(
+    data_t *input, data_t *output, interval_t *intervals, uint_t phase
+);
+template __global__ void bitonicMergeKernel<ORDER_DESC>(
+    data_t *input, data_t *output, interval_t *intervals, uint_t phase
+);

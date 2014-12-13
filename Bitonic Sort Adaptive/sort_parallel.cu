@@ -34,63 +34,59 @@ void runBitoicSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder) 
     }
 }
 
-//void runInitIntervalsKernel(el_t *table, interval_t *intervals, uint_t tableLen, uint_t phasesAll,
-//                            uint_t stepStart, uint_t stepEnd) {
-//    cudaError_t error;
-//    LARGE_INTEGER timer;
-//
-//    uint_t intervalsLen = 1 << (phasesAll - stepEnd);
-//    uint_t threadBlockSize = min(intervalsLen / 2, THREADS_PER_INIT_INTERVALS);
-//    dim3 dimGrid(intervalsLen / (2 * threadBlockSize), 1, 1);
-//    dim3 dimBlock(threadBlockSize, 1, 1);
-//
-//    startStopwatch(&timer);
-//    initIntervalsKernel<<<dimGrid, dimBlock, 2 * threadBlockSize * sizeof(*intervals)>>>(
-//        table, intervals, tableLen, stepStart, stepEnd
-//    );
-//    /*error = cudaDeviceSynchronize();
-//    checkCudaError(error);
-//    endStopwatch(timer, "Executing kernel for initializing intervals");*/
-//}
-//
-//void runGenerateIntervalsKernel(el_t *table, interval_t *input, interval_t *output, uint_t tableLen,
-//                                uint_t phasesAll, uint_t phase, uint_t stepStart, uint_t stepEnd) {
-//    cudaError_t error;
-//    LARGE_INTEGER timer;
-//
-//    uint_t intervalsLen = 1 << (phasesAll - stepEnd);
-//    uint_t threadBlockSize = min(intervalsLen / 2, THREADS_PER_GEN_INTERVALS);
-//    dim3 dimGrid(intervalsLen / (2 * threadBlockSize), 1, 1);
-//    dim3 dimBlock(threadBlockSize, 1, 1);
-//
-//    startStopwatch(&timer);
-//    generateIntervalsKernel<<<dimGrid, dimBlock, 2 * threadBlockSize * sizeof(*input)>>>(
-//        table, input, output, tableLen, phase, stepStart, stepEnd
-//    );
-//    /*error = cudaDeviceSynchronize();
-//    checkCudaError(error);
-//    endStopwatch(timer, "Executing kernel for generating intervals");*/
-//}
-//
-//void runBitoicMergeKernel(el_t *input, el_t *output, interval_t *intervals, uint_t tableLen,
-//                          uint_t phasesBitonicMerge, uint_t phase, bool orderAsc) {
-//    cudaError_t error;
-//    LARGE_INTEGER timer;
-//
-//    // Every thread loads and sorts 2 elements
-//    uint_t phases = min(phasesBitonicMerge, phase);
-//    uint_t subBlockSize = 1 << phases;
-//    dim3 dimGrid(tableLen / subBlockSize, 1, 1);
-//    dim3 dimBlock(subBlockSize / 2, 1, 1);
-//
-//    startStopwatch(&timer);
-//    bitonicMergeKernel<<<dimGrid, dimBlock, subBlockSize * sizeof(*input)>>>(
-//        input, output, intervals, phase, orderAsc
-//    );
-//    /*error = cudaDeviceSynchronize();
-//    checkCudaError(error);
-//    endStopwatch(timer, "Executing bitonic merge kernel");*/
-//}
+void runInitIntervalsKernel(
+    data_t *table, interval_t *intervals, uint_t tableLen, uint_t phasesAll, uint_t stepStart, uint_t stepEnd
+)
+{
+    uint_t intervalsLen = 1 << (phasesAll - stepEnd);
+    uint_t threadBlockSize = min(intervalsLen / 2, THREADS_PER_INIT_INTERVALS);
+    dim3 dimGrid(intervalsLen / (2 * threadBlockSize), 1, 1);
+    dim3 dimBlock(threadBlockSize, 1, 1);
+
+    initIntervalsKernel<<<dimGrid, dimBlock, 2 * threadBlockSize * sizeof(*intervals)>>>(
+        table, intervals, tableLen, stepStart, stepEnd
+    );
+}
+
+void runGenerateIntervalsKernel(
+    data_t *table, interval_t *input, interval_t *output, uint_t tableLen, uint_t phasesAll, uint_t phase,
+    uint_t stepStart, uint_t stepEnd
+)
+{
+    uint_t intervalsLen = 1 << (phasesAll - stepEnd);
+    uint_t threadBlockSize = min(intervalsLen / 2, THREADS_PER_GEN_INTERVALS);
+    dim3 dimGrid(intervalsLen / (2 * threadBlockSize), 1, 1);
+    dim3 dimBlock(threadBlockSize, 1, 1);
+
+    generateIntervalsKernel<<<dimGrid, dimBlock, 2 * threadBlockSize * sizeof(*input)>>>(
+        table, input, output, tableLen, phase, stepStart, stepEnd
+    );
+}
+
+void runBitoicMergeKernel(
+    data_t *input, data_t *output, interval_t *intervals, uint_t tableLen, uint_t phasesBitonicMerge,
+    uint_t phase, order_t sortOrder
+)
+{
+    // Every thread loads and sorts 2 elements
+    uint_t phases = min(phasesBitonicMerge, phase);
+    uint_t subBlockSize = 1 << phases;
+    dim3 dimGrid(tableLen / subBlockSize, 1, 1);
+    dim3 dimBlock(subBlockSize / 2, 1, 1);
+
+    if (sortOrder == ORDER_ASC)
+    {
+        bitonicMergeKernel<ORDER_ASC><<<dimGrid, dimBlock, subBlockSize * sizeof(*input)>>>(
+            input, output, intervals, phase
+        );
+    }
+    else
+    {
+        bitonicMergeKernel<ORDER_DESC><<<dimGrid, dimBlock, subBlockSize * sizeof(*input)>>>(
+            input, output, intervals, phase
+        );
+    }
+}
 
 double sortParallel(
     data_t *h_output, data_t *d_dataTable, data_t *d_dataBuffer, uint_t tableLen, order_t sortOrder
