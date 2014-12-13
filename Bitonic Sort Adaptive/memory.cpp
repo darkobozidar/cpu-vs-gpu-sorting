@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <math.h>
 
 #include <cuda.h>
 #include "cuda_runtime.h"
@@ -9,6 +10,7 @@
 #include "../Utils/host.h"
 #include "../Utils/cuda.h"
 #include "constants.h"
+#include "data_types.h"
 
 
 /*
@@ -64,25 +66,42 @@ void freeHostMemory(
 /*
 Allocates device memory.
 */
-void allocDeviceMemory(data_t **dataTable, data_t **dataBuffer, uint_t tableLen)
+void allocDeviceMemory(
+    data_t **dataTable, data_t **dataBuffer, interval_t **d_intervals, interval_t **d_intervalsBuffer, uint_t tableLen
+)
 {
+    uint_t tableLenPower2 = nextPowerOf2(tableLen);
+    uint_t phasesAll = log2((double)tableLenPower2);
+    uint_t phasesBitonicMerge = log2((double)2 * THREADS_PER_MERGE);
+    uint_t intervalsLen = 1 << (phasesAll - phasesBitonicMerge);
+
     cudaError_t error;
 
     error = cudaMalloc(dataTable, tableLen * sizeof(**dataTable));
     checkCudaError(error);
     error = cudaMalloc(dataBuffer, tableLen * sizeof(**dataBuffer));
     checkCudaError(error);
+
+    error = cudaMalloc(d_intervals, intervalsLen * sizeof(**d_intervals));
+    checkCudaError(error);
+    error = cudaMalloc(d_intervalsBuffer, intervalsLen * sizeof(**d_intervalsBuffer));
+    checkCudaError(error);
 }
 
 /*
 Frees device memory.
 */
-void freeDeviceMemory(data_t *dataTable, data_t *dataBuffer)
+void freeDeviceMemory(data_t *dataTable, data_t *dataBuffer, interval_t *d_intervals, interval_t *d_intervalsBuffer)
 {
     cudaError_t error;
 
     error = cudaFree(dataTable);
     checkCudaError(error);
     error = cudaFree(dataBuffer);
+    checkCudaError(error);
+
+    error = cudaFree(d_intervals);
+    checkCudaError(error);
+    error = cudaFree(d_intervalsBuffer);
     checkCudaError(error);
 }

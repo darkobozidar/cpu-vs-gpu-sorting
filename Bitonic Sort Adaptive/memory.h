@@ -13,7 +13,9 @@ void freeHostMemory(
     double **timers
 );
 
-void allocDeviceMemory(data_t **dataTable, data_t **dataBuffer, uint_t tableLen);
-void freeDeviceMemory(data_t *dataTable, data_t *dataBuffer);
+void allocDeviceMemory(
+    data_t **dataTable, data_t **dataBuffer, interval_t **d_intervals, interval_t **d_intervalsBuffer, uint_t tableLen
+);
+void freeDeviceMemory(data_t *dataTable, data_t *dataBuffer, interval_t *d_intervals, interval_t *d_intervalsBuffer);
 
 #endif

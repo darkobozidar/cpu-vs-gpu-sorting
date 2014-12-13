@@ -89,11 +89,10 @@ void runBitoicMergeKernel(
 }
 
 double sortParallel(
-    data_t *h_output, data_t *d_dataTable, data_t *d_dataBuffer, uint_t tableLen, order_t sortOrder
+    data_t *h_output, data_t *d_dataTable, data_t *d_dataBuffer, interval_t *d_intervals,
+    interval_t *d_intervalsBuffer, uint_t tableLen, order_t sortOrder
 )
 {
-    interval_t *d_intervals, *d_intervalsBuffer;
-
     uint_t tableLenPower2 = nextPowerOf2(tableLen);
     uint_t elemsPerBlockBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
 
@@ -111,30 +110,33 @@ double sortParallel(
     startStopwatch(&timer);
     runBitoicSortKernel(d_dataTable, tableLen, sortOrder);
 
-    //for (uint_t phase = phasesBitonicSort + 1; phase <= phasesAll; phase++) {
-    //    uint_t stepStart = phase;
-    //    uint_t stepEnd = max((double)phasesBitonicMerge, (double)phase - phasesInitIntervals);
-    //    runInitIntervalsKernel(d_table, d_intervals, tableLen, phasesAll, stepStart, stepEnd);
+    for (uint_t phase = phasesBitonicSort + 1; phase <= phasesAll; phase++) {
+        uint_t stepStart = phase;
+        uint_t stepEnd = max((double)phasesBitonicMerge, (double)phase - phasesInitIntervals);
+        runInitIntervalsKernel(d_dataTable, d_intervals, tableLen, phasesAll, stepStart, stepEnd);
 
-    //    // After initial intervals were generated intervals have to be evolved to the end
-    //    while (stepEnd > phasesBitonicMerge) {
-    //        interval_t *tempIntervals = d_intervals;
-    //        d_intervals = d_intervalsBuffer;
-    //        d_intervalsBuffer = tempIntervals;
+        // After initial intervals were generated intervals have to be evolved to the end
+        while (stepEnd > phasesBitonicMerge) {
+            interval_t *tempIntervals = d_intervals;
+            d_intervals = d_intervalsBuffer;
+            d_intervalsBuffer = tempIntervals;
 
-    //        stepStart = stepEnd;
-    //        stepEnd = max((double)phasesBitonicMerge, (double)stepStart - phasesGenerateIntervals);
-    //        runGenerateIntervalsKernel(d_table, d_intervalsBuffer, d_intervals, tableLen, phasesAll, phase,
-    //                                   stepStart, stepEnd);
-    //    }
+            stepStart = stepEnd;
+            stepEnd = max((double)phasesBitonicMerge, (double)stepStart - phasesGenerateIntervals);
+            runGenerateIntervalsKernel(
+                d_dataTable, d_intervalsBuffer, d_intervals, tableLen, phasesAll, phase, stepStart, stepEnd
+            );
+        }
 
-    //    // Global merge with intervals
-    //    runBitoicMergeKernel(d_table, d_buffer, d_intervals, tableLen, phasesBitonicMerge, phase, orderAsc);
+        // Global merge with intervals
+        runBitoicMergeKernel(
+            d_dataTable, d_dataBuffer, d_intervals, tableLen, phasesBitonicMerge, phase, sortOrder
+        );
 
-    //    el_t *tempTable = d_table;
-    //    d_table = d_buffer;
-    //    d_buffer = tempTable;
-    //}
+        data_t *tempTable = d_dataTable;
+        d_dataTable = d_dataBuffer;
+        d_dataBuffer = tempTable;
+    }
 
     error = cudaDeviceSynchronize();
     checkCudaError(error);

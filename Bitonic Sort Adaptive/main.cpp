@@ -14,6 +14,7 @@
 #include "../Utils/sort_correct.h"
 #include "../Utils/statistics.h"
 #include "constants.h"
+#include "data_types.h"
 #include "memory.h"
 #include "sort_parallel.h"
 #include "sort_sequential.h"
@@ -23,6 +24,7 @@ int main(int argc, char **argv) {
     data_t *h_input;
     data_t *h_outputParallel, *h_outputSequential, *h_outputCorrect;
     data_t *d_dataTable, *d_dataBuffer;
+    interval_t *d_intervals, *d_intervalsBuffer;
     double **timers;
 
     uint_t tableLen = (1 << 11);
@@ -40,7 +42,7 @@ int main(int argc, char **argv) {
     allocHostMemory(
         &h_input, &h_outputParallel, &h_outputSequential, &h_outputCorrect, &timers, tableLen, testRepetitions
     );
-    allocDeviceMemory(&d_dataTable, &d_dataBuffer, tableLen);
+    allocDeviceMemory(&d_dataTable, &d_dataBuffer, &d_intervals, &d_intervalsBuffer, tableLen);
 
     printf(">>> BITONIC SORT ADAPTIVE <<<\n\n\n");
     printDataDistribution(distribution);
@@ -60,7 +62,9 @@ int main(int argc, char **argv) {
         checkCudaError(error);
         error = cudaDeviceSynchronize();
         checkCudaError(error);
-        timers[SORT_PARALLEL][i] = sortParallel(h_outputParallel, d_dataTable, d_dataBuffer, tableLen, sortOrder);
+        timers[SORT_PARALLEL][i] = sortParallel(
+            h_outputParallel, d_dataTable, d_dataBuffer, d_intervals, d_intervalsBuffer, tableLen, sortOrder
+        );
 
         // Sort sequential
         std::copy(h_input, h_input + tableLen, h_outputSequential);
@@ -106,7 +110,7 @@ int main(int argc, char **argv) {
 
     // Memory free
     freeHostMemory(h_input, h_outputParallel, h_outputSequential, h_outputCorrect, timers);
-    freeDeviceMemory(d_dataTable, d_dataBuffer);
+    freeDeviceMemory(d_dataTable, d_dataBuffer, d_intervals, d_intervalsBuffer);
 
     getchar();
     return 0;
