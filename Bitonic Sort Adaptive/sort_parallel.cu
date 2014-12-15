@@ -21,18 +21,20 @@ needed, if table length is not power of 2. In order for bitonic sort to work, ta
 void runAddPaddingKernel(data_t *dataTable, data_t *dataBuffer, uint_t tableLen, order_t sortOrder)
 {
     uint_t tableLenPower2 = nextPowerOf2(tableLen);
+
+    // If table length is already power of 2, than no padding is needed
+    if (tableLen == tableLenPower2)
+    {
+        return;
+    }
+
     uint_t paddingLength = tableLenPower2 - tableLen;
 
     uint_t elemsPerThreadBlock = THREADS_PER_PADDING * ELEMS_PER_THREAD_PADDING;;
     dim3 dimGrid((paddingLength - 1) / elemsPerThreadBlock + 1, 1, 1);
     dim3 dimBlock(THREADS_PER_PADDING, 1, 1);
 
-    if (tableLen == tableLenPower2)
-    {
-        return;
-    }
-
-    // Depending on sort order different value is added for padding.
+    // Depending on sort order different value is used for padding.
     if (sortOrder == ORDER_ASC)
     {
         addPaddingKernel<MAX_VAL><<<dimGrid, dimBlock>>>(dataTable, dataBuffer, tableLen, paddingLength);
@@ -46,20 +48,27 @@ void runAddPaddingKernel(data_t *dataTable, data_t *dataBuffer, uint_t tableLen,
 /*
 Sorts sub-blocks of input data with bitonic sort.
 */
-void runBitoicSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder) {
+void runBitoicSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder)
+{
     uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
-    uint_t sharedMemSize = elemsPerThreadBlock * sizeof(*dataTable);
+    // If table length is not power of 2, than table is padded to the next power of 2. In that case it is not
+    // necessary for entire padded table to be ordered. It is only necessary that table is ordered to the next
+    // multiple of number of elements processed by one thread block. This ensures that bitonic sequences get
+    // created for entire original table length (padded elemens are MIN/MAX values and sort would't change
+    // anything).
+    uint_t tableLenRoundedUp = roundUp(tableLen, elemsPerThreadBlock);
 
-    dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
+    uint_t sharedMemSize = elemsPerThreadBlock * sizeof(*dataTable);
+    dim3 dimGrid((tableLenRoundedUp - 1) / elemsPerThreadBlock + 1, 1, 1);
     dim3 dimBlock(THREADS_PER_BITONIC_SORT, 1, 1);
 
     if (sortOrder == ORDER_ASC)
     {
-        bitonicSortKernel<ORDER_ASC><<<dimGrid, dimBlock, sharedMemSize>>>(dataTable, tableLen);
+        bitonicSortKernel<ORDER_ASC><<<dimGrid, dimBlock, sharedMemSize>>>(dataTable, tableLenRoundedUp);
     }
     else
     {
-        bitonicSortKernel<ORDER_DESC><<<dimGrid, dimBlock, sharedMemSize>>>(dataTable, tableLen);
+        bitonicSortKernel<ORDER_DESC><<<dimGrid, dimBlock, sharedMemSize>>>(dataTable, tableLenRoundedUp);
     }
 }
 
@@ -157,9 +166,10 @@ double sortParallel(
 
     startStopwatch(&timer);
     runAddPaddingKernel(d_dataTable, d_dataBuffer, tableLen, sortOrder);
-    runBitoicSortKernel(d_dataTable, tableLenPower2, sortOrder);
+    runBitoicSortKernel(d_dataTable, tableLen, sortOrder);
 
-    for (uint_t phase = phasesBitonicSort + 1; phase <= phasesAll; phase++) {
+    for (uint_t phase = phasesBitonicSort + 1; phase <= phasesAll; phase++)
+    {
         uint_t stepStart = phase;
         uint_t stepEnd = max((double)phasesBitonicMerge, (double)phase - phasesInitIntervals);
         runInitIntervalsKernel(
@@ -167,7 +177,8 @@ double sortParallel(
         );
 
         // After initial intervals were generated intervals have to be evolved to the end
-        while (stepEnd > phasesBitonicMerge) {
+        while (stepEnd > phasesBitonicMerge)
+        {
             interval_t *tempIntervals = d_intervals;
             d_intervals = d_intervalsBuffer;
             d_intervalsBuffer = tempIntervals;

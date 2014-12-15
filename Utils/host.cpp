@@ -150,6 +150,7 @@ uint_t previousPowerOf2(uint_t value)
     return value;
 }
 
+// Rounds the number to next multiple of provided value
 int roundUp(int numToRound, int multiple)
 {
     if (multiple == 0)
@@ -158,8 +159,12 @@ int roundUp(int numToRound, int multiple)
     }
 
     int remainder = numToRound % multiple;
+
     if (remainder == 0)
+    {
         return numToRound;
+    }
+
     return numToRound + multiple - remainder;
 }
 

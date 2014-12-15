@@ -136,8 +136,9 @@ __device__ void generateIntervals(
 -----------------------------------------------------------*/
 
 /*
-Adds the padding to table from start index to the end of the array. Needed because of bitonic sort, for which
-table length divisable by 2 is needed.
+Adds the padding to table from start index (original table length, which is not power of 2) to the end of the
+extended array (which is the next power of 2 of the original table length). Needed because of bitonic sort, for
+which table length divisable by 2 is needed.
 */
 template <data_t value>
 __global__ void addPaddingKernel(data_t *dataTable, data_t *dataBuffer, uint_t start, uint_t length)
@@ -170,16 +171,15 @@ template <order_t sortOrder>
 __global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen)
 {
     extern __shared__ data_t sortTile[];
-    // If shared memory size is lower than table length, than every block has to be ordered
-    // in opposite direction -> bitonic sequence.
-    bool blockDirection = sortOrder ^ (blockIdx.x & 1);
-
     uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
     uint_t offset = blockIdx.x * elemsPerThreadBlock;
-    uint_t dataBlockLength = offset + elemsPerThreadBlock <= tableLen ? elemsPerThreadBlock : tableLen - offset;
 
-    // Every thread loads 2 elements
-    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_BITONIC_SORT)
+    // If shared memory size is lower than table length, than adjecent blocks have to be ordered in opposite
+    // direction in order to create bitonic sequences.
+    bool blockDirection = sortOrder ^ (blockIdx.x & 1);
+
+    // Loads data into shared memory
+    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_BITONIC_SORT)
     {
         sortTile[tx] = dataTable[offset + tx];
     }
@@ -192,7 +192,7 @@ __global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen)
         for (uint_t stride = subBlockSize; stride > 0; stride >>= 1)
         {
             __syncthreads();
-            for (uint_t tx = threadIdx.x; tx < dataBlockLength >> 1; tx += THREADS_PER_BITONIC_SORT)
+            for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock >> 1; tx += THREADS_PER_BITONIC_SORT)
             {
                 uint_t start = 2 * tx - (threadIdx.x & (stride - 1));
 
@@ -208,8 +208,9 @@ __global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen)
         }
     }
 
+    // Stores sorted elements from shared to global memory
     __syncthreads();
-    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_BITONIC_SORT) {
+    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_BITONIC_SORT) {
         dataTable[offset + tx] = sortTile[tx];
     }
 }

@@ -5,7 +5,7 @@
 
 // How many threads are used per on thread block for padding. Has to be power of 2.
 #define THREADS_PER_PADDING 128
-// How many elements are processed by one thread in padding kernel. Min value is 2.
+// How many table elements are processed by one thread in padding kernel. Min value is 2.
 #define ELEMS_PER_THREAD_PADDING 4
 
 
