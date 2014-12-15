@@ -96,7 +96,8 @@ __device__ void generateIntervals(
         }
         __syncthreads();
 
-        if (isThreadActive) {
+        if (isThreadActive)
+        {
             uint_t intervalIndex = blockIdx.x * activeThreadsPerBlock + threadIdx.x;
             bool orderAsc = sortOrder ^ ((intervalIndex / stride) & 1);
             uint_t q;
@@ -119,8 +120,7 @@ __device__ void generateIntervals(
             intervals[index1].offset1 = interval.offset1 + interval.length1 - subBlockSize / 2 + q;
             intervals[index1].length1 = subBlockSize / 2 - q;
 
-            // Right sub-block
-            // Intervals are reversed
+            // Right sub-block. Intervals are reversed.
             intervals[index2].offset0 = interval.offset0 + q;
             intervals[index2].length0 = interval.length0 - q;
             intervals[index2].offset1 = interval.offset1;
@@ -231,7 +231,8 @@ __global__ void initIntervalsKernel(
     uint_t subBlockSize = 1 << stepStart;
     uint_t activeThreadsPerBlock = tableLen / subBlockSize / gridDim.x;
 
-    if (threadIdx.x < tableLen / subBlockSize / gridDim.x)
+    // Active threads initialize intervals
+    if (threadIdx.x < activeThreadsPerBlock)
     {
         uint_t intervalIndex = blockIdx.x * activeThreadsPerBlock + threadIdx.x;
         uint_t offset0 = intervalIndex * subBlockSize;
@@ -264,17 +265,18 @@ Reads the existing intervals from global memory and evolve them until the end st
 */
 template <order_t sortOrder>
 __global__ void generateIntervalsKernel(
-    data_t *table, interval_t *input, interval_t *output, uint_t tableLen, uint_t phase, uint_t stepStart,
-    uint_t stepEnd
+    data_t *table, interval_t *inputIntervals, interval_t *outputIntervals, uint_t tableLen, uint_t phase,
+    uint_t stepStart, uint_t stepEnd
 )
 {
     extern __shared__ interval_t intervalsTile[];
     uint_t subBlockSize = 1 << stepStart;
     uint_t activeThreadsPerBlock = tableLen / subBlockSize / gridDim.x;
 
-    if (threadIdx.x < tableLen / subBlockSize / gridDim.x)
+    // Active threads read existing intervals from global memory
+    if (threadIdx.x < activeThreadsPerBlock)
     {
-        intervalsTile[threadIdx.x] = input[blockIdx.x * activeThreadsPerBlock + threadIdx.x];
+        intervalsTile[threadIdx.x] = inputIntervals[blockIdx.x * activeThreadsPerBlock + threadIdx.x];
     }
 
     generateIntervals<sortOrder>(
@@ -282,8 +284,8 @@ __global__ void generateIntervalsKernel(
     );
 
     uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
-    output[index] = intervalsTile[threadIdx.x];
-    output[blockDim.x + index] = intervalsTile[blockDim.x + threadIdx.x];
+    outputIntervals[index] = intervalsTile[threadIdx.x];
+    outputIntervals[blockDim.x + index] = intervalsTile[blockDim.x + threadIdx.x];
 }
 
 template __global__ void generateIntervalsKernel<ORDER_ASC>(

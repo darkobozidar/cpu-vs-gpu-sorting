@@ -72,50 +72,61 @@ void runBitoicSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder)
     }
 }
 
+/*
+Initializes intervals and continues to evolve them until the end step.
+*/
 void runInitIntervalsKernel(
-    data_t *table, interval_t *intervals, uint_t tableLen, uint_t phasesAll, uint_t stepStart, uint_t stepEnd,
-    order_t sortOrder
+    data_t *dataTable, interval_t *intervals, uint_t tableLen, uint_t phasesAll, uint_t stepStart,
+    uint_t stepEnd, order_t sortOrder
 )
 {
+    // How many intervals have to be generated
     uint_t intervalsLen = 1 << (phasesAll - stepEnd);
     uint_t threadBlockSize = min(intervalsLen / 2, THREADS_PER_INIT_INTERVALS);
+
+    uint_t sharedMemSize = 2 * threadBlockSize * sizeof(*intervals);
     dim3 dimGrid(intervalsLen / (2 * threadBlockSize), 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
 
     if (sortOrder == ORDER_ASC)
     {
-        initIntervalsKernel<ORDER_ASC><<<dimGrid, dimBlock, 2 * threadBlockSize * sizeof(*intervals)>>>(
-            table, intervals, tableLen, stepStart, stepEnd
+        initIntervalsKernel<ORDER_ASC><<<dimGrid, dimBlock, sharedMemSize>>>(
+            dataTable, intervals, tableLen, stepStart, stepEnd
         );
     }
     else
     {
-        initIntervalsKernel<ORDER_DESC><<<dimGrid, dimBlock, 2 * threadBlockSize * sizeof(*intervals)>>>(
-            table, intervals, tableLen, stepStart, stepEnd
+        initIntervalsKernel<ORDER_DESC><<<dimGrid, dimBlock, sharedMemSize>>>(
+            dataTable, intervals, tableLen, stepStart, stepEnd
         );
     }
 }
 
+/*
+Evolves intervals from start step to end step.
+*/
 void runGenerateIntervalsKernel(
-    data_t *table, interval_t *input, interval_t *output, uint_t tableLen, uint_t phasesAll, uint_t phase,
-    uint_t stepStart, uint_t stepEnd, order_t sortOrder
+    data_t *table, interval_t *inputIntervals, interval_t *outputIntervals, uint_t tableLen, uint_t phasesAll,
+    uint_t phase, uint_t stepStart, uint_t stepEnd, order_t sortOrder
 )
 {
     uint_t intervalsLen = 1 << (phasesAll - stepEnd);
     uint_t threadBlockSize = min(intervalsLen / 2, THREADS_PER_GEN_INTERVALS);
+
+    uint_t sharedMemSize = 2 * threadBlockSize * sizeof(*inputIntervals);
     dim3 dimGrid(intervalsLen / (2 * threadBlockSize), 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
 
     if (sortOrder == ORDER_ASC)
     {
-        generateIntervalsKernel<ORDER_ASC><<<dimGrid, dimBlock, 2 * threadBlockSize * sizeof(*input)>>>(
-            table, input, output, tableLen, phase, stepStart, stepEnd
+        generateIntervalsKernel<ORDER_ASC><<<dimGrid, dimBlock, sharedMemSize>>>(
+            table, inputIntervals, outputIntervals, tableLen, phase, stepStart, stepEnd
         );
     }
     else
     {
-        generateIntervalsKernel<ORDER_DESC><<<dimGrid, dimBlock, 2 * threadBlockSize * sizeof(*input)>>>(
-            table, input, output, tableLen, phase, stepStart, stepEnd
+        generateIntervalsKernel<ORDER_DESC><<<dimGrid, dimBlock, sharedMemSize>>>(
+            table, inputIntervals, outputIntervals, tableLen, phase, stepStart, stepEnd
         );
     }
 }
