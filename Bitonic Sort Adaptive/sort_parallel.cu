@@ -140,9 +140,13 @@ void runBitoicMergeKernel(
 )
 {
     uint_t elemsPerThreadBlock = THREADS_PER_MERGE * ELEMS_PER_MERGE;
+    // If table length is not power of 2, than table is padded to the next power of 2. In that case it is not
+    // necessary for entire padded table to be merged. It is only necessary that table is merged to the next
+    // multiple of phase stride.
+    uint_t tableLenRoundedUp = roundUp(tableLen, 1 << (phase));
 
     uint_t sharedMemSize = elemsPerThreadBlock * sizeof(*input);
-    dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
+    dim3 dimGrid((tableLenRoundedUp - 1) / elemsPerThreadBlock + 1, 1, 1);
     dim3 dimBlock(THREADS_PER_MERGE, 1, 1);
 
     if (sortOrder == ORDER_ASC)
@@ -202,7 +206,7 @@ double sortParallel(
 
         // Global merge with intervals
         runBitoicMergeKernel(
-            d_dataTable, d_dataBuffer, d_intervals, tableLenPower2, phasesBitonicMerge, phase, sortOrder
+            d_dataTable, d_dataBuffer, d_intervals, tableLen, phasesBitonicMerge, phase, sortOrder
         );
 
         data_t *tempTable = d_dataTable;
