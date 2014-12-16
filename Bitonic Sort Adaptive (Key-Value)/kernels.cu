@@ -35,7 +35,7 @@ __device__ void compareExchange(data_t *key1, data_t *key2, data_t *val1, data_t
 /*
 From provided interval and index returns element in table. Index can't be higher than interval span.
 */
-__device__ data_t getTableElement(data_t *table, interval_t interval, uint_t index)
+__device__ data_t getTableKey(data_t *table, interval_t interval, uint_t index)
 {
     bool useInterval1 = index >= interval.length0;
     uint_t offset = useInterval1 ? interval.offset1 : interval.offset0;
@@ -44,6 +44,24 @@ __device__ data_t getTableElement(data_t *table, interval_t interval, uint_t ind
     index -= useInterval1 && index >= interval.length1 ? interval.length1 : 0;
 
     return table[offset + index];
+}
+
+/*
+From provided interval and index returns element in table. Index can't be higher than interval span.
+*/
+__device__ void getTableKeyValue(
+    data_t *keys, data_t *values, interval_t interval, uint_t index, data_t *key, data_t *value
+)
+{
+    bool useInterval1 = index >= interval.length0;
+    uint_t offset = useInterval1 ? interval.offset1 : interval.offset0;
+
+    index -= useInterval1 ? interval.length0 : 0;
+    index -= useInterval1 && index >= interval.length1 ? interval.length1 : 0;
+    index += offset;
+
+    *key = keys[index];
+    *value = values[index];
 }
 
 /*
@@ -62,8 +80,8 @@ __device__ int_t binarySearch(data_t* table, interval_t interval, uint_t subBloc
     while (indexStart < indexEnd)
     {
         int index = indexStart + (indexEnd - indexStart) / 2;
-        data_t el0 = getTableElement(table, interval, index);
-        data_t el1 = getTableElement(table, interval, index + subBlockHalfLen);
+        data_t el0 = getTableKey(table, interval, index);
+        data_t el1 = getTableKey(table, interval, index + subBlockHalfLen);
 
         if ((el0 > el1) ^ sortOrder)
         {
@@ -351,52 +369,63 @@ template __global__ void generateIntervalsKernel<ORDER_DESC>(
 Global bitonic merge for sections, where stride IS GREATER OR EQUAL than max shared memory.
 */
 template <order_t sortOrder>
-__global__ void bitonicMergeKernel(data_t *input, data_t *output, interval_t *intervals, uint_t phase)
+__global__ void bitonicMergeKernel(
+    data_t *keys, data_t *values, data_t *keysBuffer, data_t *valuesBuffer, interval_t *intervals, uint_t phase
+)
 {
     extern __shared__ data_t mergeTile[];
-    //interval_t interval = intervals[blockIdx.x];
+    interval_t interval = intervals[blockIdx.x];
 
-    //// Elements inside same sub-block have to be ordered in same direction
-    //uint_t elemsPerThreadBlock = THREADS_PER_MERGE * ELEMS_PER_MERGE;
-    //uint_t offset = blockIdx.x * elemsPerThreadBlock;
-    //bool orderAsc = !sortOrder ^ ((offset >> phase) & 1);
+    // Elements inside same sub-block have to be ordered in same direction
+    uint_t elemsPerThreadBlock = THREADS_PER_MERGE * ELEMS_PER_MERGE;
+    uint_t offset = blockIdx.x * elemsPerThreadBlock;
+    bool orderAsc = !sortOrder ^ ((offset >> phase) & 1);
 
-    //// Loads data from global to shared memory
-    //for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_MERGE)
-    //{
-    //    mergeTile[tx] = getTableElement(input, interval, tx);
-    //}
+    data_t *keysTile = mergeTile;
+    data_t *valuesTile = mergeTile + elemsPerThreadBlock;
 
-    //// Bitonic merge
-    //for (uint_t stride = elemsPerThreadBlock / 2; stride > 0; stride >>= 1)
-    //{
-    //    __syncthreads();
-    //    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock / 2; tx += THREADS_PER_MERGE)
-    //    {
-    //        uint_t start = 2 * tx - (tx & (stride - 1));
+    // Loads data from global to shared memory
+    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_MERGE)
+    {
+        getTableKeyValue(keys, values, interval, tx, &keysTile[tx], &valuesTile[tx]);
+    }
 
-    //        if (orderAsc)
-    //        {
-    //            compareExchange<ORDER_ASC>(&mergeTile[start], &mergeTile[start + stride]);
-    //        }
-    //        else
-    //        {
-    //            compareExchange<ORDER_DESC>(&mergeTile[start], &mergeTile[start + stride]);
-    //        }
-    //    }
-    //}
+    // Bitonic merge
+    for (uint_t stride = elemsPerThreadBlock / 2; stride > 0; stride >>= 1)
+    {
+        __syncthreads();
+        for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock / 2; tx += THREADS_PER_MERGE)
+        {
+            uint_t index = 2 * tx - (tx & (stride - 1));
 
-    //// Stores sorted data to buffer array
-    //__syncthreads();
-    //for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_MERGE)
-    //{
-    //    output[offset + tx] = mergeTile[tx];
-    //}
+            if (orderAsc)
+            {
+                compareExchange<ORDER_ASC>(
+                    &keysTile[index], &keysTile[index + stride], &valuesTile[index], &valuesTile[index + stride]
+                );
+            }
+            else
+            {
+                compareExchange<ORDER_DESC>(
+                    &keysTile[index], &keysTile[index + stride], &valuesTile[index], &valuesTile[index + stride]
+                );
+            }
+        }
+    }
+
+    // Stores sorted data to buffer array
+    __syncthreads();
+    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_MERGE)
+    {
+        uint_t index = offset + tx;
+        keysBuffer[index] = keysTile[tx];
+        valuesBuffer[index] = valuesTile[tx];
+    }
 }
 
 template __global__ void bitonicMergeKernel<ORDER_ASC>(
-    data_t *input, data_t *output, interval_t *intervals, uint_t phase
+    data_t *keys, data_t *values, data_t *keysBuffer, data_t *valuesBuffer, interval_t *intervals, uint_t phase
 );
 template __global__ void bitonicMergeKernel<ORDER_DESC>(
-    data_t *input, data_t *output, interval_t *intervals, uint_t phase
+    data_t *keys, data_t *values, data_t *keysBuffer, data_t *valuesBuffer, interval_t *intervals, uint_t phase
 );

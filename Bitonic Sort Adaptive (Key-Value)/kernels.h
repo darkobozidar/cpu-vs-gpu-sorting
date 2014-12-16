@@ -27,6 +27,8 @@ __global__ void generateIntervalsKernel(
 
 // Bitonic merge from intervals kernel
 template <order_t sortOrder>
-__global__ void bitonicMergeKernel(data_t *input, data_t *output, interval_t *intervals, uint_t phase);
+__global__ void bitonicMergeKernel(
+    data_t *keys, data_t *values, data_t *keysBuffer, data_t *valuesBuffer, interval_t *intervals, uint_t phase
+);
 
 #endif

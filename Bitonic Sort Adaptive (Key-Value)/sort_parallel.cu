@@ -58,7 +58,7 @@ void runBitoicSortKernel(data_t *keys, data_t *values, uint_t tableLen, order_t 
     // anything).
     uint_t tableLenRoundedUp = roundUp(tableLen, elemsPerThreadBlock);
 
-    // "2 *" is needed for keys AND values
+    // "2 *" is needed because keys AND values are sorted in shared memory
     uint_t sharedMemSize = 2 * elemsPerThreadBlock * sizeof(*keys);
     dim3 dimGrid((tableLenRoundedUp - 1) / elemsPerThreadBlock + 1, 1, 1);
     dim3 dimBlock(THREADS_PER_BITONIC_SORT, 1, 1);
@@ -138,8 +138,8 @@ void runGenerateIntervalsKernel(
 Runs kernel, whic performs bitonic merge from provided intervals.
 */
 void runBitoicMergeKernel(
-    data_t *input, data_t *output, interval_t *intervals, uint_t tableLen, uint_t phasesBitonicMerge,
-    uint_t phase, order_t sortOrder
+    data_t *keys, data_t *values, data_t *keysBuffer, data_t *valuesBuffer, interval_t *intervals,
+    uint_t tableLen, uint_t phasesBitonicMerge, uint_t phase, order_t sortOrder
 )
 {
     uint_t elemsPerThreadBlock = THREADS_PER_MERGE * ELEMS_PER_MERGE;
@@ -148,17 +148,22 @@ void runBitoicMergeKernel(
     // multiple of phase stride.
     uint_t tableLenRoundedUp = roundUp(tableLen, 1 << phase);
 
-    uint_t sharedMemSize = elemsPerThreadBlock * sizeof(*input);
+    // "2 *" is needed because keys AND values are marged in shared memory
+    uint_t sharedMemSize = 2 * elemsPerThreadBlock * sizeof(*keys);
     dim3 dimGrid((tableLenRoundedUp - 1) / elemsPerThreadBlock + 1, 1, 1);
     dim3 dimBlock(THREADS_PER_MERGE, 1, 1);
 
     if (sortOrder == ORDER_ASC)
     {
-        bitonicMergeKernel<ORDER_ASC><<<dimGrid, dimBlock, sharedMemSize>>>(input, output, intervals, phase);
+        bitonicMergeKernel<ORDER_ASC><<<dimGrid, dimBlock, sharedMemSize>>>(
+            keys, values, keysBuffer, valuesBuffer, intervals, phase
+        );
     }
     else
     {
-        bitonicMergeKernel<ORDER_DESC><<<dimGrid, dimBlock, sharedMemSize>>>(input, output, intervals, phase);
+        bitonicMergeKernel<ORDER_DESC><<<dimGrid, dimBlock, sharedMemSize>>>(
+            keys, values, keysBuffer, valuesBuffer, intervals, phase
+        );
     }
 }
 
@@ -209,9 +214,10 @@ double sortParallel(
         }
 
         // Global merge with intervals
-        /*runBitoicMergeKernel(
-            d_dataTable, d_dataBuffer, d_intervals, tableLen, phasesBitonicMerge, phase, sortOrder
-        );*/
+        runBitoicMergeKernel(
+            d_keys, d_values, d_keysBuffer, d_valuesBuffer, d_intervals, tableLen, phasesBitonicMerge,
+            phase, sortOrder
+        );
 
         // Exchanges keys
         data_t *tempTable = d_keys;
