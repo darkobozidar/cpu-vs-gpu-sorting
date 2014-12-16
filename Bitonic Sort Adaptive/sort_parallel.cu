@@ -174,7 +174,7 @@ double sortParallel(
     uint_t phasesBitonicSort = log2((double)min(tableLenPower2, elemsPerBlockBitonicSort));
     uint_t phasesBitonicMerge = log2((double)(THREADS_PER_MERGE * ELEMS_PER_MERGE));
     uint_t phasesInitIntervals = log2((double)THREADS_PER_INIT_INTERVALS * ELEMS_PER_INIT_INTERVALS);
-    uint_t phasesGenerateIntervals = log2((double)2 * THREADS_PER_GEN_INTERVALS * ELEMS_PER_GEN_INTERVALS);
+    uint_t phasesGenerateIntervals = log2((double)THREADS_PER_GEN_INTERVALS * ELEMS_PER_GEN_INTERVALS);
 
     LARGE_INTEGER timer;
     cudaError_t error;
@@ -191,7 +191,7 @@ double sortParallel(
             d_dataTable, d_intervals, tableLenPower2, phasesAll, stepStart, stepEnd, sortOrder
         );
 
-        // After initial intervals were generated intervals have to be evolved to the end
+        // After initial intervals were generated intervals have to be evolved to the end step
         while (stepEnd > phasesBitonicMerge)
         {
             interval_t *tempIntervals = d_intervals;

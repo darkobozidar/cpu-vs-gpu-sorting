@@ -454,7 +454,8 @@ __global__ void bitonicSortKernel(data_t *keys, data_t *values, uint_t tableLen)
     }
 
     // Stores data from shared to global memory
-    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_BITONIC_SORT) {
+    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_BITONIC_SORT)
+    {
         keys[offset + tx] = keysTile[tx];
         values[offset + tx] = valuesTile[tx];
     }

@@ -78,18 +78,22 @@ __device__ int_t binarySearch(data_t* table, interval_t interval, uint_t subBloc
 Generates intervals in provided table until size of sub block is grater than end sub block size.
 Sub block size is the size of one block in bitonic merge step.
 */
-template <order_t sortOrder>
+template <order_t sortOrder, uint_t elementsPerThread>
 __device__ void generateIntervals(
-    data_t *table, uint_t subBlockSize, uint_t subBlockSizeEnd, uint_t stride, uint_t activeThreadsPerBlock,
-    uint_t elemsPerThread
+    data_t *table, uint_t subBlockHalfSize, uint_t subBlockSizeEnd, uint_t stride, uint_t activeThreadsPerBlock
 )
 {
     extern __shared__ interval_t intervalsTile[];
-    interval_t *intervals = intervalsTile;
-    interval_t *intervalsBuffer = intervalsTile + blockDim.x * elemsPerThread;
     interval_t interval;
 
-    for (; subBlockSize > subBlockSizeEnd; subBlockSize /= 2, stride *= 2, activeThreadsPerBlock *= 2)
+    // Only active threads have to generate intervals. This increases by 2 in every iteration. If threads were
+    // reading and writing in same array, then one additional syncthreads() would be needed in order for all
+    // active threads to read their corresponding intervals before generating new. For this purpose buffer is used
+    // as output array.
+    interval_t *intervals = intervalsTile;
+    interval_t *intervalsBuffer = intervalsTile + blockDim.x * elementsPerThread;
+
+    for (; subBlockHalfSize >= subBlockSizeEnd; subBlockHalfSize /= 2, stride *= 2, activeThreadsPerBlock *= 2)
     {
         for (uint_t tx = threadIdx.x; tx < activeThreadsPerBlock; tx += blockDim.x)
         {
@@ -99,29 +103,31 @@ __device__ void generateIntervals(
             bool orderAsc = sortOrder ^ ((intervalIndex / stride) & 1);
             uint_t q;
 
+            // Finds q - an index, where exchanges begin in bitonic sequences being merged.
             if (orderAsc)
             {
-                q = binarySearch<ORDER_ASC>(table, interval, subBlockSize / 2);
+                q = binarySearch<ORDER_ASC>(table, interval, subBlockHalfSize);
             }
             else
             {
-                q = binarySearch<ORDER_DESC>(table, interval, subBlockSize / 2);
+                q = binarySearch<ORDER_DESC>(table, interval, subBlockHalfSize);
             }
 
+            // Output indexes of newly generated intervals
             uint_t index1 = 2 * tx;
             uint_t index2 = index1 + 1;
 
             // Left sub-block
             intervalsBuffer[index1].offset0 = interval.offset0;
             intervalsBuffer[index1].length0 = q;
-            intervalsBuffer[index1].offset1 = interval.offset1 + interval.length1 - subBlockSize / 2 + q;
-            intervalsBuffer[index1].length1 = subBlockSize / 2 - q;
+            intervalsBuffer[index1].offset1 = interval.offset1 + interval.length1 - subBlockHalfSize + q;
+            intervalsBuffer[index1].length1 = subBlockHalfSize - q;
 
-            // Right sub-block. Intervals are reversed.
+            // Right sub-block. Intervals are reversed, otherwise intervals aren't generated correctly.
             intervalsBuffer[index2].offset0 = interval.offset0 + q;
             intervalsBuffer[index2].length0 = interval.length0 - q;
             intervalsBuffer[index2].offset1 = interval.offset1;
-            intervalsBuffer[index2].length1 = q + interval.length1 - subBlockSize / 2;
+            intervalsBuffer[index2].length1 = q + interval.length1 - subBlockHalfSize;
         }
 
         interval_t *temp = intervals;
@@ -211,7 +217,8 @@ __global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen)
 
     // Stores sorted elements from shared to global memory
     __syncthreads();
-    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_BITONIC_SORT) {
+    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_BITONIC_SORT)
+    {
         dataTable[offset + tx] = sortTile[tx];
     }
 }
@@ -222,6 +229,7 @@ template __global__ void bitonicSortKernel<ORDER_DESC>(data_t *dataTable, uint_t
 
 /*
 Generates initial intervals and continues to evolve them until the end step.
+Note: "blockDim.x" has to be used throughout the entire kernel, because thread block size is variable
 */
 template <order_t sortOrder>
 __global__ void initIntervalsKernel(
@@ -239,7 +247,7 @@ __global__ void initIntervalsKernel(
         uint_t offset0 = intervalIndex * subBlockSize;
         uint_t offset1 = intervalIndex * subBlockSize + subBlockSize / 2;
 
-        // In every odd block intervals have to be rotated
+        // In every odd block intervals have to be reversed, othervise itervals aren't generated correctly.
         intervalsTile[tx].offset0 = intervalIndex % 2 ? offset1 : offset0;
         intervalsTile[tx].offset1 = intervalIndex % 2 ? offset0 : offset1;
         intervalsTile[tx].length0 = subBlockSize / 2;
@@ -247,8 +255,9 @@ __global__ void initIntervalsKernel(
     }
     __syncthreads();
 
-    generateIntervals<sortOrder>(
-        table, subBlockSize, 1 << stepEnd, 1, activeThreadsPerBlock, ELEMS_PER_INIT_INTERVALS
+    // Evolves intervals in shared memory to end step
+    generateIntervals<sortOrder, ELEMS_PER_INIT_INTERVALS>(
+        table, subBlockSize / 2, 1 << stepEnd, 1, activeThreadsPerBlock
     );
 
     // Calculates offset in global intervals array
@@ -273,7 +282,8 @@ template __global__ void initIntervalsKernel<ORDER_DESC>(
 
 
 /*
-Reads the existing intervals from global memory and evolve them until the end step.
+Reads the existing intervals from global memory and evolves them until the end step.
+Note: "blockDim.x" has to be used throughout the entire kernel, because thread block size is variable
 */
 template <order_t sortOrder>
 __global__ void generateIntervalsKernel(
@@ -293,9 +303,9 @@ __global__ void generateIntervalsKernel(
     }
     __syncthreads();
 
-    generateIntervals<sortOrder>(
-        table, subBlockSize, 1 << stepEnd, 1 << (phase - stepStart), activeThreadsPerBlock,
-        ELEMS_PER_GEN_INTERVALS
+    // Evolves intervals in shared memory to end step
+    generateIntervals<sortOrder, ELEMS_PER_GEN_INTERVALS>(
+        table, subBlockSize / 2, 1 << stepEnd, 1 << (phase - stepStart), activeThreadsPerBlock
     );
 
     uint_t elemsPerThreadBlock = blockDim.x * ELEMS_PER_GEN_INTERVALS;

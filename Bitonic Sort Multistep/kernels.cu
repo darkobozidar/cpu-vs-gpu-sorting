@@ -488,7 +488,8 @@ __global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen)
     }
 
     // Stores data from shared to global memory
-    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_BITONIC_SORT) {
+    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_BITONIC_SORT)
+    {
         dataTable[offset + tx] = bitonicSortTile[tx];
     }
 }
