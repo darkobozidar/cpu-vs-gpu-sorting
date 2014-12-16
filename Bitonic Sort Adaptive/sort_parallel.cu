@@ -82,10 +82,11 @@ void runInitIntervalsKernel(
 {
     // How many intervals have to be generated
     uint_t intervalsLen = 1 << (phasesAll - stepEnd);
-    uint_t threadBlockSize = min((intervalsLen - 1) / 2 + 1, THREADS_PER_INIT_INTERVALS);
+    uint_t threadBlockSize = min((intervalsLen - 1) / ELEMS_PER_INIT_INTERVALS + 1, THREADS_PER_INIT_INTERVALS);
 
-    uint_t sharedMemSize = 2 * threadBlockSize * sizeof(*intervals);
-    dim3 dimGrid((intervalsLen - 1) / (2 * threadBlockSize) + 1, 1, 1);
+    // "2 *" because of BUFFER MEMORY for intervals
+    uint_t sharedMemSize = 2 * ELEMS_PER_INIT_INTERVALS * threadBlockSize * sizeof(*intervals);
+    dim3 dimGrid((intervalsLen - 1) / (ELEMS_PER_INIT_INTERVALS * threadBlockSize) + 1, 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
 
     if (sortOrder == ORDER_ASC)
@@ -111,10 +112,11 @@ void runGenerateIntervalsKernel(
 )
 {
     uint_t intervalsLen = 1 << (phasesAll - stepEnd);
-    uint_t threadBlockSize = min(intervalsLen / 2, THREADS_PER_GEN_INTERVALS);
+    uint_t threadBlockSize = min((intervalsLen - 1) / ELEMS_PER_GEN_INTERVALS + 1, THREADS_PER_GEN_INTERVALS);
 
-    uint_t sharedMemSize = 2 * threadBlockSize * sizeof(*inputIntervals);
-    dim3 dimGrid(intervalsLen / (2 * threadBlockSize), 1, 1);
+    // "2 *" because of BUFFER MEMORY for intervals
+    uint_t sharedMemSize = 2 * ELEMS_PER_GEN_INTERVALS * threadBlockSize * sizeof(*inputIntervals);
+    dim3 dimGrid((intervalsLen - 1) / (ELEMS_PER_GEN_INTERVALS * threadBlockSize) + 1, 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
 
     if (sortOrder == ORDER_ASC)
@@ -143,7 +145,7 @@ void runBitoicMergeKernel(
     // If table length is not power of 2, than table is padded to the next power of 2. In that case it is not
     // necessary for entire padded table to be merged. It is only necessary that table is merged to the next
     // multiple of phase stride.
-    uint_t tableLenRoundedUp = roundUp(tableLen, 1 << (phase));
+    uint_t tableLenRoundedUp = roundUp(tableLen, 1 << phase);
 
     uint_t sharedMemSize = elemsPerThreadBlock * sizeof(*input);
     dim3 dimGrid((tableLenRoundedUp - 1) / elemsPerThreadBlock + 1, 1, 1);
@@ -171,8 +173,8 @@ double sortParallel(
     uint_t phasesAll = log2((double)tableLenPower2);
     uint_t phasesBitonicSort = log2((double)min(tableLenPower2, elemsPerBlockBitonicSort));
     uint_t phasesBitonicMerge = log2((double)(THREADS_PER_MERGE * ELEMS_PER_MERGE));
-    uint_t phasesInitIntervals = log2((double)2 * THREADS_PER_INIT_INTERVALS);
-    uint_t phasesGenerateIntervals = log2((double)2 * THREADS_PER_GEN_INTERVALS);
+    uint_t phasesInitIntervals = log2((double)THREADS_PER_INIT_INTERVALS * ELEMS_PER_INIT_INTERVALS);
+    uint_t phasesGenerateIntervals = log2((double)2 * THREADS_PER_GEN_INTERVALS * ELEMS_PER_GEN_INTERVALS);
 
     LARGE_INTEGER timer;
     cudaError_t error;
