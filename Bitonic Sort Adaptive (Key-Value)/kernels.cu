@@ -18,13 +18,17 @@
 Compares 2 elements and exchanges them according to sortOrder.
 */
 template <order_t sortOrder>
-__device__ void compareExchange(data_t *elem1, data_t *elem2)
+__device__ void compareExchange(data_t *key1, data_t *key2, data_t *val1, data_t *val2)
 {
-    if ((*elem1 > *elem2) ^ sortOrder)
+    if ((*key1 > *key2) ^ sortOrder)
     {
-        data_t temp = *elem1;
-        *elem1 = *elem2;
-        *elem2 = temp;
+        data_t temp = *key1;
+        *key1 = *key2;
+        *key2 = temp;
+
+        temp = *val1;
+        *val1 = *val2;
+        *val2 = temp;
     }
 }
 
@@ -176,11 +180,14 @@ template __global__ void addPaddingKernel<MAX_VAL>(
 Sorts sub-blocks of input data with bitonic sort.
 */
 template <order_t sortOrder>
-__global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen)
+__global__ void bitonicSortKernel(data_t *keys, data_t *values, uint_t tableLen)
 {
     extern __shared__ data_t sortTile[];
     uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
     uint_t offset = blockIdx.x * elemsPerThreadBlock;
+
+    data_t *keysTile = sortTile;
+    data_t *valuesTile = sortTile + elemsPerThreadBlock;
 
     // If shared memory size is lower than table length, than adjecent blocks have to be ordered in opposite
     // direction in order to create bitonic sequences.
@@ -189,7 +196,9 @@ __global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen)
     // Loads data into shared memory
     for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_BITONIC_SORT)
     {
-        sortTile[tx] = dataTable[offset + tx];
+        uint_t index = offset + tx;
+        keysTile[tx] = keys[index];
+        valuesTile[tx] = values[index];
     }
 
     // Bitonic sort
@@ -201,15 +210,19 @@ __global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen)
             for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock >> 1; tx += THREADS_PER_BITONIC_SORT)
             {
                 bool direction = blockDirection ^ ((tx & subBlockSize) != 0);
-                uint_t start = 2 * tx - (tx & (stride - 1));
+                uint_t index = 2 * tx - (tx & (stride - 1));
 
                 if (direction)
                 {
-                    compareExchange<ORDER_DESC>(&sortTile[start], &sortTile[start + stride]);
+                    compareExchange<ORDER_DESC>(
+                        &keysTile[index], &keysTile[index + stride], &valuesTile[index], &valuesTile[index + stride]
+                    );
                 }
                 else
                 {
-                    compareExchange<ORDER_ASC>(&sortTile[start], &sortTile[start + stride]);
+                    compareExchange<ORDER_ASC>(
+                        &keysTile[index], &keysTile[index + stride], &valuesTile[index], &valuesTile[index + stride]
+                    );
                 }
             }
         }
@@ -219,12 +232,14 @@ __global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen)
     __syncthreads();
     for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_BITONIC_SORT)
     {
-        dataTable[offset + tx] = sortTile[tx];
+        uint_t index = offset + tx;
+        keys[index] = keysTile[tx];
+        values[index] = valuesTile[tx];
     }
 }
 
-template __global__ void bitonicSortKernel<ORDER_ASC>(data_t *dataTable, uint_t tableLen);
-template __global__ void bitonicSortKernel<ORDER_DESC>(data_t *dataTable, uint_t tableLen);
+template __global__ void bitonicSortKernel<ORDER_ASC>(data_t *keys, data_t *values, uint_t tableLen);
+template __global__ void bitonicSortKernel<ORDER_DESC>(data_t *keys, data_t *values, uint_t tableLen);
 
 
 /*
@@ -339,44 +354,44 @@ template <order_t sortOrder>
 __global__ void bitonicMergeKernel(data_t *input, data_t *output, interval_t *intervals, uint_t phase)
 {
     extern __shared__ data_t mergeTile[];
-    interval_t interval = intervals[blockIdx.x];
+    //interval_t interval = intervals[blockIdx.x];
 
-    // Elements inside same sub-block have to be ordered in same direction
-    uint_t elemsPerThreadBlock = THREADS_PER_MERGE * ELEMS_PER_MERGE;
-    uint_t offset = blockIdx.x * elemsPerThreadBlock;
-    bool orderAsc = !sortOrder ^ ((offset >> phase) & 1);
+    //// Elements inside same sub-block have to be ordered in same direction
+    //uint_t elemsPerThreadBlock = THREADS_PER_MERGE * ELEMS_PER_MERGE;
+    //uint_t offset = blockIdx.x * elemsPerThreadBlock;
+    //bool orderAsc = !sortOrder ^ ((offset >> phase) & 1);
 
-    // Loads data from global to shared memory
-    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_MERGE)
-    {
-        mergeTile[tx] = getTableElement(input, interval, tx);
-    }
+    //// Loads data from global to shared memory
+    //for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_MERGE)
+    //{
+    //    mergeTile[tx] = getTableElement(input, interval, tx);
+    //}
 
-    // Bitonic merge
-    for (uint_t stride = elemsPerThreadBlock / 2; stride > 0; stride >>= 1)
-    {
-        __syncthreads();
-        for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock / 2; tx += THREADS_PER_MERGE)
-        {
-            uint_t start = 2 * tx - (tx & (stride - 1));
+    //// Bitonic merge
+    //for (uint_t stride = elemsPerThreadBlock / 2; stride > 0; stride >>= 1)
+    //{
+    //    __syncthreads();
+    //    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock / 2; tx += THREADS_PER_MERGE)
+    //    {
+    //        uint_t start = 2 * tx - (tx & (stride - 1));
 
-            if (orderAsc)
-            {
-                compareExchange<ORDER_ASC>(&mergeTile[start], &mergeTile[start + stride]);
-            }
-            else
-            {
-                compareExchange<ORDER_DESC>(&mergeTile[start], &mergeTile[start + stride]);
-            }
-        }
-    }
+    //        if (orderAsc)
+    //        {
+    //            compareExchange<ORDER_ASC>(&mergeTile[start], &mergeTile[start + stride]);
+    //        }
+    //        else
+    //        {
+    //            compareExchange<ORDER_DESC>(&mergeTile[start], &mergeTile[start + stride]);
+    //        }
+    //    }
+    //}
 
-    // Stores sorted data to buffer array
-    __syncthreads();
-    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_MERGE)
-    {
-        output[offset + tx] = mergeTile[tx];
-    }
+    //// Stores sorted data to buffer array
+    //__syncthreads();
+    //for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_MERGE)
+    //{
+    //    output[offset + tx] = mergeTile[tx];
+    //}
 }
 
 template __global__ void bitonicMergeKernel<ORDER_ASC>(

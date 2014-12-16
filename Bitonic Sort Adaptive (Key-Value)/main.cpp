@@ -29,7 +29,7 @@ int main(int argc, char **argv) {
     interval_t *d_intervals, *d_intervalsBuffer;
     double **timers;
 
-    uint_t tableLen = (1 << 20);
+    uint_t tableLen = (1 << 9);
     uint_t interval = (1 << 31);
     uint_t testRepetitions = 10;    // How many times are sorts ran
     order_t sortOrder = ORDER_ASC;  // Values: ORDER_ASC, ORDER_DESC
@@ -76,9 +76,10 @@ int main(int argc, char **argv) {
         checkCudaError(error);
         error = cudaDeviceSynchronize();
         checkCudaError(error);
-        timers[SORT_PARALLEL][i] = 9999;  /*sortParallel(
-            h_outputParallelKeys, h_outputParallelValues, d_dataTableKeys, d_dataTableValues, tableLen, sortOrder
-        );*/
+        timers[SORT_PARALLEL][i] = sortParallel(
+            h_outputParallelKeys, h_outputParallelValues, d_dataTableKeys, d_dataTableValues, d_dataBufferKeys,
+            d_dataBufferValues, d_intervals, d_intervalsBuffer, tableLen, sortOrder
+        );
 
         // Sort sequential
         std::copy(h_inputKeys, h_inputKeys + tableLen, h_outputSequentialKeys);

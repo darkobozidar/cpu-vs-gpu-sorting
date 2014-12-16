@@ -12,7 +12,7 @@ __global__ void addPaddingKernel(data_t *dataTable, data_t *dataBuffer, uint_t s
 
 // Bitonic sort kernel
 template <order_t sortOrder>
-__global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen);
+__global__ void bitonicSortKernel(data_t *keys, data_t *values, uint_t tableLen);
 
 // Kernels for generating intervals
 template <order_t sortOrder>

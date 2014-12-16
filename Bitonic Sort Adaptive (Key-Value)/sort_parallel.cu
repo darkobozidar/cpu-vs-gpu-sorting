@@ -48,7 +48,7 @@ void runAddPaddingKernel(data_t *dataTable, data_t *dataBuffer, uint_t tableLen,
 /*
 Sorts sub-blocks of input data with bitonic sort.
 */
-void runBitoicSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder)
+void runBitoicSortKernel(data_t *keys, data_t *values, uint_t tableLen, order_t sortOrder)
 {
     uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
     // If table length is not power of 2, than table is padded to the next power of 2. In that case it is not
@@ -58,17 +58,18 @@ void runBitoicSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder)
     // anything).
     uint_t tableLenRoundedUp = roundUp(tableLen, elemsPerThreadBlock);
 
-    uint_t sharedMemSize = elemsPerThreadBlock * sizeof(*dataTable);
+    // "2 *" is needed for keys AND values
+    uint_t sharedMemSize = 2 * elemsPerThreadBlock * sizeof(*keys);
     dim3 dimGrid((tableLenRoundedUp - 1) / elemsPerThreadBlock + 1, 1, 1);
     dim3 dimBlock(THREADS_PER_BITONIC_SORT, 1, 1);
 
     if (sortOrder == ORDER_ASC)
     {
-        bitonicSortKernel<ORDER_ASC><<<dimGrid, dimBlock, sharedMemSize>>>(dataTable, tableLenRoundedUp);
+        bitonicSortKernel<ORDER_ASC><<<dimGrid, dimBlock, sharedMemSize>>>(keys, values, tableLenRoundedUp);
     }
     else
     {
-        bitonicSortKernel<ORDER_DESC><<<dimGrid, dimBlock, sharedMemSize>>>(dataTable, tableLenRoundedUp);
+        bitonicSortKernel<ORDER_DESC><<<dimGrid, dimBlock, sharedMemSize>>>(keys, values, tableLenRoundedUp);
     }
 }
 
@@ -162,8 +163,9 @@ void runBitoicMergeKernel(
 }
 
 double sortParallel(
-    data_t *h_output, data_t *d_dataTable, data_t *d_dataBuffer, interval_t *d_intervals,
-    interval_t *d_intervalsBuffer, uint_t tableLen, order_t sortOrder
+    data_t *h_keys, data_t *h_values, data_t *d_keys, data_t *d_values, data_t *d_keysBuffer,
+    data_t *d_valuesBuffer, interval_t *d_intervals, interval_t *d_intervalsBuffer, uint_t tableLen,
+    order_t sortOrder
 )
 {
     uint_t tableLenPower2 = nextPowerOf2(tableLen);
@@ -180,15 +182,15 @@ double sortParallel(
     cudaError_t error;
 
     startStopwatch(&timer);
-    runAddPaddingKernel(d_dataTable, d_dataBuffer, tableLen, sortOrder);
-    runBitoicSortKernel(d_dataTable, tableLen, sortOrder);
+    runAddPaddingKernel(d_keys, d_keysBuffer, tableLen, sortOrder);
+    runBitoicSortKernel(d_keys, d_values, tableLen, sortOrder);
 
     for (uint_t phase = phasesBitonicSort + 1; phase <= phasesAll; phase++)
     {
         uint_t stepStart = phase;
         uint_t stepEnd = max((double)phasesBitonicMerge, (double)phase - phasesInitIntervals);
         runInitIntervalsKernel(
-            d_dataTable, d_intervals, tableLenPower2, phasesAll, stepStart, stepEnd, sortOrder
+            d_keys, d_intervals, tableLenPower2, phasesAll, stepStart, stepEnd, sortOrder
         );
 
         // After initial intervals were generated intervals have to be evolved to the end step
@@ -201,26 +203,33 @@ double sortParallel(
             stepStart = stepEnd;
             stepEnd = max((double)phasesBitonicMerge, (double)stepStart - phasesGenerateIntervals);
             runGenerateIntervalsKernel(
-                d_dataTable, d_intervalsBuffer, d_intervals, tableLenPower2, phasesAll, phase, stepStart,
+                d_keys, d_intervalsBuffer, d_intervals, tableLenPower2, phasesAll, phase, stepStart,
                 stepEnd, sortOrder
             );
         }
 
         // Global merge with intervals
-        runBitoicMergeKernel(
+        /*runBitoicMergeKernel(
             d_dataTable, d_dataBuffer, d_intervals, tableLen, phasesBitonicMerge, phase, sortOrder
-        );
+        );*/
 
-        data_t *tempTable = d_dataTable;
-        d_dataTable = d_dataBuffer;
-        d_dataBuffer = tempTable;
+        // Exchanges keys
+        data_t *tempTable = d_keys;
+        d_keys = d_keysBuffer;
+        d_keysBuffer = tempTable;
+        // Exchanges values
+        tempTable = d_values;
+        d_values = d_valuesBuffer;
+        d_valuesBuffer = tempTable;
     }
 
     error = cudaDeviceSynchronize();
     checkCudaError(error);
     double time = endStopwatch(timer);
 
-    error = cudaMemcpy(h_output, d_dataTable, tableLen * sizeof(*h_output), cudaMemcpyDeviceToHost);
+    error = cudaMemcpy(h_keys, d_keys, tableLen * sizeof(*h_keys), cudaMemcpyDeviceToHost);
+    checkCudaError(error);
+    error = cudaMemcpy(h_values, d_values, tableLen * sizeof(*h_values), cudaMemcpyDeviceToHost);
     checkCudaError(error);
 
     return time;
