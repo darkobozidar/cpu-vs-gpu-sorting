@@ -20,8 +20,6 @@
 
 
 /* ------------------- BITONIC MERGE ----------------- */
-// "THREADS_PER_MERGE * ELEMS_PER_MERGE" has to be lower or equal than
-// "THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT"
 
 // How many threads are used per on thread block for bitonic merge. Has to be power of 2.
 #define THREADS_PER_MERGE 128
