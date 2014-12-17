@@ -7,7 +7,8 @@
 // TODO comment
 typedef struct Interval interval_t;
 
-struct Interval {
+struct Interval
+{
     uint32_t offset0;
     uint32_t length0;
     uint32_t offset1;
