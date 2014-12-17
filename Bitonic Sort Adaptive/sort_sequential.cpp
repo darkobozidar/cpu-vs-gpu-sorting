@@ -7,32 +7,6 @@
 #include "data_types.h"
 
 
-void constructBitonicTree(node_t *parent, uint_t stride)
-{
-    if (stride == 0)
-    {
-        return;
-    }
-
-    node_t *leftNode = new node_t(parent->value - stride);
-    node_t *rightNode = new node_t(parent->value + stride);
-
-    parent->left = leftNode;
-    parent->right = rightNode;
-
-    constructBitonicTree(parent->left, stride / 2);
-    constructBitonicTree(parent->right, stride / 2);
-}
-
-void constructBitonicTree(data_t *dataTable, uint_t tableLen, node_t **root, node_t **spare)
-{
-    *root = new node_t(dataTable + tableLen / 2 - 1);
-    *spare = new node_t(dataTable + tableLen - 1);
-
-    constructBitonicTree(*root, tableLen / 4);
-}
-
-
 void printBitonicTree(node_t *node, uint_t level)
 {
     if (node == NULL)
@@ -135,15 +109,46 @@ void bitonicMerge(node_t *root, node_t *spare, order_t sortOrder)
     }
 }
 
+void compareExchange(data_t *value1, data_t *value2, order_t sortOrder)
+{
+    if ((*value1 > *value2) ^ sortOrder)
+    {
+        data_t temp = *value1;
+        *value1 = *value2;
+        *value2 = temp;
+    }
+}
+
+void bitonicSort(node_t *parent, uint_t stride, order_t sortOrder)
+{
+    if (stride == 0)
+    {
+        compareExchange(parent->value, parent->value + 1, sortOrder);
+        return;
+    }
+
+    node_t *leftNode = new node_t(parent->value - stride);
+    node_t *rightNode = new node_t(parent->value + stride);
+
+    parent->left = leftNode;
+    parent->right = rightNode;
+
+    bitonicSort(parent->left, stride / 2, sortOrder);
+    bitonicSort(parent->right, stride / 2, (order_t)!sortOrder);
+
+    bitonicMerge(parent, new node_t(parent->value + stride + 1), sortOrder);
+}
+
+void bitonicSort(data_t *dataTable, uint_t tableLen, order_t sortOrder)
+{
+    bitonicSort(new node_t(dataTable + tableLen / 2 - 1), tableLen / 4, sortOrder);
+}
+
 /*
 Sorts data sequentially with NORMALIZED bitonic sort.
 */
 double sortSequential(data_t* dataTable, uint_t tableLen, order_t sortOrder)
 {
-    node_t *root, *spare;
-
-    constructBitonicTree(dataTable, tableLen, &root, &spare);
-    bitonicMerge(root, spare, sortOrder);
-
+    bitonicSort(dataTable, tableLen, sortOrder);
     return 10;
 }
