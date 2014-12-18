@@ -31,6 +31,11 @@ void printBitonicTree(node_t *node)
     printBitonicTree(node, 0);
 }
 
+void bitonicTreeToArray(data_t *dataTable, node_t *node, uint_t stride)
+{
+    // TODO
+}
+
 void swapNodeValues(node_t *node1, node_t *node2)
 {
     data_t value = *node1->value;
@@ -40,16 +45,16 @@ void swapNodeValues(node_t *node1, node_t *node2)
 
 void swapLeftNode(node_t *node1, node_t *node2)
 {
-    node_t *temp = node1->left;
+    node_t *node = node1->left;
     node1->left = node2->left;
-    node2->left = temp;
+    node2->left = node;
 }
 
 void swapRightNode(node_t *node1, node_t *node2)
 {
-    node_t *temp = node1->right;
+    node_t *node = node1->right;
     node1->right = node2->right;
-    node2->right = temp;
+    node2->right = node;
 }
 
 void bitonicMerge(node_t *root, node_t *spare, order_t sortOrder)
@@ -119,7 +124,7 @@ void compareExchange(data_t *value1, data_t *value2, order_t sortOrder)
     }
 }
 
-void bitonicSort(node_t *parent, uint_t stride, order_t sortOrder)
+void bitonicSort(data_t *dataTable, node_t *parent, uint_t stride, order_t sortOrder)
 {
     if (stride == 0)
     {
@@ -133,15 +138,17 @@ void bitonicSort(node_t *parent, uint_t stride, order_t sortOrder)
     parent->left = leftNode;
     parent->right = rightNode;
 
-    bitonicSort(parent->left, stride / 2, sortOrder);
-    bitonicSort(parent->right, stride / 2, (order_t)!sortOrder);
+    bitonicSort(dataTable, parent->left, stride / 2, sortOrder);
+    bitonicSort(dataTable, parent->right, stride / 2, (order_t)!sortOrder);
 
-    bitonicMerge(parent, new node_t(parent->value + stride + 1), sortOrder);
+    bitonicMerge(parent, new node_t(parent->value + 2 * stride, NULL, NULL), sortOrder);
 }
 
 void bitonicSort(data_t *dataTable, uint_t tableLen, order_t sortOrder)
 {
-    bitonicSort(new node_t(dataTable + tableLen / 2 - 1), tableLen / 4, sortOrder);
+    node_t *root = new node_t(dataTable + tableLen / 2 - 1);
+    bitonicSort(dataTable, root, tableLen / 4, sortOrder);
+    printBitonicTree(root);
 }
 
 /*
