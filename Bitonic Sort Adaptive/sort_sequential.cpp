@@ -157,7 +157,6 @@ void bitonicSort(data_t *dataTable, node_t *parent, uint_t stride, order_t sortO
 {
     if (stride == 0)
     {
-        compareExchange(parent->value, parent->value + 1, sortOrder);
         return;
     }
 
@@ -169,8 +168,25 @@ void bitonicSort(data_t *dataTable, node_t *parent, uint_t stride, order_t sortO
 
     bitonicSort(dataTable, parent->left, stride / 2, sortOrder);
     bitonicSort(dataTable, parent->right, stride / 2, (order_t)!sortOrder);
+}
 
-    bitonicMerge(parent, new node_t(parent->value + 2 * stride, NULL, NULL), sortOrder);
+void adaptiveBitonicSort(node_t *root, node_t *spare, order_t sortOrder)
+{
+    if (root->left == NULL)
+    {
+        if (!sortOrder && (*root->value > *spare->value) || sortOrder && (*root->value < *spare->value))
+        {
+            data_t temp = *root->value;
+            *root->value = *spare->value;
+            *spare->value = temp;
+        }
+    }
+    else
+    {
+        adaptiveBitonicSort(root->left, root, sortOrder);
+        adaptiveBitonicSort(root->right, spare, (order_t)!sortOrder);
+        bitonicMerge(root, spare, sortOrder);
+    }
 }
 
 /*
@@ -182,8 +198,11 @@ double sortSequential(data_t* output, data_t* buffer, uint_t tableLen, order_t s
     startStopwatch(&timer);
 
     node_t *root = new node_t(buffer + tableLen / 2 - 1);
+    node_t *spare = new node_t(buffer + tableLen - 1, NULL, NULL);
+
     bitonicSort(buffer, root, tableLen / 4, sortOrder);
-    bitonicTreeToArray(output, root, buffer[tableLen - 1], tableLen);
+    adaptiveBitonicSort(root, spare, sortOrder);
+    bitonicTreeToArray(output, root, *spare->value, tableLen);
 
     double time = endStopwatch(timer);
     return time;
