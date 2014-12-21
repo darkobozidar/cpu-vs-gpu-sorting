@@ -79,7 +79,11 @@ void swapRightNode(node_t *node1, node_t *node2)
 
 void bitonicMerge(node_t *root, node_t *spare, order_t sortOrder)
 {
-    bool rightExchange = (*root->value > *spare->value) ^ sortOrder;
+    bool rightExchange = !sortOrder && (*root->value > *spare->value) || sortOrder && (*root->value < *spare->value);
+    if (!rightExchange)
+    {
+        rightExchange = *root->value == *spare->value && root->value < spare->value;
+    }
 
     if (rightExchange)
     {
@@ -91,7 +95,11 @@ void bitonicMerge(node_t *root, node_t *spare, order_t sortOrder)
 
     while (leftNode != NULL)
     {
-        bool elementExchange = (*leftNode->value > *rightNode->value) ^ sortOrder;
+        bool elementExchange = !sortOrder && (*leftNode->value > *rightNode->value) || sortOrder && (*leftNode->value < *rightNode->value);
+        if (!elementExchange)
+        {
+            elementExchange = *leftNode->value == *rightNode->value && leftNode->value < rightNode->value;
+        }
 
         if (rightExchange)
         {
@@ -136,7 +144,7 @@ void bitonicMerge(node_t *root, node_t *spare, order_t sortOrder)
 
 void compareExchange(data_t *value1, data_t *value2, order_t sortOrder)
 {
-    if ((*value1 > *value2) ^ sortOrder)
+    if (!sortOrder && (*value1 > *value2) || sortOrder && (*value1 < *value2))
     {
         data_t temp = *value1;
         *value1 = *value2;
