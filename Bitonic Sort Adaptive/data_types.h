@@ -28,7 +28,7 @@ element's original position in array. This is why this structure contains proper
 struct Node
 {
     data_t key;    // Holds value from array
-    data_t value;  // Holds an index of element in original (not sorted) array
+    int_t value;   // Holds an index of element in original (not sorted) array
     node_t *left;
     node_t *right;
 

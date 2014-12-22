@@ -189,21 +189,24 @@ void bitonicMerge(node_t *root, node_t *spare, order_t sortOrder)
 Constructs bitonic tree from provided array.
 Requires root node and stride (at beggining this is "<array_length> / 4)".
 */
-void constructBitonicTree(data_t *dataTable, node_t *parent, uint_t stride)
+template <data_t dummyValue>
+void constructBitonicTree(data_t *dataTable, node_t *parent, int_t stride)
 {
-    if (stride == 0)
+    if (stride == 0 || parent->value + stride < 0)
     {
         return;
     }
 
-    node_t *leftNode = new node_t(dataTable[parent->value - stride], parent->value - stride);
+    // Left node padds tree to the next power of 2
+    int_t leftNodeIndex = parent->value - stride;
+    node_t *leftNode = new node_t(leftNodeIndex >= 0 ? dataTable[leftNodeIndex] : dummyValue, leftNodeIndex);
     node_t *rightNode = new node_t(dataTable[parent->value + stride], parent->value + stride);
 
     parent->left = leftNode;
     parent->right = rightNode;
 
-    constructBitonicTree(dataTable, leftNode, stride / 2);
-    constructBitonicTree(dataTable, rightNode, stride / 2);
+    constructBitonicTree<dummyValue>(dataTable, leftNode, stride / 2);
+    constructBitonicTree<dummyValue>(dataTable, rightNode, stride / 2);
 }
 
 /*
@@ -235,10 +238,21 @@ double sortSequential(data_t* dataTable, uint_t tableLen, order_t sortOrder)
     LARGE_INTEGER timer;
     startStopwatch(&timer);
 
-    node_t *root = new node_t(dataTable[tableLen / 2 - 1], tableLen / 2 - 1);
-    node_t *spare = new node_t(dataTable[tableLen - 1], tableLen - 1);
+    uint_t tableLenPower2 = nextPowerOf2(tableLen);
+    uint_t padding = tableLenPower2 - tableLen;
 
-    constructBitonicTree(dataTable, root, tableLen / 4);
+    node_t *root = new node_t(dataTable[tableLenPower2 / 2 - 1 - padding], tableLenPower2 / 2 - 1 - padding);
+    node_t *spare = new node_t(dataTable[tableLenPower2 - 1], tableLenPower2 - 1);
+
+    if (sortOrder == ORDER_ASC)
+    {
+        constructBitonicTree<MIN_VAL>(dataTable, root, tableLenPower2 / 4);
+    }
+    else
+    {
+        constructBitonicTree<MAX_VAL>(dataTable, root, tableLenPower2 / 4);
+    }
+
     adaptiveBitonicSort(root, spare, sortOrder);
     bitonicTreeToArray(dataTable, root, spare, tableLen);
 
