@@ -46,6 +46,14 @@ struct Node
     Node(data_t key) : Node(key, key, NULL, NULL) {}
 
     Node() : Node(NULL, NULL, NULL, NULL) {}
+
+    /*
+    Determines if node represents "dummy subtree".
+    */
+    bool isDummyNode()
+    {
+        return this->value < 0 || this->left == NULL || this->right == NULL;
+    }
 };
 
 #endif

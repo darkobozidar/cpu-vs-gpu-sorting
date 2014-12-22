@@ -226,7 +226,13 @@ void adaptiveBitonicSort(node_t *root, node_t *spare, order_t sortOrder)
     {
         adaptiveBitonicSort(root->left, root, sortOrder);
         adaptiveBitonicSort(root->right, spare, (order_t)!sortOrder);
-        bitonicMerge(root, spare, sortOrder);
+
+        // If node does not represent a "dummy subtree" (doesn't contain dummy key and doesn't have both
+        // pointers equal to NULL), then bitonic merge is executed.
+        if (!root->isDummyNode())
+        {
+            bitonicMerge(root, spare, sortOrder);
+        }
     }
 }
 
