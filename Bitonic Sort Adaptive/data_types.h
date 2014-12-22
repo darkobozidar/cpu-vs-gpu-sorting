@@ -16,32 +16,28 @@ struct Interval
     uint32_t length1;
 };
 
+// TODO predelaj konstruktorje
 struct Node
 {
-    data_t *value;
+    data_t key;
+    data_t value;
     node_t *left;
     node_t *right;
 
-    Node()
+    Node(data_t key, data_t value, node_t *left, node_t *right)
     {
-        this->value = NULL;
-        left = NULL;
-        right = NULL;
-    }
 
-    Node(data_t *value)
-    {
-        this->value = value;
-        left = NULL;
-        right = NULL;
-    }
-
-    Node(data_t *value, node_t *left, node_t *right)
-    {
+        this->key = key;
         this->value = value;
         this->left = left;
         this->right = right;
     }
+
+    Node(data_t key, data_t value) : Node(key, value, NULL, NULL) {}
+
+    Node(data_t key) : Node(key, key, NULL, NULL) {}
+
+    Node() : Node(NULL, NULL, NULL, NULL) {}
 };
 
 #endif
