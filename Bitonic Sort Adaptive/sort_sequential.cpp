@@ -42,9 +42,12 @@ Converts bitonic tree to array. Doesn't put value of spare node into array.
 */
 void bitonicTreeToArray(data_t *output, node_t *node, uint_t stride)
 {
-    output[0] = node->key;
+    if (node->value >= 0)
+    {
+        output[0] = node->key;
+    }
 
-    if (stride == 0)
+    if (stride == 0 || node->isDummyNode())
     {
         return;
     }
@@ -64,7 +67,10 @@ void bitonicTreeToArray(data_t *output, node_t *root, node_t *spare, uint_t tabl
         return;
     }
 
-    bitonicTreeToArray(output + tableLen / 2 - 1, root, tableLen / 4);
+    uint_t tableLenPower2 = nextPowerOf2(tableLen);
+    uint_t padding = tableLenPower2 - tableLen;
+
+    bitonicTreeToArray(output + tableLenPower2 / 2 - 1 - padding, root, tableLenPower2 / 4);
     output[tableLen - 1] = spare->key;
 }
 
@@ -151,6 +157,13 @@ void bitonicMerge(node_t *root, node_t *spare, order_t sortOrder)
                 swapNodeKeyValue(leftNode, rightNode);
                 swapRightNode(leftNode, rightNode);
 
+                if ((leftNode->right->isDummyNode() || rightNode->right->isDummyNode()))
+                {
+                    swapLeftNode(leftNode->right, rightNode->right);
+                    swapRightNode(leftNode->right, rightNode->right);
+                    return;
+                }
+
                 leftNode = leftNode->left;
                 rightNode = rightNode->left;
             }
@@ -166,6 +179,13 @@ void bitonicMerge(node_t *root, node_t *spare, order_t sortOrder)
             {
                 swapNodeKeyValue(leftNode, rightNode);
                 swapLeftNode(leftNode, rightNode);
+
+                if ((leftNode->left->isDummyNode() || rightNode->left->isDummyNode()))
+                {
+                    swapLeftNode(leftNode->left, rightNode->left);
+                    swapRightNode(leftNode->left, rightNode->left);
+                    return;
+                }
 
                 leftNode = leftNode->right;
                 rightNode = rightNode->right;
@@ -248,7 +268,7 @@ double sortSequential(data_t* dataTable, uint_t tableLen, order_t sortOrder)
     uint_t padding = tableLenPower2 - tableLen;
 
     node_t *root = new node_t(dataTable[tableLenPower2 / 2 - 1 - padding], tableLenPower2 / 2 - 1 - padding);
-    node_t *spare = new node_t(dataTable[tableLenPower2 - 1], tableLenPower2 - 1);
+    node_t *spare = new node_t(dataTable[tableLen - 1], tableLen - 1);
 
     if (sortOrder == ORDER_ASC)
     {
