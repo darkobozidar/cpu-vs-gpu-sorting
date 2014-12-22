@@ -22,12 +22,12 @@
 
 int main(int argc, char **argv) {
     data_t *h_input;
-    data_t *h_outputParallel, *h_outputSequential, *h_bufferSequential, *h_outputCorrect;
+    data_t *h_outputParallel, *h_outputSequential, *h_outputCorrect;
     data_t *d_dataTable, *d_dataBuffer;
     interval_t *d_intervals, *d_intervalsBuffer;
     double **timers;
 
-    uint_t tableLen = (1 << 7);
+    uint_t tableLen = (1 << 20);
     uint_t interval = (1 << 31);
     uint_t testRepetitions = 100;    // How many times are sorts ran
     order_t sortOrder = ORDER_ASC;  // Values: ORDER_ASC, ORDER_DESC
@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
 
     // Memory alloc
     allocHostMemory(
-        &h_input, &h_outputParallel, &h_outputSequential, &h_bufferSequential, &h_outputCorrect, &timers,
+        &h_input, &h_outputParallel, &h_outputSequential, &h_outputCorrect, &timers,
         tableLen, testRepetitions
     );
     allocDeviceMemory(&d_dataTable, &d_dataBuffer, &d_intervals, &d_intervalsBuffer, tableLen);
@@ -68,8 +68,8 @@ int main(int argc, char **argv) {
         );
 
         // Sort sequential
-        std::copy(h_input, h_input + tableLen, h_bufferSequential);
-        timers[SORT_SEQUENTIAL][i] = sortSequential(h_outputSequential, h_bufferSequential, tableLen, sortOrder);
+        std::copy(h_input, h_input + tableLen, h_outputSequential);
+        timers[SORT_SEQUENTIAL][i] = sortSequential(h_outputSequential, tableLen, sortOrder);
 
         // Sort correct
         std::copy(h_input, h_input + tableLen, h_outputCorrect);

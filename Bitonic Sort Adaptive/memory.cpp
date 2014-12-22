@@ -17,8 +17,8 @@
 Allocates host memory.
 */
 void allocHostMemory(
-    data_t **input,  data_t **outputParallel, data_t **outputSequential, data_t **bufferSequential,
-    data_t **outputCorrect, double ***timers, uint_t tableLen, uint_t testRepetitions
+    data_t **input,  data_t **outputParallel, data_t **outputSequential,data_t **outputCorrect,
+    double ***timers, uint_t tableLen, uint_t testRepetitions
 )
 {
     // Data input
@@ -30,8 +30,6 @@ void allocHostMemory(
     checkMallocError(*outputParallel);
     *outputSequential = (data_t*)malloc(tableLen * sizeof(**outputSequential));
     checkMallocError(*outputSequential);
-    *bufferSequential = (data_t*)malloc(tableLen * sizeof(**bufferSequential));
-    checkMallocError(*bufferSequential);
     *outputCorrect = (data_t*)malloc(tableLen * sizeof(**outputCorrect));
     checkMallocError(*outputCorrect);
 

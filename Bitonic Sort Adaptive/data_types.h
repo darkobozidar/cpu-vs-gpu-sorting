@@ -4,10 +4,13 @@
 #include <stdint.h>
 
 
-// TODO comment
 typedef struct Interval interval_t;
 typedef struct Node node_t;
 
+/*
+Holds 2 intervals needed for IBR bitonic sort.
+Intervals are represented with offset (index) in array and with length.
+*/
 struct Interval
 {
     uint32_t offset0;
@@ -16,11 +19,16 @@ struct Interval
     uint32_t length1;
 };
 
-// TODO predelaj konstruktorje
+/*
+Represents a Node in bitonic tree needed for adaptive bitonic sort.
+
+Adaptive bitonic sort works only for distinct sequences. If sequence isn't distinct, ties can be broken by the
+element's original position in array. This is why this structure contains property "value" alongside property "key".
+*/
 struct Node
 {
-    data_t key;
-    data_t value;
+    data_t key;    // Holds value from array
+    data_t value;  // Holds an index of element in original (not sorted) array
     node_t *left;
     node_t *right;
 

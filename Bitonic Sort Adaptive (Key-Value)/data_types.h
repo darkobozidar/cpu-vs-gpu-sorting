@@ -4,9 +4,12 @@
 #include <stdint.h>
 
 
-// TODO comment
 typedef struct Interval interval_t;
 
+/*
+Holds 2 intervals needed for IBR bitonic sort.
+Intervals are represented with offset (index) in array and with length.
+*/
 struct Interval
 {
     uint32_t offset0;

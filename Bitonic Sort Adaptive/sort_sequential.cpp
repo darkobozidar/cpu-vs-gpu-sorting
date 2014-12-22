@@ -7,6 +7,9 @@
 #include "data_types.h"
 
 
+/*
+For debugging purposes prints out bitonic tree. Not to be called directly - bottom function calls it.
+*/
 void printBitonicTree(node_t *node, uint_t level)
 {
     if (node == NULL)
@@ -26,11 +29,17 @@ void printBitonicTree(node_t *node, uint_t level)
     printBitonicTree(node->right, level);
 }
 
-void printBitonicTree(node_t *node)
+/*
+For debugging purposes prints out bitonic tree.
+*/
+void printBitonicTree(node_t *root)
 {
-    printBitonicTree(node, 0);
+    printBitonicTree(root, 0);
 }
 
+/*
+Converts bitonic tree to array. Doesn't put value of spare node into array.
+*/
 void bitonicTreeToArray(data_t *output, node_t *node, uint_t stride)
 {
     output[0] = node->key;
@@ -44,6 +53,9 @@ void bitonicTreeToArray(data_t *output, node_t *node, uint_t stride)
     bitonicTreeToArray(output + stride, node->right, stride / 2);
 }
 
+/*
+Converts bitonic tree to array and puts value of spare node into array.
+*/
 void bitonicTreeToArray(data_t *output, node_t *root, node_t *spare, uint_t tableLen)
 {
     if (tableLen == 1)
@@ -56,6 +68,9 @@ void bitonicTreeToArray(data_t *output, node_t *root, node_t *spare, uint_t tabl
     output[tableLen - 1] = spare->key;
 }
 
+/*
+Swaps node's key and value properties.
+*/
 void swapNodeKeyValue(node_t *node1, node_t *node2)
 {
     data_t temp;
@@ -69,6 +84,9 @@ void swapNodeKeyValue(node_t *node1, node_t *node2)
     node2->value = temp;
 }
 
+/*
+Swaps left nodes.
+*/
 void swapLeftNode(node_t *node1, node_t *node2)
 {
     node_t *node = node1->left;
@@ -76,6 +94,9 @@ void swapLeftNode(node_t *node1, node_t *node2)
     node2->left = node;
 }
 
+/*
+Swaps right nodes.
+*/
 void swapRightNode(node_t *node1, node_t *node2)
 {
     node_t *node = node1->right;
@@ -83,9 +104,18 @@ void swapRightNode(node_t *node1, node_t *node2)
     node2->right = node;
 }
 
+/*
+Executes adaptive bitonic merge.
+
+Adaptive bitonic merge works only for dictinct sequences. In case of duplicates in sequence values are compared
+by their position in original (not sorted) array.
+*/
 void bitonicMerge(node_t *root, node_t *spare, order_t sortOrder)
 {
+    // Compares keys according to sort order
     bool rightExchange = sortOrder == ORDER_ASC ? (root->key > spare->key) : (root->key < spare->key);
+
+    // In case of duplicates, ties are resolved according to element position in original unsorted array
     if (!rightExchange)
     {
         rightExchange = root->key == spare->key && (
@@ -103,7 +133,10 @@ void bitonicMerge(node_t *root, node_t *spare, order_t sortOrder)
 
     while (leftNode != NULL)
     {
+        // Compares keys according to sort order
         bool elementExchange = sortOrder == ORDER_ASC ? (leftNode->key > rightNode->key) : (leftNode->key < rightNode->key);
+
+        // In case of duplicates, ties are resolved according to element position in original unsorted array
         if (!elementExchange)
         {
             elementExchange = leftNode->key == rightNode->key && (
@@ -152,8 +185,11 @@ void bitonicMerge(node_t *root, node_t *spare, order_t sortOrder)
     }
 }
 
-// TODO remove *dataTable pointer
-void constructBitonicTree(data_t *dataTable, node_t *parent, uint_t stride, order_t sortOrder)
+/*
+Constructs bitonic tree from provided array.
+Requires root node and stride (at beggining this is "<array_length> / 4)".
+*/
+void constructBitonicTree(data_t *dataTable, node_t *parent, uint_t stride)
 {
     if (stride == 0)
     {
@@ -166,10 +202,14 @@ void constructBitonicTree(data_t *dataTable, node_t *parent, uint_t stride, orde
     parent->left = leftNode;
     parent->right = rightNode;
 
-    constructBitonicTree(dataTable, leftNode, stride / 2, sortOrder);
-    constructBitonicTree(dataTable, rightNode, stride / 2, (order_t)!sortOrder);
+    constructBitonicTree(dataTable, leftNode, stride / 2);
+    constructBitonicTree(dataTable, rightNode, stride / 2);
 }
 
+/*
+Executes adaptive bitonic sort on provided bitonic tree. Requires root node of bitonic tree, spare node
+(at beggining this is node with last array element with no children and parents) and sort order.
+*/
 void adaptiveBitonicSort(node_t *root, node_t *spare, order_t sortOrder)
 {
     if (root->left == NULL)
@@ -190,17 +230,17 @@ void adaptiveBitonicSort(node_t *root, node_t *spare, order_t sortOrder)
 /*
 Sorts data sequentially with adaptive bitonic sort.
 */
-double sortSequential(data_t* output, data_t* buffer, uint_t tableLen, order_t sortOrder)
+double sortSequential(data_t* dataTable, uint_t tableLen, order_t sortOrder)
 {
     LARGE_INTEGER timer;
     startStopwatch(&timer);
 
-    node_t *root = new node_t(buffer[tableLen / 2 - 1], tableLen / 2 - 1);
-    node_t *spare = new node_t(buffer[tableLen - 1], tableLen - 1);
+    node_t *root = new node_t(dataTable[tableLen / 2 - 1], tableLen / 2 - 1);
+    node_t *spare = new node_t(dataTable[tableLen - 1], tableLen - 1);
 
-    constructBitonicTree(buffer, root, tableLen / 4, sortOrder);
+    constructBitonicTree(dataTable, root, tableLen / 4);
     adaptiveBitonicSort(root, spare, sortOrder);
-    bitonicTreeToArray(output, root, spare, tableLen);
+    bitonicTreeToArray(dataTable, root, spare, tableLen);
 
     double time = endStopwatch(timer);
     return time;
