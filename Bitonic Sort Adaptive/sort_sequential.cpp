@@ -155,13 +155,17 @@ void bitonicMerge(node_t *root, node_t *spare, order_t sortOrder)
             if (elementExchange)
             {
                 swapNodeKeyValue(leftNode, rightNode);
-                swapRightNode(leftNode, rightNode);
 
-                if (leftNode->right != NULL && rightNode->right != NULL && (leftNode->right->isDummyNode() || rightNode->right->isDummyNode()))
+                if (leftNode->right != NULL && rightNode->right != NULL)
                 {
-                    swapLeftNode(leftNode->right, rightNode->right);
-                    swapRightNode(leftNode->right, rightNode->right);
-                    return;
+                    swapRightNode(leftNode, rightNode);
+
+                    if (leftNode->right->isDummyNode() || rightNode->right->isDummyNode())
+                    {
+                        swapLeftNode(leftNode->right, rightNode->right);
+                        swapRightNode(leftNode->right, rightNode->right);
+                        return;
+                    }
                 }
 
                 leftNode = leftNode->left;
@@ -178,13 +182,17 @@ void bitonicMerge(node_t *root, node_t *spare, order_t sortOrder)
             if (elementExchange)
             {
                 swapNodeKeyValue(leftNode, rightNode);
-                swapLeftNode(leftNode, rightNode);
 
-                if (leftNode->left != NULL && rightNode->left != NULL && (leftNode->left->isDummyNode() || rightNode->left->isDummyNode()))
+                if (leftNode->left != NULL && rightNode->left != NULL)
                 {
-                    swapLeftNode(leftNode->left, rightNode->left);
-                    swapRightNode(leftNode->left, rightNode->left);
-                    return;
+                    swapLeftNode(leftNode, rightNode);
+
+                    if (leftNode->left->isDummyNode() || rightNode->left->isDummyNode())
+                    {
+                        swapLeftNode(leftNode->left, rightNode->left);
+                        swapRightNode(leftNode->left, rightNode->left);
+                        return;
+                    }
                 }
 
                 leftNode = leftNode->right;
@@ -200,8 +208,15 @@ void bitonicMerge(node_t *root, node_t *spare, order_t sortOrder)
 
     if (root->left != NULL)
     {
-        bitonicMerge(root->left, root, sortOrder);
-        bitonicMerge(root->right, spare, sortOrder);
+        if (!root->left->isDummyNode())
+        {
+            bitonicMerge(root->left, root, sortOrder);
+        }
+
+        if (!root->right->isDummyNode())
+        {
+            bitonicMerge(root->right, spare, sortOrder);
+        }
     }
 }
 
@@ -245,11 +260,20 @@ void adaptiveBitonicSort(node_t *root, node_t *spare, order_t sortOrder)
     else
     {
         // If node does not represent a "dummy subtree" (doesn't contain dummy key and doesn't have both
-        // pointers equal to NULL), then bitonic merge is executed.
-        if (!root->isDummyNode())
+        // pointers equal to NULL), then function is executed.
+
+        if (!root->left->isDummyNode())
         {
             adaptiveBitonicSort(root->left, root, sortOrder);
+        }
+
+        if (!root->right->isDummyNode())
+        {
             adaptiveBitonicSort(root->right, spare, (order_t)!sortOrder);
+        }
+
+        if (!root->isDummyNode())
+        {
             bitonicMerge(root, spare, sortOrder);
         }
     }
