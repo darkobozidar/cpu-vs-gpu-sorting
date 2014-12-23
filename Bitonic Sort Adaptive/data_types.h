@@ -52,7 +52,7 @@ struct Node
     */
     bool isDummyNode()
     {
-        return this->value < 0 || this->left == NULL || this->right == NULL;
+        return this->value < 0 && this->left == NULL && this->right == NULL;
     }
 };
 

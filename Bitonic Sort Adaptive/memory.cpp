@@ -72,7 +72,7 @@ void allocDeviceMemory(
 {
     uint_t tableLenPower2 = nextPowerOf2(tableLen);
     uint_t phasesAll = log2((double)tableLenPower2);
-    uint_t phasesBitonicMerge = log2((double)2 * THREADS_PER_MERGE);
+    uint_t phasesBitonicMerge = log2((double)min(2 * THREADS_PER_MERGE, tableLenPower2));
     uint_t intervalsLen = 1 << (phasesAll - phasesBitonicMerge);
 
     cudaError_t error;

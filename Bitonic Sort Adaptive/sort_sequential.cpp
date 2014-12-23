@@ -157,7 +157,7 @@ void bitonicMerge(node_t *root, node_t *spare, order_t sortOrder)
                 swapNodeKeyValue(leftNode, rightNode);
                 swapRightNode(leftNode, rightNode);
 
-                if ((leftNode->right->isDummyNode() || rightNode->right->isDummyNode()))
+                if (leftNode->right != NULL && rightNode->right != NULL && (leftNode->right->isDummyNode() || rightNode->right->isDummyNode()))
                 {
                     swapLeftNode(leftNode->right, rightNode->right);
                     swapRightNode(leftNode->right, rightNode->right);
@@ -180,7 +180,7 @@ void bitonicMerge(node_t *root, node_t *spare, order_t sortOrder)
                 swapNodeKeyValue(leftNode, rightNode);
                 swapLeftNode(leftNode, rightNode);
 
-                if ((leftNode->left->isDummyNode() || rightNode->left->isDummyNode()))
+                if (leftNode->left != NULL && rightNode->left != NULL && (leftNode->left->isDummyNode() || rightNode->left->isDummyNode()))
                 {
                     swapLeftNode(leftNode->left, rightNode->left);
                     swapRightNode(leftNode->left, rightNode->left);
@@ -212,15 +212,15 @@ Requires root node and stride (at beggining this is "<array_length> / 4)".
 template <data_t dummyValue>
 void constructBitonicTree(data_t *dataTable, node_t *parent, int_t stride)
 {
-    if (stride == 0 || parent->value + stride < 0)
+    if (stride == 0 || parent->value + 2 * stride <= 0)
     {
         return;
     }
 
-    // Left node padds tree to the next power of 2
-    int_t leftNodeIndex = parent->value - stride;
-    node_t *leftNode = new node_t(leftNodeIndex >= 0 ? dataTable[leftNodeIndex] : dummyValue, leftNodeIndex);
-    node_t *rightNode = new node_t(dataTable[parent->value + stride], parent->value + stride);
+    int_t newIndex = parent->value - stride;
+    node_t *leftNode = new node_t(newIndex >= 0 ? dataTable[newIndex] : dummyValue, newIndex);
+    newIndex = parent->value + stride;
+    node_t *rightNode = new node_t(newIndex >= 0 ? dataTable[newIndex] : dummyValue, newIndex);
 
     parent->left = leftNode;
     parent->right = rightNode;
@@ -244,13 +244,12 @@ void adaptiveBitonicSort(node_t *root, node_t *spare, order_t sortOrder)
     }
     else
     {
-        adaptiveBitonicSort(root->left, root, sortOrder);
-        adaptiveBitonicSort(root->right, spare, (order_t)!sortOrder);
-
         // If node does not represent a "dummy subtree" (doesn't contain dummy key and doesn't have both
         // pointers equal to NULL), then bitonic merge is executed.
         if (!root->isDummyNode())
         {
+            adaptiveBitonicSort(root->left, root, sortOrder);
+            adaptiveBitonicSort(root->right, spare, (order_t)!sortOrder);
             bitonicMerge(root, spare, sortOrder);
         }
     }
