@@ -54,9 +54,19 @@ void runBitoicSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder)
     // If table length is not power of 2, than table is padded to the next power of 2. In that case it is not
     // necessary for entire padded table to be ordered. It is only necessary that table is ordered to the next
     // multiple of number of elements processed by one thread block. This ensures that bitonic sequences get
-    // created for entire original table length (padded elemens are MIN/MAX values and sort would't change
+    // created for entire original table length (padded elemens are MIN/MAX values and sorting would't change
     // anything).
-    uint_t tableLenRoundedUp = roundUp(tableLen, elemsPerThreadBlock);
+    uint_t tableLenRoundedUp;
+    if (tableLen > elemsPerThreadBlock)
+    {
+        tableLenRoundedUp = roundUp(tableLen, elemsPerThreadBlock);
+    }
+    // For sequences shorter than "tableLenRoundedUp" only bitonic sort kernel is needed to sort them (whithout
+    // any other kernels). In that case table size can be rounded to next power of 2.
+    else
+    {
+        tableLenRoundedUp = nextPowerOf2(tableLen);
+    }
 
     uint_t sharedMemSize = elemsPerThreadBlock * sizeof(*dataTable);
     dim3 dimGrid((tableLenRoundedUp - 1) / elemsPerThreadBlock + 1, 1, 1);
