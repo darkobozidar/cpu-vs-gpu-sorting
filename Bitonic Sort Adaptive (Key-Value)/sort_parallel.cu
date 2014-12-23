@@ -56,7 +56,17 @@ void runBitoicSortKernel(data_t *keys, data_t *values, uint_t tableLen, order_t 
     // multiple of number of elements processed by one thread block. This ensures that bitonic sequences get
     // created for entire original table length (padded elemens are MIN/MAX values and sort would't change
     // anything).
-    uint_t tableLenRoundedUp = roundUp(tableLen, elemsPerThreadBlock);
+    uint_t tableLenRoundedUp;
+    if (tableLen > elemsPerThreadBlock)
+    {
+        tableLenRoundedUp = roundUp(tableLen, elemsPerThreadBlock);
+    }
+    // For sequences shorter than "tableLenRoundedUp" only bitonic sort kernel is needed to sort them (whithout
+    // any other kernels). In that case table size can be rounded to next power of 2.
+    else
+    {
+        tableLenRoundedUp = nextPowerOf2(tableLen);
+    }
 
     // "2 *" is needed because keys AND values are sorted in shared memory
     uint_t sharedMemSize = 2 * elemsPerThreadBlock * sizeof(*keys);

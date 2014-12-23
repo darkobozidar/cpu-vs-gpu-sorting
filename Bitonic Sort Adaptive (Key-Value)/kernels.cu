@@ -203,6 +203,7 @@ __global__ void bitonicSortKernel(data_t *keys, data_t *values, uint_t tableLen)
     extern __shared__ data_t sortTile[];
     uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
     uint_t offset = blockIdx.x * elemsPerThreadBlock;
+    uint_t dataBlockLength = offset + elemsPerThreadBlock <= tableLen ? elemsPerThreadBlock : tableLen - offset;
 
     data_t *keysTile = sortTile;
     data_t *valuesTile = sortTile + elemsPerThreadBlock;
@@ -212,7 +213,7 @@ __global__ void bitonicSortKernel(data_t *keys, data_t *values, uint_t tableLen)
     bool blockDirection = sortOrder ^ (blockIdx.x & 1);
 
     // Loads data into shared memory
-    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_BITONIC_SORT)
+    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_BITONIC_SORT)
     {
         uint_t index = offset + tx;
         keysTile[tx] = keys[index];
@@ -220,12 +221,12 @@ __global__ void bitonicSortKernel(data_t *keys, data_t *values, uint_t tableLen)
     }
 
     // Bitonic sort
-    for (uint_t subBlockSize = 1; subBlockSize < elemsPerThreadBlock; subBlockSize <<= 1)
+    for (uint_t subBlockSize = 1; subBlockSize < dataBlockLength; subBlockSize <<= 1)
     {
         for (uint_t stride = subBlockSize; stride > 0; stride >>= 1)
         {
             __syncthreads();
-            for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock >> 1; tx += THREADS_PER_BITONIC_SORT)
+            for (uint_t tx = threadIdx.x; tx < dataBlockLength >> 1; tx += THREADS_PER_BITONIC_SORT)
             {
                 bool direction = blockDirection ^ ((tx & subBlockSize) != 0);
                 uint_t index = 2 * tx - (tx & (stride - 1));
@@ -248,7 +249,7 @@ __global__ void bitonicSortKernel(data_t *keys, data_t *values, uint_t tableLen)
 
     // Stores sorted elements from shared to global memory
     __syncthreads();
-    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_BITONIC_SORT)
+    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_BITONIC_SORT)
     {
         uint_t index = offset + tx;
         keys[index] = keysTile[tx];
