@@ -48,7 +48,8 @@ struct Node
     Node() : Node(NULL, NULL, NULL, NULL) {}
 
     /*
-    Determines if node represents "dummy subtree".
+    Determines if node represents "dummy subtree". Dummy nodes are represented with negative "value"s.
+    Dummy node represents "dummy subtree", if both of it's pointers are NULL.
     */
     bool isDummyNode()
     {

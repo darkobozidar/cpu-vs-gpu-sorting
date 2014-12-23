@@ -4,55 +4,313 @@
 
 #include "../Utils/data_types_common.h"
 #include "../Utils/host.h"
+#include "data_types.h"
 
 
 /*
-Sorts data sequentially with NORMALIZED bitonic sort.
+For debugging purposes prints out bitonic tree. Not to be called directly - bottom function calls it.
 */
-double sortSequential(data_t *keys, data_t *values, uint_t tableLen, order_t sortOrder)
+void printBitonicTree(node_t *node, uint_t level)
 {
-    LARGE_INTEGER timer;
-    startStopwatch(&timer);
-
-    for (uint_t subBlockSize = 1; subBlockSize < tableLen; subBlockSize <<= 1)
+    if (node == NULL)
     {
-        for (uint_t stride = subBlockSize; stride > 0; stride >>= 1)
+        return;
+    }
+
+    for (uint_t i = 0; i < level; i++)
+    {
+        printf("  ");
+    }
+
+    printf("|%d\n", node->value);
+
+    level++;
+    printBitonicTree(node->left, level);
+    printBitonicTree(node->right, level);
+}
+
+/*
+For debugging purposes prints out bitonic tree.
+*/
+void printBitonicTree(node_t *root)
+{
+    printBitonicTree(root, 0);
+}
+
+/*
+Converts bitonic tree to array. Doesn't put value of spare node into array.
+*/
+void bitonicTreeToArray(data_t *keys, data_t *values, node_t *node, uint_t stride)
+{
+    /*
+    Dummy nodes are represented with negative "value"s. These nodes are not inserted into output array.
+    */
+    if (node->value >= 0)
+    {
+        keys[0] = node->key;
+        values[0] = node->value;
+    }
+
+    if (stride == 0 || node->isDummyNode())
+    {
+        return;
+    }
+
+    bitonicTreeToArray(keys - stride, values - stride, node->left, stride / 2);
+    bitonicTreeToArray(keys + stride, values + stride, node->right, stride / 2);
+}
+
+/*
+Converts bitonic tree to array and puts value of spare node into array.
+*/
+void bitonicTreeToArray(data_t *keys, data_t *values, node_t *root, node_t *spare, uint_t tableLen)
+{
+    if (tableLen == 1)
+    {
+        keys[0] = root->key;
+        values[0] = root->value;
+        return;
+    }
+
+    uint_t tableLenPower2 = nextPowerOf2(tableLen);
+    uint_t padding = tableLenPower2 - tableLen;
+
+    bitonicTreeToArray(
+        keys + tableLenPower2 / 2 - 1 - padding, values + tableLenPower2 / 2 - 1 - padding, root, tableLenPower2 / 4
+    );
+
+    // Inserts spare node
+    keys[tableLen - 1] = spare->key;
+    values[tableLen - 1] = spare->value;
+}
+
+/*
+Swaps node's key and value properties.
+*/
+void swapNodeKeyValue(node_t *node1, node_t *node2)
+{
+    data_t temp;
+
+    temp = node1->key;
+    node1->key = node2->key;
+    node2->key = temp;
+
+    temp = node1->value;
+    node1->value = node2->value;
+    node2->value = temp;
+}
+
+/*
+Swaps left nodes.
+*/
+void swapLeftNode(node_t *node1, node_t *node2)
+{
+    node_t *node = node1->left;
+    node1->left = node2->left;
+    node2->left = node;
+}
+
+/*
+Swaps right nodes.
+*/
+void swapRightNode(node_t *node1, node_t *node2)
+{
+    node_t *node = node1->right;
+    node1->right = node2->right;
+    node2->right = node;
+}
+
+/*
+Executes adaptive bitonic merge.
+
+Adaptive bitonic merge works only for dictinct sequences. In case of duplicates in sequence values are compared
+by their position in original (not sorted) array.
+*/
+void bitonicMerge(node_t *root, node_t *spare, order_t sortOrder)
+{
+    // Compares keys according to sort order
+    bool rightExchange = sortOrder == ORDER_ASC ? (root->key > spare->key) : (root->key < spare->key);
+
+    // In case of duplicates, ties are resolved according to element position in original unsorted array
+    if (!rightExchange)
+    {
+        rightExchange = root->key == spare->key && (
+            sortOrder == ORDER_ASC ? root->value > spare->value : root->value < spare->value
+            );
+    }
+
+    if (rightExchange)
+    {
+        swapNodeKeyValue(root, spare);
+    }
+
+    node_t *leftNode = root->left;
+    node_t *rightNode = root->right;
+
+    while (leftNode != NULL)
+    {
+        // Compares keys according to sort order
+        bool elementExchange = sortOrder == ORDER_ASC ? (leftNode->key > rightNode->key) : (leftNode->key < rightNode->key);
+
+        // In case of duplicates, ties are resolved according to element position in original unsorted array
+        if (!elementExchange)
         {
-            bool isFirstStepOfPhase = stride == subBlockSize;
+            elementExchange = leftNode->key == rightNode->key && (
+                sortOrder == ORDER_ASC ? leftNode->value > rightNode->value : leftNode->value < rightNode->value
+                );
+        }
 
-            for (uint_t el = 0; el < tableLen >> 1; el++)
+        if (rightExchange)
+        {
+            if (elementExchange)
             {
-                uint_t index = el;
-                uint_t offset = stride;
+                swapNodeKeyValue(leftNode, rightNode);
+                swapRightNode(leftNode, rightNode);
 
-                // In normalized bitonic sort, first STEP of every PHASE uses different offset than all other STEPS.
-                if (isFirstStepOfPhase)
-                {
-                    index = (el / stride) * stride + ((stride - 1) - (el % stride));
-                    offset = ((el & (stride - 1)) << 1) + 1;
-                }
+                leftNode = leftNode->left;
+                rightNode = rightNode->left;
+            }
+            else
+            {
+                leftNode = leftNode->right;
+                rightNode = rightNode->right;
+            }
+        }
+        else
+        {
+            if (elementExchange)
+            {
+                swapNodeKeyValue(leftNode, rightNode);
+                swapLeftNode(leftNode, rightNode);
 
-                // Calculates index of left and right element, which are candidates for exchange
-                uint_t indexLeft = (index << 1) - (index & (stride - 1));
-                uint_t indexRight = indexLeft + offset;
-                if (indexRight >= tableLen)
-                {
-                    break;
-                }
-
-                if ((keys[indexLeft] > keys[indexRight]) ^ sortOrder)
-                {
-                    data_t temp = keys[indexLeft];
-                    keys[indexLeft] = keys[indexRight];
-                    keys[indexRight] = temp;
-
-                    temp = values[indexLeft];
-                    values[indexLeft] = values[indexRight];
-                    values[indexRight] = temp;
-                }
+                leftNode = leftNode->right;
+                rightNode = rightNode->right;
+            }
+            else
+            {
+                leftNode = leftNode->left;
+                rightNode = rightNode->left;
             }
         }
     }
 
-    return endStopwatch(timer);
+    if (root->left != NULL)
+    {
+        // TODO fix
+        /*if (!root->left->isDummyNode())
+        {
+        bitonicMerge(root->left, root, sortOrder);
+        }
+
+        if (!root->right->isDummyNode())
+        {
+        bitonicMerge(root->right, spare, sortOrder);
+        }*/
+
+        bitonicMerge(root->left, root, sortOrder);
+        bitonicMerge(root->right, spare, sortOrder);
+    }
+}
+
+/*
+Constructs bitonic tree from provided array.
+Requires root node and stride (at beggining this is "<array_length> / 4)".
+*/
+template <data_t dummyValue>
+void constructBitonicTree(data_t *keys, data_t *values, node_t *parent, int_t stride)
+{
+    // TODO fix (currently the whole padded tree is being built, NOT pruned tree)
+    // if (stride == 0 || parent->value + 2 * stride <= 0)
+    if (stride == 0)
+    {
+        return;
+    }
+
+    // Dummy nodes are represented with negative "value"s
+    int_t newIndex = parent->value - stride;
+    node_t *leftNode = new node_t(
+        newIndex >= 0 ? keys[newIndex] : dummyValue, newIndex >= 0 ? values[newIndex] : newIndex
+    );
+
+    newIndex = parent->value + stride;
+    node_t *rightNode = new node_t(
+        newIndex >= 0 ? keys[newIndex] : dummyValue, newIndex >= 0 ? values[newIndex] : newIndex
+    );
+
+    parent->left = leftNode;
+    parent->right = rightNode;
+
+    constructBitonicTree<dummyValue>(keys, values, leftNode, stride / 2);
+    constructBitonicTree<dummyValue>(keys, values, rightNode, stride / 2);
+}
+
+/*
+Executes adaptive bitonic sort on provided bitonic tree. Requires root node of bitonic tree, spare node
+(at beggining this is node with last array element with no children and parents) and sort order.
+*/
+void adaptiveBitonicSort(node_t *root, node_t *spare, order_t sortOrder)
+{
+    if (root->left == NULL)
+    {
+        if (sortOrder == ORDER_ASC ? (root->key > spare->key) : (root->key < spare->key))
+        {
+            swapNodeKeyValue(root, spare);
+        }
+    }
+    else
+    {
+        // TODO fix
+        /*
+        // If node does not represent a "dummy subtree" (doesn't contain dummy key and doesn't have both
+        // pointers equal to NULL), then function is executed.
+
+        if (!root->left->isDummyNode())
+        {
+        adaptiveBitonicSort(root->left, root, sortOrder);
+        }
+
+        if (!root->right->isDummyNode())
+        {
+        adaptiveBitonicSort(root->right, spare, (order_t)!sortOrder);
+        }
+
+        if (!root->isDummyNode())
+        {
+        bitonicMerge(root, spare, sortOrder);
+        }*/
+
+        adaptiveBitonicSort(root->left, root, sortOrder);
+        adaptiveBitonicSort(root->right, spare, (order_t)!sortOrder);
+        bitonicMerge(root, spare, sortOrder);
+    }
+}
+
+/*
+Sorts data sequentially with adaptive bitonic sort.
+*/
+double sortSequential(data_t* keys, data_t *values, uint_t tableLen, order_t sortOrder)
+{
+    LARGE_INTEGER timer;
+    startStopwatch(&timer);
+
+    uint_t tableLenPower2 = nextPowerOf2(tableLen);
+    uint_t padding = tableLenPower2 - tableLen;
+
+    node_t *root = new node_t(keys[tableLenPower2 / 2 - 1 - padding], values[tableLenPower2 / 2 - 1 - padding]);
+    node_t *spare = new node_t(keys[tableLen - 1], values[tableLen - 1]);
+
+    if (sortOrder == ORDER_ASC)
+    {
+        constructBitonicTree<MIN_VAL>(keys, values, root, tableLenPower2 / 4);
+    }
+    else
+    {
+        constructBitonicTree<MAX_VAL>(keys, values, root, tableLenPower2 / 4);
+    }
+
+    adaptiveBitonicSort(root, spare, sortOrder);
+    bitonicTreeToArray(keys, values, root, spare, tableLen);
+
+    double time = endStopwatch(timer);
+    return time;
 }

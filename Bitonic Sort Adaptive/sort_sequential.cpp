@@ -209,7 +209,7 @@ Requires root node and stride (at beggining this is "<array_length> / 4)".
 template <data_t dummyValue>
 void constructBitonicTree(data_t *dataTable, node_t *parent, int_t stride)
 {
-    // TODO fix (currently thw whole tree is being built, NOT pruned tree
+    // TODO fix (currently the whole padded tree is being built, NOT pruned tree)
     // if (stride == 0 || parent->value + 2 * stride <= 0)
     if (stride == 0)
     {
