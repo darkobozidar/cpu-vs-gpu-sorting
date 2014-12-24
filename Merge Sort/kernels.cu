@@ -123,12 +123,12 @@ template __global__ void mergeSortKernel<ORDER_DESC>(data_t *dataTable);
 
 
 /*
-Reads every SUB_BLOCK_SIZE-th sample from table and orders samples, which came from the same
+Reads every SUB_BLOCK_SIZE-th sample from data table and orders samples, which came from the same
 ordered block.
 Before blocks of samples are sorted, their ranks in sorted block are saved.
 */
 template <order_t sortOrder>
-__global__ void generateSamplesKernel(data_t *dataTable, data_t *samples, uint_t sortedBlockSize)
+__global__ void generateSamplesKernel(data_t *dataTable, sample_t *samples, uint_t sortedBlockSize)
 {
     // Indexes of sample in global memory and in table of samples
     uint_t dataIndex = blockIdx.x * (blockDim.x * SUB_BLOCK_SIZE) + threadIdx.x * SUB_BLOCK_SIZE;
@@ -139,15 +139,18 @@ __global__ void generateSamplesKernel(data_t *dataTable, data_t *samples, uint_t
     uint_t subBlocksPerSortedBlock = sortedBlockSize / SUB_BLOCK_SIZE;
     uint_t indexBlockCurrent = sampleIndex / subBlocksPerSortedBlock;
     uint_t indexBlockOpposite = indexBlockCurrent ^ 1;
-
-    // Reads the sample and the current rank in table
-    data_t sample = dataTable[dataIndex];
+    sample_t sample;
     uint_t rank;
 
+    // Reads the sample and the current rank in table
+    sample.key = dataTable[dataIndex];
+    sample.val = sampleIndex;
+
     // If current sample came from even block, search in corresponding odd block (and vice versa)
-    if (indexBlockCurrent % 2 == 0) {
+    if (indexBlockCurrent % 2 == 0)
+    {
         rank = binarySearchInclusive<ORDER_ASC>(
-            dataTable, sample, indexBlockOpposite * sortedBlockSize,
+            dataTable, sample.key, indexBlockOpposite * sortedBlockSize,
             indexBlockOpposite * sortedBlockSize + sortedBlockSize - SUB_BLOCK_SIZE,
             SUB_BLOCK_SIZE
         );
@@ -156,7 +159,7 @@ __global__ void generateSamplesKernel(data_t *dataTable, data_t *samples, uint_t
     else
     {
         rank = binarySearchExclusive<ORDER_DESC>(
-            dataTable, sample, indexBlockOpposite * sortedBlockSize,
+            dataTable, sample.key, indexBlockOpposite * sortedBlockSize,
             indexBlockOpposite * sortedBlockSize + sortedBlockSize - SUB_BLOCK_SIZE,
             SUB_BLOCK_SIZE
         );
@@ -167,10 +170,10 @@ __global__ void generateSamplesKernel(data_t *dataTable, data_t *samples, uint_t
 }
 
 template __global__ void generateSamplesKernel<ORDER_ASC>(
-    data_t *dataTable, data_t *samples, uint_t sortedBlockSize
+    data_t *dataTable, sample_t *samples, uint_t sortedBlockSize
 );
 template __global__ void generateSamplesKernel<ORDER_DESC>(
-    data_t *dataTable, data_t *samples, uint_t sortedBlockSize
+    data_t *dataTable, sample_t *samples, uint_t sortedBlockSize
 );
 
 

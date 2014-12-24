@@ -23,7 +23,7 @@ int main(int argc, char **argv) {
     data_t *h_input;
     data_t *h_outputParallel, *h_outputSequential, *h_outputCorrect;
     data_t *d_dataTable, *d_dataBuffer;
-    data_t *d_samples;
+    sample_t *d_samples;
     double **timers;
 
     uint_t tableLen = (1 << 10);

@@ -2,6 +2,7 @@
 #define MEMORY_UTILS_H
 
 #include "../Utils/data_types_common.h"
+#include "data_types.h"
 
 
 void allocHostMemory(
@@ -13,7 +14,7 @@ void freeHostMemory(
     double **timers
 );
 
-void allocDeviceMemory(data_t **dataTable, data_t **dataBuffer, data_t **samples, uint_t tableLen);
-void freeDeviceMemory(data_t *dataTable, data_t *dataBuffer, data_t *samples);
+void allocDeviceMemory(data_t **dataTable, data_t **dataBuffer, sample_t **samples, uint_t tableLen);
+void freeDeviceMemory(data_t *dataTable, data_t *dataBuffer, sample_t *samples);
 
 #endif

@@ -9,6 +9,7 @@
 #include "../Utils/host.h"
 #include "../Utils/cuda.h"
 #include "constants.h"
+#include "data_types.h"
 
 
 /*
@@ -64,7 +65,7 @@ void freeHostMemory(
 /*
 Allocates device memory.
 */
-void allocDeviceMemory(data_t **dataTable, data_t **dataBuffer, data_t **samples, uint_t tableLen)
+void allocDeviceMemory(data_t **dataTable, data_t **dataBuffer, sample_t **samples, uint_t tableLen)
 {
     cudaError_t error;
     uint_t samplesLen = tableLen / SUB_BLOCK_SIZE;
@@ -81,7 +82,7 @@ void allocDeviceMemory(data_t **dataTable, data_t **dataBuffer, data_t **samples
 /*
 Frees device memory.
 */
-void freeDeviceMemory(data_t *dataTable, data_t *dataBuffer, data_t *samples)
+void freeDeviceMemory(data_t *dataTable, data_t *dataBuffer, sample_t *samples)
 {
     cudaError_t error;
 

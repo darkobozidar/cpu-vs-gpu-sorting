@@ -39,7 +39,7 @@ void runMergeSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder) {
 Generates array of samples used to partition the table for merge step.
 */
 void runGenerateSamplesKernel(
-    data_t *dataTable, data_t *samples, uint_t tableLen, uint_t sortedBlockSize, order_t sortOrder
+    data_t *dataTable, sample_t *samples, uint_t tableLen, uint_t sortedBlockSize, order_t sortOrder
 )
 {
     uint_t numAllSamples = tableLen / SUB_BLOCK_SIZE;
@@ -102,7 +102,7 @@ void runGenerateSamplesKernel(
 //}
 
 double sortParallel(
-    data_t *h_output, data_t *d_dataTable, data_t *d_dataBuffer, data_t *d_samples, uint_t tableLen,
+    data_t *h_output, data_t *d_dataTable, data_t *d_dataBuffer, sample_t *d_samples, uint_t tableLen,
     order_t sortOrder
 )
 {
