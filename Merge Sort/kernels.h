@@ -13,7 +13,8 @@ __global__ void generateRanksKernel(
     data_t* dataTable, sample_t *samples, uint_t *ranksEven, uint_t *ranksOdd, uint_t sortedBlockSize
 );
 
-//__global__ void mergeKernel(el_t* input, el_t* output, uint_t *ranksEven, uint_t *ranksOdd, uint_t tableLen,
-//                            uint_t sortedBlockSize);
+__global__ void mergeKernel(
+    data_t* input, data_t* output, uint_t *ranksEven, uint_t *ranksOdd, uint_t sortedBlockSize
+);
 
 #endif

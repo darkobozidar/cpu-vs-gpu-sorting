@@ -149,7 +149,7 @@ __global__ void generateSamplesKernel(data_t *dataTable, sample_t *samples, uint
     // If current sample came from even block, search in corresponding odd block (and vice versa)
     if (indexBlockCurrent % 2 == 0)
     {
-        rank = binarySearchInclusive<ORDER_ASC>(
+        rank = binarySearchInclusive<sortOrder>(
             dataTable, sample.value, indexBlockOpposite * sortedBlockSize,
             indexBlockOpposite * sortedBlockSize + sortedBlockSize - SUB_BLOCK_SIZE,
             SUB_BLOCK_SIZE
@@ -158,7 +158,7 @@ __global__ void generateSamplesKernel(data_t *dataTable, sample_t *samples, uint
     }
     else
     {
-        rank = binarySearchExclusive<ORDER_DESC>(
+        rank = binarySearchExclusive<sortOrder>(
             dataTable, sample.value, indexBlockOpposite * sortedBlockSize,
             indexBlockOpposite * sortedBlockSize + sortedBlockSize - SUB_BLOCK_SIZE,
             SUB_BLOCK_SIZE
@@ -248,66 +248,76 @@ template __global__ void generateRanksKernel<ORDER_DESC>(
 );
 
 
-//__global__ void mergeKernel(el_t* input, el_t* output, uint_t *ranksEven, uint_t *ranksOdd, uint_t tableLen,
-//                            uint_t sortedBlockSize) {
-//    __shared__ el_t tileEven[SUB_BLOCK_SIZE];
-//    __shared__ el_t tileOdd[SUB_BLOCK_SIZE];
-//    uint_t indexRank = blockIdx.y * (sortedBlockSize / SUB_BLOCK_SIZE * 2) + blockIdx.x;
-//    uint_t indexSortedBlock = blockIdx.y * 2 * sortedBlockSize;
-//
-//    // Indexes for neighboring even and odd blocks, which will be merged
-//    uint_t indexStartEven, indexStartOdd, indexEndEven, indexEndOdd;
-//    uint_t offsetEven, offsetOdd;
-//    uint_t numElementsEven, numElementsOdd;
-//
-//    // TODO now that you have discovered RELEASE try again optimization, where you don't calculate the
-//    // offset for the firt sample
-//    // Read the START index for even and odd sub-blocks
-//    if (blockIdx.x > 0) {
-//        indexStartEven = ranksEven[indexRank - 1];
-//        indexStartOdd = ranksOdd[indexRank - 1];
-//    } else {
-//        indexStartEven = 0;
-//        indexStartOdd = 0;
-//    }
-//    // Read the END index for even and odd sub-blocks
-//    if (blockIdx.x < gridDim.x - 1) {
-//        indexEndEven = ranksEven[indexRank];
-//        indexEndOdd = ranksOdd[indexRank];
-//    } else {
-//        indexEndEven = sortedBlockSize;
-//        indexEndOdd = sortedBlockSize;
-//    }
-//
-//    numElementsEven = indexEndEven - indexStartEven;
-//    numElementsOdd = indexEndOdd - indexStartOdd;
-//
-//    // Read data for sub-block in EVEN sorted block
-//    if (threadIdx.x < numElementsEven) {
-//        offsetEven = indexSortedBlock + indexStartEven + threadIdx.x;
-//        tileEven[threadIdx.x] = input[offsetEven];
-//    }
-//    // Read data for sub-block in ODD sorted block
-//    if (threadIdx.x < numElementsOdd) {
-//        offsetOdd = indexSortedBlock + indexStartOdd + threadIdx.x;
-//        tileOdd[threadIdx.x] = input[offsetOdd + sortedBlockSize];
-//    }
-//
-//    __syncthreads();
-//    // Search for ranks in ODD sub-block for all elements in EVEN sub-block
-//    if (threadIdx.x < numElementsEven) {
-//        uint_t rankOdd = binarySearchInclusive(
-//            tileOdd, tileEven[threadIdx.x], 0, numElementsOdd - 1, 1, 1
-//        );
-//        rankOdd += indexStartOdd;
-//        output[offsetEven + rankOdd] = tileEven[threadIdx.x];
-//    }
-//    // Search for ranks in EVEN sub-block for all elements in ODD sub-block
-//    if (threadIdx.x < numElementsOdd) {
-//        uint_t rankEven = binarySearchExclusive(
-//            tileEven, tileOdd[threadIdx.x], 0, numElementsEven - 1, 1, 1
-//        );
-//        rankEven += indexStartEven;
-//        output[offsetOdd + rankEven] = tileOdd[threadIdx.x];
-//    }
-//}
+__global__ void mergeKernel(
+    data_t* input, data_t* output, uint_t *ranksEven, uint_t *ranksOdd, uint_t sortedBlockSize
+)
+{
+    __shared__ data_t tileEven[SUB_BLOCK_SIZE];
+    __shared__ data_t tileOdd[SUB_BLOCK_SIZE];
+    uint_t indexRank = blockIdx.y * (sortedBlockSize / SUB_BLOCK_SIZE * 2) + blockIdx.x;
+    uint_t indexSortedBlock = blockIdx.y * 2 * sortedBlockSize;
+
+    // Indexes for neighboring even and odd blocks, which will be merged
+    uint_t indexStartEven, indexStartOdd, indexEndEven, indexEndOdd;
+    uint_t offsetEven, offsetOdd;
+    uint_t numElementsEven, numElementsOdd;
+
+    // Reads the START index for even and odd sub-blocks
+    if (blockIdx.x > 0)
+    {
+        indexStartEven = ranksEven[indexRank - 1];
+        indexStartOdd = ranksOdd[indexRank - 1];
+    }
+    else
+    {
+        indexStartEven = 0;
+        indexStartOdd = 0;
+    }
+    // Reads the END index for even and odd sub-blocks
+    if (blockIdx.x < gridDim.x - 1)
+    {
+        indexEndEven = ranksEven[indexRank];
+        indexEndOdd = ranksOdd[indexRank];
+    }
+    else
+    {
+        indexEndEven = sortedBlockSize;
+        indexEndOdd = sortedBlockSize;
+    }
+
+    numElementsEven = indexEndEven - indexStartEven;
+    numElementsOdd = indexEndOdd - indexStartOdd;
+
+    // Reads data for sub-block in EVEN sorted block
+    if (threadIdx.x < numElementsEven)
+    {
+        offsetEven = indexSortedBlock + indexStartEven + threadIdx.x;
+        tileEven[threadIdx.x] = input[offsetEven];
+    }
+    // Reads data for sub-block in ODD sorted block
+    if (threadIdx.x < numElementsOdd)
+    {
+        offsetOdd = indexSortedBlock + indexStartOdd + threadIdx.x;
+        tileOdd[threadIdx.x] = input[offsetOdd + sortedBlockSize];
+    }
+
+    __syncthreads();
+    // Search for ranks in ODD sub-block for all elements in EVEN sub-block
+    if (threadIdx.x < numElementsEven)
+    {
+        uint_t rankOdd = binarySearchInclusive<ORDER_ASC>(
+            tileOdd, tileEven[threadIdx.x], 0, numElementsOdd - 1, 1
+        );
+        rankOdd += indexStartOdd;
+        output[offsetEven + rankOdd] = tileEven[threadIdx.x];
+    }
+    // Search for ranks in EVEN sub-block for all elements in ODD sub-block
+    if (threadIdx.x < numElementsOdd)
+    {
+        uint_t rankEven = binarySearchExclusive<ORDER_ASC>(
+            tileEven, tileOdd[threadIdx.x], 0, numElementsEven - 1, 1
+        );
+        rankEven += indexStartEven;
+        output[offsetOdd + rankEven] = tileOdd[threadIdx.x];
+    }
+}

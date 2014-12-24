@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
     uint_t *d_ranksEven, *d_ranksOdd;
     double **timers;
 
-    uint_t tableLen = (1 << 10);
+    uint_t tableLen = (1 << 20);
     uint_t interval = (1 << 31);
     uint_t testRepetitions = 10;    // How many times are sorts ran
     order_t sortOrder = ORDER_ASC;  // Values: ORDER_ASC, ORDER_DESC

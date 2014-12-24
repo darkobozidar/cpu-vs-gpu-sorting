@@ -85,27 +85,23 @@ void runGenerateRanksKernel(
     }
 }
 
-///*
-//Executes merge kernel, which merges all consecutive sorted blocks in data.
-//*/
-//void runMergeKernel(el_t *input, el_t *output, uint_t *ranksEven, uint_t *ranksOdd, uint_t tableLen,
-//                    uint_t sortedBlockSize) {
-//    cudaError_t error;
-//    LARGE_INTEGER timer;
-//
-//    uint_t subBlocksPerMergedBlock = sortedBlockSize / SUB_BLOCK_SIZE * 2;
-//    uint_t numMergedBlocks = tableLen / (sortedBlockSize * 2);
-//    dim3 dimGrid(subBlocksPerMergedBlock + 1, numMergedBlocks, 1);
-//    dim3 dimBlock(SUB_BLOCK_SIZE, 1, 1);
-//
-//    startStopwatch(&timer);
-//    mergeKernel<<<dimGrid, dimBlock>>>(
-//        input, output, ranksEven, ranksOdd, tableLen, sortedBlockSize
-//    );
-//    /*error = cudaDeviceSynchronize();
-//    checkCudaError(error);
-//    endStopwatch(timer, "Executing merge kernel");*/
-//}
+/*
+Executes merge kernel, which merges all consecutive sorted blocks in data.
+*/
+void runMergeKernel(
+    data_t *input, data_t *output, uint_t *ranksEven, uint_t *ranksOdd, uint_t tableLen, uint_t sortedBlockSize
+)
+{
+    uint_t subBlocksPerMergedBlock = sortedBlockSize / SUB_BLOCK_SIZE * 2;
+    uint_t numMergedBlocks = tableLen / (sortedBlockSize * 2);
+
+    dim3 dimGrid(subBlocksPerMergedBlock + 1, numMergedBlocks, 1);
+    dim3 dimBlock(SUB_BLOCK_SIZE, 1, 1);
+
+    mergeKernel<<<dimGrid, dimBlock>>>(
+        input, output, ranksEven, ranksOdd, sortedBlockSize
+    );
+}
 
 double sortParallel(
     data_t *h_output, data_t *d_dataTable, data_t *d_dataBuffer, sample_t *d_samples, uint_t *d_ranksEven,
@@ -118,16 +114,18 @@ double sortParallel(
     startStopwatch(&timer);
     runMergeSortKernel(d_dataTable, tableLen, sortOrder);
 
-    //for (uint_t sortedBlockSize = SHARED_MEM_SIZE; sortedBlockSize < tableLen; sortedBlockSize *= 2) {
-    //    el_t* temp = d_output;
-    //    d_output = d_buffer;
-    //    d_buffer = temp;
+    for (uint_t sortedBlockSize = SHARED_MEM_SIZE; sortedBlockSize < tableLen; sortedBlockSize *= 2)
+    {
+        data_t* temp = d_dataTable;
+        d_dataTable = d_dataBuffer;
+        d_dataBuffer = temp;
 
-    //    runGenerateSamplesKernel(d_buffer, d_samples, tableLen, sortedBlockSize, orderAsc);
-    //    runGenerateRanksKernel(d_buffer, d_samples, d_ranksEven, d_ranksOdd, tableLen,
-    //                           sortedBlockSize, orderAsc);
-    //    runMergeKernel(d_buffer, d_output, d_ranksEven, d_ranksOdd, tableLen, sortedBlockSize);
-    //}
+        runGenerateSamplesKernel(d_dataBuffer, d_samples, tableLen, sortedBlockSize, sortOrder);
+        runGenerateRanksKernel(
+            d_dataBuffer, d_samples, d_ranksEven, d_ranksOdd, tableLen, sortedBlockSize, sortOrder
+        );
+        runMergeKernel(d_dataBuffer, d_dataTable, d_ranksEven, d_ranksOdd, tableLen, sortedBlockSize);
+    }
 
     error = cudaDeviceSynchronize();
     checkCudaError(error);
