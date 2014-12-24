@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
     );
     allocDeviceMemory(&d_dataTable, &d_dataBuffer, &d_intervals, &d_intervalsBuffer, tableLen);
 
-    printf(">>> BITONIC SORT ADAPTIVE (Key-Value) <<<\n\n\n");
+    printf(">>> BITONIC SORT ADAPTIVE <<<\n\n\n");
     printDataDistribution(distribution);
     printf("> Array length: %d\n", tableLen);
     if (printMeaurements)

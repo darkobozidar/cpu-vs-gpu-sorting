@@ -52,7 +52,7 @@ int main(int argc, char **argv) {
         &d_intervalsBuffer, tableLen
     );
 
-    printf(">>> BITONIC SORT (Key-Value) <<<\n\n\n");
+    printf(">>> BITONIC SORT ADAPTIVE (Key-Value) <<<\n\n\n");
     printDataDistribution(distribution);
     printf("> Array length: %d\n", tableLen);
     if (printMeaurements)
