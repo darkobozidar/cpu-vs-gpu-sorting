@@ -18,15 +18,15 @@
 Binary search, which returns an index of last element LOWER than target.
 Start and end indexes can't be unsigned, because end index can become negative.
 */
-template <order_t sortOrder>
+template <order_t sortOrder, uint_t stride>
 __device__ int_t binarySearchExclusive(
-    data_t* table, data_t target, int_t indexStart, int_t indexEnd, uint_t stride
+    data_t* table, data_t target, int_t indexStart, int_t indexEnd
 )
 {
     while (indexStart <= indexEnd)
     {
         // Floor to multiplier of stride - needed for strides > 1
-        int_t index = ((indexStart + indexEnd) / 2) & ((stride - 1) ^ ULONG_MAX);
+        int_t index = ((indexStart + indexEnd) / 2) & ((stride - 1) ^ MAX_VAL);
 
         if ((target < table[index]) ^ sortOrder)
         {
@@ -45,15 +45,15 @@ __device__ int_t binarySearchExclusive(
 Binary search, which returns an index of last element LOWER OR EQUAL than target.
 Start and end indexes can't be unsigned, because end index can become negative.
 */
-template <order_t sortOrder>
+template <order_t sortOrder, uint_t stride>
 __device__ int_t binarySearchInclusive(
-    data_t* table, data_t target, int_t indexStart, int_t indexEnd, uint_t stride
+    data_t* table, data_t target, int_t indexStart, int_t indexEnd
 )
 {
     while (indexStart <= indexEnd)
     {
         // Floor to multiplier of stride - needed for strides > 1
-        int_t index = ((indexStart + indexEnd) / 2) & ((stride - 1) ^ ULONG_MAX);
+        int_t index = ((indexStart + indexEnd) / 2) & ((stride - 1) ^ MAX_VAL);
 
         if ((target <= table[index]) ^ sortOrder)
         {
@@ -101,11 +101,11 @@ __global__ void mergeSortKernel(data_t *dataTable)
         data_t elemOdd = tile[offsetBlock + offsetSample + stride];
 
         // Calculate the rank of element from even block in odd block and vice versa
-        uint_t rankOdd = binarySearchInclusive<sortOrder>(
-            tile, elemEven, offsetBlock + stride, offsetBlock + 2 * stride - 1, 1
+        uint_t rankOdd = binarySearchInclusive<sortOrder, 1>(
+            tile, elemEven, offsetBlock + stride, offsetBlock + 2 * stride - 1
         );
-        uint_t rankEven = binarySearchExclusive<sortOrder>(
-            tile, elemOdd, offsetBlock, offsetBlock + stride - 1, 1
+        uint_t rankEven = binarySearchExclusive<sortOrder, 1>(
+            tile, elemOdd, offsetBlock, offsetBlock + stride - 1
         );
 
         __syncthreads();
@@ -149,19 +149,17 @@ __global__ void generateSamplesKernel(data_t *dataTable, sample_t *samples, uint
     // If current sample came from even block, search in corresponding odd block (and vice versa)
     if (indexBlockCurrent % 2 == 0)
     {
-        rank = binarySearchInclusive<sortOrder>(
+        rank = binarySearchInclusive<sortOrder, SUB_BLOCK_SIZE>(
             dataTable, sample.value, indexBlockOpposite * sortedBlockSize,
-            indexBlockOpposite * sortedBlockSize + sortedBlockSize - SUB_BLOCK_SIZE,
-            SUB_BLOCK_SIZE
+            indexBlockOpposite * sortedBlockSize + sortedBlockSize - SUB_BLOCK_SIZE
         );
         rank = (rank - sortedBlockSize) / SUB_BLOCK_SIZE;
     }
     else
     {
-        rank = binarySearchExclusive<sortOrder>(
+        rank = binarySearchExclusive<sortOrder, SUB_BLOCK_SIZE>(
             dataTable, sample.value, indexBlockOpposite * sortedBlockSize,
-            indexBlockOpposite * sortedBlockSize + sortedBlockSize - SUB_BLOCK_SIZE,
-            SUB_BLOCK_SIZE
+            indexBlockOpposite * sortedBlockSize + sortedBlockSize - SUB_BLOCK_SIZE
         );
         rank /= SUB_BLOCK_SIZE;
     }
@@ -210,14 +208,14 @@ __global__ void generateRanksKernel(
     {
         if (offsetBlockOpposite % 2 == 0)
         {
-            rankDataOpposite = binarySearchExclusive<sortOrder>(
-                dataTable, sample.value, indexStart, indexEnd, 1
+            rankDataOpposite = binarySearchExclusive<sortOrder, 1>(
+                dataTable, sample.value, indexStart, indexEnd
             );
         }
         else
         {
-            rankDataOpposite = binarySearchInclusive<sortOrder>(
-                dataTable, sample.value, indexStart, indexEnd, 1
+            rankDataOpposite = binarySearchInclusive<sortOrder, 1>(
+                dataTable, sample.value, indexStart, indexEnd
             );
         }
 
@@ -248,6 +246,7 @@ template __global__ void generateRanksKernel<ORDER_DESC>(
 );
 
 
+template <order_t sortOrder>
 __global__ void mergeKernel(
     data_t* input, data_t* output, uint_t *ranksEven, uint_t *ranksOdd, uint_t sortedBlockSize
 )
@@ -305,8 +304,8 @@ __global__ void mergeKernel(
     // Search for ranks in ODD sub-block for all elements in EVEN sub-block
     if (threadIdx.x < numElementsEven)
     {
-        uint_t rankOdd = binarySearchInclusive<ORDER_ASC>(
-            tileOdd, tileEven[threadIdx.x], 0, numElementsOdd - 1, 1
+        uint_t rankOdd = binarySearchInclusive<sortOrder, 1>(
+            tileOdd, tileEven[threadIdx.x], 0, numElementsOdd - 1
         );
         rankOdd += indexStartOdd;
         output[offsetEven + rankOdd] = tileEven[threadIdx.x];
@@ -314,10 +313,17 @@ __global__ void mergeKernel(
     // Search for ranks in EVEN sub-block for all elements in ODD sub-block
     if (threadIdx.x < numElementsOdd)
     {
-        uint_t rankEven = binarySearchExclusive<ORDER_ASC>(
-            tileEven, tileOdd[threadIdx.x], 0, numElementsEven - 1, 1
+        uint_t rankEven = binarySearchExclusive<sortOrder, 1>(
+            tileEven, tileOdd[threadIdx.x], 0, numElementsEven - 1
         );
         rankEven += indexStartEven;
         output[offsetOdd + rankEven] = tileOdd[threadIdx.x];
     }
 }
+
+template __global__ void mergeKernel<ORDER_ASC>(
+    data_t* input, data_t* output, uint_t *ranksEven, uint_t *ranksOdd, uint_t sortedBlockSize
+);
+template __global__ void mergeKernel<ORDER_DESC>(
+    data_t* input, data_t* output, uint_t *ranksEven, uint_t *ranksOdd, uint_t sortedBlockSize
+);
