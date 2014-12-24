@@ -68,7 +68,7 @@ void fillTableKeysOnly(data_t *keys, uint_t tableLen, uint_t interval, uint_t bu
         case DISTRIBUTION_BUCKET:
         {
             uint_t index = 0;
-            data_t bucketIncrement = (UINT32_MAX / bucketSize + 1);
+            data_t bucketIncrement = (MAX_VAL / bucketSize + 1);
 
             // Fills the buckets
             for (uint_t i = 0; i < bucketSize; i++)
@@ -108,7 +108,7 @@ void fillTableKeysOnly(data_t *keys, uint_t tableLen, uint_t interval, uint_t bu
                     bucketIncrement = (i - (bucketSize / 2)) * 2;
                 }
 
-                bucketIncrement = bucketIncrement * ((UINT32_MAX / bucketSize) + 1);
+                bucketIncrement = bucketIncrement * ((MAX_VAL / bucketSize) + 1);
 
                 for (j = 0; j < tableLen / bucketSize; j++)
                 {
