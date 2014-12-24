@@ -13,56 +13,30 @@
 #include "kernels.h"
 
 
-///*
-//Initializes memory needed for storing data being sorted.
-//*/
-//void memoryDataInit(el_t *h_input, el_t **d_input, el_t **d_output, el_t **d_buffer, uint_t tableLen) {
-//    cudaError_t error;
-//
-//    error = cudaMalloc(d_input, tableLen * sizeof(**d_input));
-//    checkCudaError(error);
-//    error = cudaMalloc(d_output, tableLen * sizeof(**d_output));
-//    checkCudaError(error);
-//    error = cudaMalloc(d_buffer, tableLen * sizeof(**d_buffer));
-//    checkCudaError(error);
-//
-//    error = cudaMemcpy(*d_input, h_input, tableLen * sizeof(**d_input), cudaMemcpyHostToDevice);
-//    checkCudaError(error);
-//}
-//
-///*
-//Initializes memory needed for generating sub-block limits.
-//*/
-//void memoryMergeInit(el_t **samples, uint_t **ranksEven, uint_t **ranksOdd, uint_t samplesLen) {
-//    cudaError_t error;
-//
-//    error = cudaMalloc(samples, samplesLen * sizeof(**samples));
-//    checkCudaError(error);
-//    error = cudaMalloc(ranksEven, samplesLen * sizeof(**ranksEven));
-//    checkCudaError(error);
-//    error = cudaMalloc(ranksOdd, samplesLen * sizeof(**ranksOdd));
-//    checkCudaError(error);
-//}
-//
-///*
-//Sorts sub-blocks of data with merge sort.
-//*/
-//void runMergeSortKernel(el_t *input, el_t *output, uint_t tableLen, bool orderAsc) {
-//    cudaError_t error;
-//    LARGE_INTEGER timer;
-//
-//    // Every thread loads and sorts 2 elements
-//    uint_t threadBlockSize = SHARED_MEM_SIZE / 2;
-//    dim3 dimGrid((tableLen - 1) / (threadBlockSize * 2) + 1, 1, 1);
-//    dim3 dimBlock(threadBlockSize, 1, 1);
-//
-//    startStopwatch(&timer);
-//    mergeSortKernel<<<dimGrid, dimBlock>>>(input, output, orderAsc);
-//    /*error = cudaDeviceSynchronize();
-//    checkCudaError(error);
-//    endStopwatch(timer, "Executing merge sort kernel");*/
-//}
-//
+/*
+Sorts sub-blocks of data with merge sort.
+*/
+void runMergeSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder) {
+    cudaError_t error;
+    LARGE_INTEGER timer;
+
+    // Every thread loads and sorts 2 elements
+    uint_t threadBlockSize = SHARED_MEM_SIZE / 2;
+    uint_t sharedMemSize = SHARED_MEM_SIZE;
+
+    dim3 dimGrid((tableLen - 1) / (threadBlockSize * 2) + 1, 1, 1);
+    dim3 dimBlock(threadBlockSize, 1, 1);
+
+    if (sortOrder == ORDER_ASC)
+    {
+        mergeSortKernel<ORDER_ASC><<<dimGrid, dimBlock, sharedMemSize>>>(dataTable);
+    }
+    else
+    {
+        mergeSortKernel<ORDER_DESC><<<dimGrid, dimBlock, sharedMemSize>>>(dataTable);
+    }
+}
+
 ///*
 //Generates array of samples used to partition the table for merge step.
 //*/
@@ -127,7 +101,9 @@
 //    endStopwatch(timer, "Executing merge kernel");*/
 //}
 
-double sortParallel(data_t *h_output, data_t *d_dataTable, uint_t tableLen, order_t sortOrder)
+double sortParallel(
+    data_t *h_output, data_t *d_dataTable, data_t *dataBuffer, uint_t tableLen, order_t sortOrder
+)
 {
     data_t *d_input, *d_output, *d_buffer;
     data_t *d_samples;
@@ -138,7 +114,7 @@ double sortParallel(data_t *h_output, data_t *d_dataTable, uint_t tableLen, orde
     cudaError_t error;
 
     startStopwatch(&timer);
-    //runMergeSortKernel(d_input, d_output, tableLen, orderAsc);
+    runMergeSortKernel(d_dataTable, tableLen, sortOrder);
 
     //for (uint_t sortedBlockSize = SHARED_MEM_SIZE; sortedBlockSize < tableLen; sortedBlockSize *= 2) {
     //    el_t* temp = d_output;

@@ -1,98 +1,127 @@
-//#include <stdio.h>
-//#include <stdint.h>
-//#include <math.h>
-//#include <climits>
-//
-//#include <cuda.h>
-//#include "cuda_runtime.h"
-//#include "device_launch_parameters.h"
-//#include "math_functions.h"
-//
-//#include "data_types.h"
-//#include "constants.h"
-//
-//
-///*
-//Binary search, which returns an index of last element LOWER than target.
-//Start and end indexes can't be unsigned, because end index can become negative.
-//*/
-//__device__ int binarySearchExclusive(el_t* table, el_t target, int_t indexStart, int_t indexEnd,
-//                                     uint_t stride, bool orderAsc) {
-//    while (indexStart <= indexEnd) {
-//        // Floor to multiplier of stride - needed for strides > 1
-//        int index = ((indexStart + indexEnd) / 2) & ((stride - 1) ^ ULONG_MAX);
-//
-//        if ((target.key < table[index].key) ^ (!orderAsc)) {
-//            indexEnd = index - stride;
-//        } else {
-//            indexStart = index + stride;
-//        }
-//    }
-//
-//    return indexStart;
-//}
-//
-///*
-//Binary search, which returns an index of last element LOWER OR EQUAL than target.
-//Start and end indexes can't be unsigned, because end index can become negative.
-//*/
-//__device__ int binarySearchInclusive(el_t* table, el_t target, int_t indexStart, int_t indexEnd,
-//                                     uint_t stride, bool orderAsc) {
-//    while (indexStart <= indexEnd) {
-//        // Floor to multiplier of stride - needed for strides > 1
-//        int index = ((indexStart + indexEnd) / 2) & ((stride - 1) ^ ULONG_MAX);
-//
-//        if ((target.key <= table[index].key) ^ (!orderAsc)) {
-//            indexEnd = index - stride;
-//        } else {
-//            indexStart = index + stride;
-//        }
-//    }
-//
-//    return indexStart;
-//}
-//
-///*
-//Sorts sub blocks of input data with merge sort. Sort is stable.
-//*/
-//__global__ void mergeSortKernel(el_t *input, el_t *output, bool orderAsc) {
-//    __shared__ el_t tile[SHARED_MEM_SIZE];
-//
-//    // Every thread loads 2 elements
-//    uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
-//    tile[threadIdx.x] = input[index];
-//    tile[threadIdx.x + blockDim.x] = input[index + blockDim.x];
-//
-//    // Stride - length of sorted blocks
-//    for (uint_t stride = 1; stride < SHARED_MEM_SIZE; stride <<= 1) {
-//        // Offset of current sample within block
-//        uint_t offsetSample = threadIdx.x & (stride - 1);
-//        // Ofset to two blocks of length stride, which will be merged
-//        uint_t offsetBlock = 2 * (threadIdx.x - offsetSample);
-//
-//        __syncthreads();
-//        // Load element from even and odd block (blocks beeing merged)
-//        el_t elEven = tile[offsetBlock + offsetSample];
-//        el_t elOdd = tile[offsetBlock + offsetSample + stride];
-//
-//        // Calculate the rank of element from even block in odd block and vice versa
-//        uint_t rankOdd = binarySearchInclusive(
-//            tile, elEven, offsetBlock + stride, offsetBlock + 2 * stride - 1, 1, orderAsc
-//        );
-//        uint_t rankEven = binarySearchExclusive(
-//            tile, elOdd, offsetBlock, offsetBlock + stride - 1, 1, orderAsc
-//        );
-//
-//        __syncthreads();
-//        tile[offsetSample + rankOdd - stride] = elEven;
-//        tile[offsetSample + rankEven] = elOdd;
-//    }
-//
-//    __syncthreads();
-//    output[index] = tile[threadIdx.x];
-//    output[index + blockDim.x] = tile[threadIdx.x + blockDim.x];
-//}
-//
+#include <stdio.h>
+
+#include <cuda.h>
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
+#include "math_functions.h"
+
+#include "../Utils/data_types_common.h"
+#include "constants.h"
+#include "data_types.h"
+
+
+///////////////////////////////////////////////////////////////////
+////////////////////////////// UTILS //////////////////////////////
+///////////////////////////////////////////////////////////////////
+
+/*
+Binary search, which returns an index of last element LOWER than target.
+Start and end indexes can't be unsigned, because end index can become negative.
+*/
+template <order_t sortOrder>
+__device__ int_t binarySearchExclusive(
+    data_t* table, data_t target, int_t indexStart, int_t indexEnd, uint_t stride
+)
+{
+    while (indexStart <= indexEnd)
+    {
+        // Floor to multiplier of stride - needed for strides > 1
+        int_t index = ((indexStart + indexEnd) / 2) & ((stride - 1) ^ ULONG_MAX);
+
+        if ((target < table[index]) ^ sortOrder)
+        {
+            indexEnd = index - stride;
+        }
+        else
+        {
+            indexStart = index + stride;
+        }
+    }
+
+    return indexStart;
+}
+
+/*
+Binary search, which returns an index of last element LOWER OR EQUAL than target.
+Start and end indexes can't be unsigned, because end index can become negative.
+*/
+template <order_t sortOrder>
+__device__ int_t binarySearchInclusive(
+    data_t* table, data_t target, int_t indexStart, int_t indexEnd, uint_t stride
+)
+{
+    while (indexStart <= indexEnd)
+    {
+        // Floor to multiplier of stride - needed for strides > 1
+        int_t index = ((indexStart + indexEnd) / 2) & ((stride - 1) ^ ULONG_MAX);
+
+        if ((target <= table[index]) ^ sortOrder)
+        {
+            indexEnd = index - stride;
+        }
+        else
+        {
+            indexStart = index + stride;
+        }
+    }
+
+    return indexStart;
+}
+
+
+///////////////////////////////////////////////////////////////////
+///////////////////////////// KERNELS /////////////////////////////
+///////////////////////////////////////////////////////////////////
+
+
+/*
+Sorts sub blocks of input data with merge sort. Sort is stable.
+*/
+template <order_t sortOrder>
+__global__ void mergeSortKernel(data_t *dataTable)
+{
+    __shared__ data_t tile[SHARED_MEM_SIZE];
+
+    // Every thread loads 2 elements
+    uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
+    tile[threadIdx.x] = dataTable[index];
+    tile[threadIdx.x + blockDim.x] = dataTable[index + blockDim.x];
+
+    // Stride - length of sorted blocks
+    for (uint_t stride = 1; stride < SHARED_MEM_SIZE; stride <<= 1)
+    {
+        // Offset of current sample within block
+        uint_t offsetSample = threadIdx.x & (stride - 1);
+        // Ofset to two blocks of length stride, which will be merged
+        uint_t offsetBlock = 2 * (threadIdx.x - offsetSample);
+
+        __syncthreads();
+        // Load element from even and odd block (blocks beeing merged)
+        data_t elemEven = tile[offsetBlock + offsetSample];
+        data_t elemOdd = tile[offsetBlock + offsetSample + stride];
+
+        // Calculate the rank of element from even block in odd block and vice versa
+        uint_t rankOdd = binarySearchInclusive<sortOrder>(
+            tile, elemEven, offsetBlock + stride, offsetBlock + 2 * stride - 1, 1
+        );
+        uint_t rankEven = binarySearchExclusive<sortOrder>(
+            tile, elemOdd, offsetBlock, offsetBlock + stride - 1, 1
+        );
+
+        __syncthreads();
+        tile[offsetSample + rankOdd - stride] = elemEven;
+        tile[offsetSample + rankEven] = elemOdd;
+    }
+
+    __syncthreads();
+    dataTable[index] = tile[threadIdx.x];
+    dataTable[index + blockDim.x] = tile[threadIdx.x + blockDim.x];
+}
+
+template __global__ void mergeSortKernel<ORDER_ASC>(data_t *dataTable);
+template __global__ void mergeSortKernel<ORDER_DESC>(data_t *dataTable);
+
+
 ///*
 //Reads every SUB_BLOCK_SIZE-th sample from table and orders samples, which came from the same
 //ordered block.
