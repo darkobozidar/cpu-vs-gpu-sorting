@@ -3,6 +3,6 @@
 
 #include "data_types.h"
 
-el_t* sortCorrect(el_t* input, uint_t tableLen);
+double sortSequential(data_t* dataTable, uint_t tableLen, order_t sortOrder);
 
 #endif

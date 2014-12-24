@@ -3,9 +3,8 @@
 
 #include <stdint.h>
 
-typedef int data_t;
-typedef uint32_t uint_t;
-typedef int32_t int_t;
+#include "../Utils/data_types_common.h"
+
 
 // Key value pair used for sorting
 struct Element {
