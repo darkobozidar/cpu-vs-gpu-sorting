@@ -11,8 +11,8 @@ typedef struct Sample sample_t;
 // Key value pair used for sorting
 struct Sample
 {
-    data_t key;
-    uint_t val;
+    data_t value;
+    uint_t index;
 };
 
 #endif

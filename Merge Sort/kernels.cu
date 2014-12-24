@@ -143,14 +143,14 @@ __global__ void generateSamplesKernel(data_t *dataTable, sample_t *samples, uint
     uint_t rank;
 
     // Reads the sample and the current rank in table
-    sample.key = dataTable[dataIndex];
-    sample.val = sampleIndex;
+    sample.value = dataTable[dataIndex];
+    sample.index = sampleIndex;
 
     // If current sample came from even block, search in corresponding odd block (and vice versa)
     if (indexBlockCurrent % 2 == 0)
     {
         rank = binarySearchInclusive<ORDER_ASC>(
-            dataTable, sample.key, indexBlockOpposite * sortedBlockSize,
+            dataTable, sample.value, indexBlockOpposite * sortedBlockSize,
             indexBlockOpposite * sortedBlockSize + sortedBlockSize - SUB_BLOCK_SIZE,
             SUB_BLOCK_SIZE
         );
@@ -159,7 +159,7 @@ __global__ void generateSamplesKernel(data_t *dataTable, sample_t *samples, uint
     else
     {
         rank = binarySearchExclusive<ORDER_DESC>(
-            dataTable, sample.key, indexBlockOpposite * sortedBlockSize,
+            dataTable, sample.value, indexBlockOpposite * sortedBlockSize,
             indexBlockOpposite * sortedBlockSize + sortedBlockSize - SUB_BLOCK_SIZE,
             SUB_BLOCK_SIZE
         );
@@ -194,13 +194,13 @@ __global__ void generateRanksKernel(
     // Key -> sample value, Val -> rank of sample element in current table
     sample_t sample = samples[index];
     // Calculate ranks of current and opposite sorted block in global table
-    uint_t rankDataCurrent = (sample.val * SUB_BLOCK_SIZE % sortedBlockSize) + 1;
+    uint_t rankDataCurrent = (sample.index * SUB_BLOCK_SIZE % sortedBlockSize) + 1;
     uint_t rankDataOpposite;
 
     // Calculates index of opposite block, with wich current block will be merged
-    uint_t offsetBlockOpposite = (sample.val / subBlocksPerSortedBlock) ^ 1;
+    uint_t offsetBlockOpposite = (sample.index / subBlocksPerSortedBlock) ^ 1;
     // Calculate the index of sub-block within sorted block
-    uint_t offsetSubBlockOpposite = index % subBlocksPerMergedBlock - sample.val % subBlocksPerSortedBlock - 1;
+    uint_t offsetSubBlockOpposite = index % subBlocksPerMergedBlock - sample.index % subBlocksPerSortedBlock - 1;
     // Start and end index for binary search
     uint_t indexStart = offsetBlockOpposite * sortedBlockSize + offsetSubBlockOpposite * SUB_BLOCK_SIZE + 1;
     uint_t indexEnd = indexStart + SUB_BLOCK_SIZE - 2;
@@ -211,13 +211,13 @@ __global__ void generateRanksKernel(
         if (offsetBlockOpposite % 2 == 0)
         {
             rankDataOpposite = binarySearchExclusive<sortOrder>(
-                dataTable, sample.key, indexStart, indexEnd, 1
+                dataTable, sample.value, indexStart, indexEnd, 1
             );
         }
         else
         {
             rankDataOpposite = binarySearchInclusive<sortOrder>(
-                dataTable, sample.key, indexStart, indexEnd, 1
+                dataTable, sample.value, indexStart, indexEnd, 1
             );
         }
 
@@ -228,7 +228,7 @@ __global__ void generateRanksKernel(
         rankDataOpposite = 0;
     }
 
-    if ((sample.val / subBlocksPerSortedBlock) % 2 == 0)
+    if ((sample.index / subBlocksPerSortedBlock) % 2 == 0)
     {
         ranksEven[index] = rankDataCurrent;
         ranksOdd[index] = rankDataOpposite;
