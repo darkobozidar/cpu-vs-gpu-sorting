@@ -5,7 +5,9 @@
 template <order_t sortOrder>
 __global__ void mergeSortKernel(data_t *input);
 
-//__global__ void generateSamplesKernel(el_t *table, el_t *samples, uint_t sortedBlockSize, bool orderAsc);
+template <order_t sortOrder>
+__global__ void generateSamplesKernel(data_t *dataTable, data_t *samples, uint_t sortedBlockSize);
+
 //__global__ void generateRanksKernel(el_t* table, el_t *samples, uint_t *ranksEven, uint_t *ranksOdd,
 //                                    uint_t sortedBlockSize, bool orderAsc);
 //__global__ void mergeKernel(el_t* input, el_t* output, uint_t *ranksEven, uint_t *ranksOdd, uint_t tableLen,

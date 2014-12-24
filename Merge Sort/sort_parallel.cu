@@ -10,6 +10,7 @@
 #include "../Utils/cuda.h"
 #include "../Utils/host.h"
 #include "constants.h"
+#include "data_types.h"
 #include "kernels.h"
 
 
@@ -17,9 +18,6 @@
 Sorts sub-blocks of data with merge sort.
 */
 void runMergeSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder) {
-    cudaError_t error;
-    LARGE_INTEGER timer;
-
     // Every thread loads and sorts 2 elements
     uint_t threadBlockSize = SHARED_MEM_SIZE / 2;
     uint_t sharedMemSize = SHARED_MEM_SIZE;
@@ -37,26 +35,28 @@ void runMergeSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder) {
     }
 }
 
-///*
-//Generates array of samples used to partition the table for merge step.
-//*/
-//void runGenerateSamplesKernel(el_t *table, el_t *samples, uint_t tableLen, uint_t sortedBlockSize,
-//                              bool orderAsc) {
-//    cudaError_t error;
-//    LARGE_INTEGER timer;
-//
-//    uint_t numAllSamples = tableLen / SUB_BLOCK_SIZE;
-//    uint_t threadBlockSize = min(numAllSamples, SHARED_MEM_SIZE);
-//    dim3 dimGrid((numAllSamples - 1) / threadBlockSize + 1, 1, 1);
-//    dim3 dimBlock(threadBlockSize, 1, 1);
-//
-//    startStopwatch(&timer);
-//    generateSamplesKernel<<<dimGrid, dimBlock>>>(table, samples, sortedBlockSize, orderAsc);
-//    /*error = cudaDeviceSynchronize();
-//    checkCudaError(error);
-//    endStopwatch(timer, "Executing kernel for generating samples");*/
-//}
-//
+/*
+Generates array of samples used to partition the table for merge step.
+*/
+void runGenerateSamplesKernel(
+    data_t *dataTable, data_t *samples, uint_t tableLen, uint_t sortedBlockSize, order_t sortOrder
+)
+{
+    uint_t numAllSamples = tableLen / SUB_BLOCK_SIZE;
+    uint_t threadBlockSize = min(numAllSamples, SHARED_MEM_SIZE);
+    dim3 dimGrid((numAllSamples - 1) / threadBlockSize + 1, 1, 1);
+    dim3 dimBlock(threadBlockSize, 1, 1);
+
+    if (sortOrder == ORDER_ASC)
+    {
+        generateSamplesKernel<ORDER_ASC><<<dimGrid, dimBlock>>>(dataTable, samples, sortedBlockSize);
+    }
+    else
+    {
+        generateSamplesKernel<ORDER_DESC><<<dimGrid, dimBlock>>>(dataTable, samples, sortedBlockSize);
+    }
+}
+
 ///*
 //Generates ranks/limits of sub-blocks that need to be merged.
 //*/
@@ -102,11 +102,10 @@ void runMergeSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder) {
 //}
 
 double sortParallel(
-    data_t *h_output, data_t *d_dataTable, data_t *dataBuffer, uint_t tableLen, order_t sortOrder
+    data_t *h_output, data_t *d_dataTable, data_t *d_dataBuffer, data_t *d_samples, uint_t tableLen,
+    order_t sortOrder
 )
 {
-    data_t *d_input, *d_output, *d_buffer;
-    data_t *d_samples;
     uint_t *d_ranksEven, *d_ranksOdd;
     uint_t samplesLen = tableLen / SUB_BLOCK_SIZE;
 

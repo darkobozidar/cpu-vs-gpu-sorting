@@ -122,48 +122,58 @@ template __global__ void mergeSortKernel<ORDER_ASC>(data_t *dataTable);
 template __global__ void mergeSortKernel<ORDER_DESC>(data_t *dataTable);
 
 
-///*
-//Reads every SUB_BLOCK_SIZE-th sample from table and orders samples, which came from the same
-//ordered block.
-//Before blocks of samples are sorted, their ranks in sorted block are saved.
-//*/
-//__global__ void generateSamplesKernel(el_t *table, el_t *samples, uint_t sortedBlockSize, bool orderAsc) {
-//    // Indexes of sample in global memory and in table of samples
-//    uint_t dataIndex = blockIdx.x * (blockDim.x * SUB_BLOCK_SIZE) + threadIdx.x * SUB_BLOCK_SIZE;
-//    uint_t sampleIndex = blockIdx.x * blockDim.x + threadIdx.x;
-//
-//    // Calculates index of current sorted block and opposite block, with wich current block
-//    // will be merged (even - odd and vice versa)
-//    uint_t subBlocksPerSortedBlock = sortedBlockSize / SUB_BLOCK_SIZE;
-//    uint_t indexBlockCurrent = sampleIndex / subBlocksPerSortedBlock;
-//    uint_t indexBlockOpposite = indexBlockCurrent ^ 1;
-//    el_t sample;
-//    uint_t rank;
-//
-//    // Read the sample and the current rank in table
-//    sample.key = table[dataIndex].key;
-//    sample.val = sampleIndex;
-//
-//    // If current sample came from even block, search in corresponding odd block (and vice versa)
-//    if (indexBlockCurrent % 2 == 0) {
-//        rank = binarySearchInclusive(
-//            table, sample, indexBlockOpposite * sortedBlockSize,
-//            indexBlockOpposite * sortedBlockSize + sortedBlockSize - SUB_BLOCK_SIZE,
-//            SUB_BLOCK_SIZE, orderAsc
-//        );
-//        rank = (rank - sortedBlockSize) / SUB_BLOCK_SIZE;
-//    } else {
-//        rank = binarySearchExclusive(
-//            table, sample, indexBlockOpposite * sortedBlockSize,
-//            indexBlockOpposite * sortedBlockSize + sortedBlockSize - SUB_BLOCK_SIZE,
-//            SUB_BLOCK_SIZE, orderAsc
-//        );
-//        rank /= SUB_BLOCK_SIZE;
-//    }
-//
-//    samples[sampleIndex % subBlocksPerSortedBlock + rank] = sample;
-//}
-//
+/*
+Reads every SUB_BLOCK_SIZE-th sample from table and orders samples, which came from the same
+ordered block.
+Before blocks of samples are sorted, their ranks in sorted block are saved.
+*/
+template <order_t sortOrder>
+__global__ void generateSamplesKernel(data_t *dataTable, data_t *samples, uint_t sortedBlockSize)
+{
+    // Indexes of sample in global memory and in table of samples
+    uint_t dataIndex = blockIdx.x * (blockDim.x * SUB_BLOCK_SIZE) + threadIdx.x * SUB_BLOCK_SIZE;
+    uint_t sampleIndex = blockIdx.x * blockDim.x + threadIdx.x;
+
+    // Calculates index of current sorted block and opposite block, with wich current block
+    // will be merged (even - odd and vice versa)
+    uint_t subBlocksPerSortedBlock = sortedBlockSize / SUB_BLOCK_SIZE;
+    uint_t indexBlockCurrent = sampleIndex / subBlocksPerSortedBlock;
+    uint_t indexBlockOpposite = indexBlockCurrent ^ 1;
+
+    // Reads the sample and the current rank in table
+    data_t sample = dataTable[dataIndex];
+    uint_t rank;
+
+    // If current sample came from even block, search in corresponding odd block (and vice versa)
+    if (indexBlockCurrent % 2 == 0) {
+        rank = binarySearchInclusive<ORDER_ASC>(
+            dataTable, sample, indexBlockOpposite * sortedBlockSize,
+            indexBlockOpposite * sortedBlockSize + sortedBlockSize - SUB_BLOCK_SIZE,
+            SUB_BLOCK_SIZE
+        );
+        rank = (rank - sortedBlockSize) / SUB_BLOCK_SIZE;
+    }
+    else
+    {
+        rank = binarySearchExclusive<ORDER_DESC>(
+            dataTable, sample, indexBlockOpposite * sortedBlockSize,
+            indexBlockOpposite * sortedBlockSize + sortedBlockSize - SUB_BLOCK_SIZE,
+            SUB_BLOCK_SIZE
+        );
+        rank /= SUB_BLOCK_SIZE;
+    }
+
+    samples[sampleIndex % subBlocksPerSortedBlock + rank] = sample;
+}
+
+template __global__ void generateSamplesKernel<ORDER_ASC>(
+    data_t *dataTable, data_t *samples, uint_t sortedBlockSize
+);
+template __global__ void generateSamplesKernel<ORDER_DESC>(
+    data_t *dataTable, data_t *samples, uint_t sortedBlockSize
+);
+
+
 ///*
 //From array of sorted samples for every soted block generates the ranks/limits of sub-blocks,
 //which will be merged by merge kernel.

@@ -64,25 +64,32 @@ void freeHostMemory(
 /*
 Allocates device memory.
 */
-void allocDeviceMemory(data_t **dataTable, data_t **dataBuffer, uint_t tableLen)
+void allocDeviceMemory(data_t **dataTable, data_t **dataBuffer, data_t **samples, uint_t tableLen)
 {
     cudaError_t error;
+    uint_t samplesLen = tableLen / SUB_BLOCK_SIZE;
 
     error = cudaMalloc(dataTable, tableLen * sizeof(**dataTable));
     checkCudaError(error);
     error = cudaMalloc(dataBuffer, tableLen * sizeof(**dataBuffer));
+    checkCudaError(error);
+
+    error = cudaMalloc(samples, samplesLen * sizeof(**samples));
     checkCudaError(error);
 }
 
 /*
 Frees device memory.
 */
-void freeDeviceMemory(data_t *dataTable, data_t *dataBuffer)
+void freeDeviceMemory(data_t *dataTable, data_t *dataBuffer, data_t *samples)
 {
     cudaError_t error;
 
     error = cudaFree(dataTable);
     checkCudaError(error);
     error = cudaFree(dataBuffer);
+    checkCudaError(error);
+
+    error = cudaFree(samples);
     checkCudaError(error);
 }
