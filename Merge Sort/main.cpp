@@ -24,6 +24,7 @@ int main(int argc, char **argv) {
     data_t *h_outputParallel, *h_outputSequential, *h_outputCorrect;
     data_t *d_dataTable, *d_dataBuffer;
     sample_t *d_samples;
+    uint_t *d_ranksEven, *d_ranksOdd;
     double **timers;
 
     uint_t tableLen = (1 << 10);
@@ -41,7 +42,7 @@ int main(int argc, char **argv) {
     allocHostMemory(
         &h_input, &h_outputParallel, &h_outputSequential, &h_outputCorrect, &timers, tableLen, testRepetitions
     );
-    allocDeviceMemory(&d_dataTable, &d_dataBuffer, &d_samples, tableLen);
+    allocDeviceMemory(&d_dataTable, &d_dataBuffer, &d_samples, &d_ranksEven, &d_ranksOdd, tableLen);
 
     printf(">>> MERGE SORT <<<\n\n\n");
     printDataDistribution(distribution);
@@ -62,7 +63,7 @@ int main(int argc, char **argv) {
         error = cudaDeviceSynchronize();
         checkCudaError(error);
         timers[SORT_PARALLEL][i] = sortParallel(
-            h_outputParallel, d_dataTable, d_dataBuffer, d_samples, tableLen, sortOrder
+            h_outputParallel, d_dataTable, d_dataBuffer, d_samples, d_ranksEven, d_ranksOdd, tableLen, sortOrder
         );
 
         // Sort sequential
@@ -109,7 +110,7 @@ int main(int argc, char **argv) {
 
     // Memory free
     freeHostMemory(h_input, h_outputParallel, h_outputSequential, h_outputCorrect, timers);
-    freeDeviceMemory(d_dataTable, d_dataBuffer, d_samples);
+    freeDeviceMemory(d_dataTable, d_dataBuffer, d_samples, d_ranksEven, d_ranksEven);
 
     getchar();
     return 0;

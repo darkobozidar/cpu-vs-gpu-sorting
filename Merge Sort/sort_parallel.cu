@@ -108,13 +108,10 @@ void runGenerateRanksKernel(
 //}
 
 double sortParallel(
-    data_t *h_output, data_t *d_dataTable, data_t *d_dataBuffer, sample_t *d_samples, uint_t tableLen,
-    order_t sortOrder
+    data_t *h_output, data_t *d_dataTable, data_t *d_dataBuffer, sample_t *d_samples, uint_t *d_ranksEven,
+    data_t *d_ranksOdd, uint_t tableLen, order_t sortOrder
 )
 {
-    uint_t *d_ranksEven, *d_ranksOdd;
-    uint_t samplesLen = tableLen / SUB_BLOCK_SIZE;
-
     LARGE_INTEGER timer;
     cudaError_t error;
 
