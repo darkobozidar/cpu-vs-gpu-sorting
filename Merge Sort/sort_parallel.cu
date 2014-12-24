@@ -57,28 +57,34 @@ void runGenerateSamplesKernel(
     }
 }
 
-///*
-//Generates ranks/limits of sub-blocks that need to be merged.
-//*/
-//void runGenerateRanksKernel(el_t *table, el_t *samples, uint_t *ranksEven, uint_t *ranksOdd,
-//                            uint_t tableLen, uint_t sortedBlockSize, bool orderAsc) {
-//    cudaError_t error;
-//    LARGE_INTEGER timer;
-//
-//    uint_t numAllSamples = tableLen / SUB_BLOCK_SIZE;
-//    uint_t threadBlockSize = min(numAllSamples, SHARED_MEM_SIZE);
-//    dim3 dimGrid((numAllSamples - 1) / threadBlockSize + 1, 1, 1);
-//    dim3 dimBlock(threadBlockSize, 1, 1);
-//
-//    startStopwatch(&timer);
-//    generateRanksKernel<<<dimGrid, dimBlock>>>(
-//        table, samples, ranksEven, ranksOdd, sortedBlockSize, orderAsc
-//    );
-//    /*error = cudaDeviceSynchronize();
-//    checkCudaError(error);
-//    endStopwatch(timer, "Executing generate ranks kernel");*/
-//}
-//
+/*
+Generates ranks/limits of sub-blocks that need to be merged.
+*/
+void runGenerateRanksKernel(
+    data_t *dataTable, sample_t *samples, uint_t *ranksEven, uint_t *ranksOdd, uint_t tableLen,
+    uint_t sortedBlockSize, order_t sortOrder
+)
+{
+    uint_t numAllSamples = tableLen / SUB_BLOCK_SIZE;
+    uint_t threadBlockSize = min(numAllSamples, SHARED_MEM_SIZE);
+
+    dim3 dimGrid((numAllSamples - 1) / threadBlockSize + 1, 1, 1);
+    dim3 dimBlock(threadBlockSize, 1, 1);
+
+    if (sortOrder == ORDER_ASC)
+    {
+        generateRanksKernel<ORDER_ASC><<<dimGrid, dimBlock>>>(
+            dataTable, samples, ranksEven, ranksOdd, sortedBlockSize
+        );
+    }
+    else
+    {
+        generateRanksKernel<ORDER_DESC><<<dimGrid, dimBlock>>>(
+            dataTable, samples, ranksEven, ranksOdd, sortedBlockSize
+        );
+    }
+}
+
 ///*
 //Executes merge kernel, which merges all consecutive sorted blocks in data.
 //*/
