@@ -110,7 +110,7 @@ int main(int argc, char **argv) {
 
     // Memory free
     freeHostMemory(h_input, h_outputParallel, h_outputSequential, h_outputCorrect, timers);
-    freeDeviceMemory(d_dataTable, d_dataBuffer, d_samples, d_ranksEven, d_ranksEven);
+    freeDeviceMemory(d_dataTable, d_dataBuffer, d_samples, d_ranksEven, d_ranksOdd);
 
     getchar();
     return 0;
