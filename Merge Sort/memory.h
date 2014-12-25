@@ -6,12 +6,12 @@
 
 
 void allocHostMemory(
-    data_t **input, data_t **outputParallel, data_t **outputSequential, data_t **outputCorrect,
-    double ***timers, uint_t tableLen, uint_t testRepetitions
+    data_t **input, data_t **outputParallel, data_t **outputSequential, data_t **bufferSequential,
+    data_t **outputCorrect, double ***timers, uint_t tableLen, uint_t testRepetitions
 );
 void freeHostMemory(
-    data_t *input, data_t *outputParallel, data_t *outputSequential, data_t *outputCorrect,
-    double **timers
+    data_t *input, data_t *outputParallel, data_t *outputSequential, data_t *bufferSequential,
+    data_t *outputCorrect, double **timers
 );
 
 void allocDeviceMemory(

@@ -21,13 +21,13 @@
 
 int main(int argc, char **argv) {
     data_t *h_input;
-    data_t *h_outputParallel, *h_outputSequential, *h_outputCorrect;
+    data_t *h_outputParallel, *h_outputSequential, *h_bufferSequential, *h_outputCorrect;
     data_t *d_dataTable, *d_dataBuffer;
     sample_t *d_samples;
     uint_t *d_ranksEven, *d_ranksOdd;
     double **timers;
 
-    uint_t tableLen = (1 << 20);
+    uint_t tableLen = (1 << 4);
     uint_t interval = (1 << 31);
     uint_t testRepetitions = 10;    // How many times are sorts ran
     order_t sortOrder = ORDER_ASC;  // Values: ORDER_ASC, ORDER_DESC
@@ -40,7 +40,8 @@ int main(int argc, char **argv) {
 
     // Memory alloc
     allocHostMemory(
-        &h_input, &h_outputParallel, &h_outputSequential, &h_outputCorrect, &timers, tableLen, testRepetitions
+        &h_input, &h_outputParallel, &h_outputSequential, &h_bufferSequential, &h_outputCorrect, &timers,
+        tableLen, testRepetitions
     );
     allocDeviceMemory(&d_dataTable, &d_dataBuffer, &d_samples, &d_ranksEven, &d_ranksOdd, tableLen);
 
@@ -68,7 +69,9 @@ int main(int argc, char **argv) {
 
         // Sort sequential
         std::copy(h_input, h_input + tableLen, h_outputSequential);
-        timers[SORT_SEQUENTIAL][i] = sortSequential(h_outputSequential, tableLen, sortOrder);
+        timers[SORT_SEQUENTIAL][i] = sortSequential(
+            h_outputSequential, h_bufferSequential, tableLen, sortOrder
+        );
 
         // Sort correct
         std::copy(h_input, h_input + tableLen, h_outputCorrect);
@@ -109,7 +112,7 @@ int main(int argc, char **argv) {
     );
 
     // Memory free
-    freeHostMemory(h_input, h_outputParallel, h_outputSequential, h_outputCorrect, timers);
+    freeHostMemory(h_input, h_outputParallel, h_outputSequential, h_bufferSequential, h_outputCorrect, timers);
     freeDeviceMemory(d_dataTable, d_dataBuffer, d_samples, d_ranksEven, d_ranksOdd);
 
     getchar();
