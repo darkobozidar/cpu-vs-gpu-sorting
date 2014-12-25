@@ -17,24 +17,26 @@ uint_t getEndIndex(uint_t offset, uint_t subBlockSize, uint_t tableLen)
 /*
 Sorts data sequentially with merge sort.
 */
-double sortSequential(data_t* dataTable, data_t *dataBuffer, uint_t tableLen, order_t sortOrder)
+double sortSequential(data_t *&dataTable, data_t *&dataBuffer, uint_t tableLen, order_t sortOrder)
 {
     LARGE_INTEGER timer;
     startStopwatch(&timer);
 
-    for (uint_t sortedBlockSize = 2; sortedBlockSize <= tableLen; sortedBlockSize *= 2)
+    uint_t tableLenPower2 = nextPowerOf2(tableLen);
+
+    for (uint_t sortedBlockSize = 2; sortedBlockSize <= tableLenPower2; sortedBlockSize *= 2)
     {
         uint_t numBlocks = (tableLen - 1) / sortedBlockSize + 1;
         uint_t subBlockSize = sortedBlockSize / 2;
 
         for (uint_t blockIndex = 0; blockIndex < numBlocks; blockIndex++)
         {
-            uint_t oddIndex = numBlocks * sortedBlockSize;
+            uint_t oddIndex = blockIndex * sortedBlockSize;
             uint_t oddEnd = getEndIndex(oddIndex, subBlockSize, tableLen);
 
-            if (oddEnd <= tableLen)
+            if (oddEnd == tableLen)
             {
-                std::copy(dataTable + oddIndex, dataTable + oddEnd, dataBuffer);
+                std::copy(dataTable + oddIndex, dataTable + oddEnd, dataBuffer + oddIndex);
                 continue;
             }
 
@@ -62,11 +64,11 @@ double sortSequential(data_t* dataTable, data_t *dataBuffer, uint_t tableLen, or
 
             if (oddIndex == oddEnd)
             {
-                std::copy(dataTable + evenIndex, dataTable + evenEnd, dataBuffer);
+                std::copy(dataTable + evenIndex, dataTable + evenEnd, dataBuffer + mergeIndex);
             }
             else
             {
-                std::copy(dataTable + oddIndex, dataTable + oddEnd, dataBuffer);
+                std::copy(dataTable + oddIndex, dataTable + oddEnd, dataBuffer + mergeIndex);
             }
         }
 
