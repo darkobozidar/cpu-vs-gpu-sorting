@@ -209,7 +209,7 @@ __global__ void generateRanksKernel(
 
     // Key -> sample value, Val -> rank of sample element in current table
     sample_t sample = samples[index];
-    // Calculate ranks of current and opposite sorted block in global table
+    // Calculates ranks of current and opposite sorted block in global table
     uint_t rankDataCurrent = (sample.index * SUB_BLOCK_SIZE % sortedBlockSize) + 1;
     uint_t rankDataOpposite;
 

@@ -12,6 +12,18 @@
 #define ELEMS_PER_THREAD_MERGE_SORT 2
 
 
+/* -------------- GENERATE SAMPLES KERNEL ------------ */
+
+// How many threads are used per one thread block for generating samples kernel. Has to be power of 2.
+#define THREADS_PER_GEN_SAMPLES 256
+
+
+/* --------------- GENERATE RANKS KERNEL ------------- */
+
+// How many threads are used per one thread block for generating samples kernel. Has to be power of 2.
+#define THREADS_PER_GEN_RANKS 128
+
+
 #define SHARED_MEM_SIZE 1024
 #define SUB_BLOCK_SIZE 256
 

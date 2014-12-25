@@ -43,8 +43,9 @@ void runGenerateSamplesKernel(
     data_t *dataTable, sample_t *samples, uint_t tableLen, uint_t sortedBlockSize, order_t sortOrder
 )
 {
-    uint_t numAllSamples = tableLen / SUB_BLOCK_SIZE;
-    uint_t threadBlockSize = min(numAllSamples, SHARED_MEM_SIZE);
+    uint_t numAllSamples = (tableLen - 1) / SUB_BLOCK_SIZE + 1;
+    uint_t threadBlockSize = min(numAllSamples, THREADS_PER_GEN_SAMPLES);
+
     dim3 dimGrid((numAllSamples - 1) / threadBlockSize + 1, 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
 
@@ -66,8 +67,8 @@ void runGenerateRanksKernel(
     uint_t sortedBlockSize, order_t sortOrder
 )
 {
-    uint_t numAllSamples = tableLen / SUB_BLOCK_SIZE;
-    uint_t threadBlockSize = min(numAllSamples, SHARED_MEM_SIZE);
+    uint_t numAllSamples = (tableLen - 1) / SUB_BLOCK_SIZE + 1;
+    uint_t threadBlockSize = min(numAllSamples, THREADS_PER_GEN_RANKS);
 
     dim3 dimGrid((numAllSamples - 1) / threadBlockSize + 1, 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
@@ -125,7 +126,9 @@ double sortParallel(
     startStopwatch(&timer);
     runMergeSortKernel(d_dataTable, tableLen, sortOrder);
 
-    for (uint_t sortedBlockSize = SHARED_MEM_SIZE; sortedBlockSize < tableLen; sortedBlockSize *= 2)
+    uint_t sortedBlockSize = THREADS_PER_MERGE_SORT * ELEMS_PER_THREAD_MERGE_SORT;
+
+    while (sortedBlockSize < tableLen)
     {
         data_t* temp = d_dataTable;
         d_dataTable = d_dataBuffer;
@@ -138,6 +141,8 @@ double sortParallel(
         runMergeKernel(
             d_dataBuffer, d_dataTable, d_ranksEven, d_ranksOdd, tableLen, sortedBlockSize, sortOrder
         );
+
+        sortedBlockSize *= 2;
     }
 
     error = cudaDeviceSynchronize();
