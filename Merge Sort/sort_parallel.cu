@@ -95,8 +95,8 @@ void runMergeKernel(
     order_t sortOrder
 )
 {
-    uint_t subBlocksPerMergedBlock = sortedBlockSize / SUB_BLOCK_SIZE * 2;
-    uint_t numMergedBlocks = tableLen / (sortedBlockSize * 2);
+    uint_t subBlocksPerMergedBlock = (2 * sortedBlockSize - 1) / SUB_BLOCK_SIZE + 1;
+    uint_t numMergedBlocks = (tableLen - 1) / (sortedBlockSize * 2) + 1;
 
     dim3 dimGrid(subBlocksPerMergedBlock + 1, numMergedBlocks, 1);
     dim3 dimBlock(SUB_BLOCK_SIZE, 1, 1);
