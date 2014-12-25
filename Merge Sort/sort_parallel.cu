@@ -17,13 +17,14 @@
 /*
 Sorts sub-blocks of data with merge sort.
 */
-void runMergeSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder) {
-    // Every thread loads and sorts 2 elements
-    uint_t threadBlockSize = SHARED_MEM_SIZE / 2;
-    uint_t sharedMemSize = SHARED_MEM_SIZE;
+void runMergeSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder)
+{
+    uint_t elemsPerThreadBlock = THREADS_PER_MERGE_SORT * ELEMS_PER_THREAD_MERGE_SORT;
+    // "2 *" because buffer shared memory is used in kernel alongside primary shared memory
+    uint_t sharedMemSize = 2 * elemsPerThreadBlock * sizeof(*dataTable);
 
-    dim3 dimGrid((tableLen - 1) / (threadBlockSize * 2) + 1, 1, 1);
-    dim3 dimBlock(threadBlockSize, 1, 1);
+    dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
+    dim3 dimBlock(THREADS_PER_MERGE_SORT, 1, 1);
 
     if (sortOrder == ORDER_ASC)
     {

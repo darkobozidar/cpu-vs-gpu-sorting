@@ -80,42 +80,60 @@ Sorts sub blocks of input data with merge sort. Sort is stable.
 template <order_t sortOrder>
 __global__ void mergeSortKernel(data_t *dataTable)
 {
-    __shared__ data_t tile[SHARED_MEM_SIZE];
+    extern __shared__ data_t mergeSortTile[];
 
-    // Every thread loads 2 elements
-    uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
-    tile[threadIdx.x] = dataTable[index];
-    tile[threadIdx.x + blockDim.x] = dataTable[index + blockDim.x];
+    uint_t elemsPerThreadBlock = THREADS_PER_MERGE_SORT * ELEMS_PER_THREAD_MERGE_SORT;
+    uint_t *globalDataTable = dataTable + blockIdx.x * elemsPerThreadBlock;
+
+    // Buffer array is needed in case every thread sorts more than 2 elements
+    data_t *mergeTile = mergeSortTile;
+    data_t *bufferTile = mergeTile + elemsPerThreadBlock;
+
+    // Reads data from global to shared memory.
+    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_MERGE_SORT)
+    {
+        mergeTile[tx] = globalDataTable[tx];
+    }
 
     // Stride - length of sorted blocks
-    for (uint_t stride = 1; stride < SHARED_MEM_SIZE; stride <<= 1)
+    for (uint_t stride = 1; stride < elemsPerThreadBlock; stride <<= 1)
     {
-        // Offset of current sample within block
-        uint_t offsetSample = threadIdx.x & (stride - 1);
-        // Ofset to two blocks of length stride, which will be merged
-        uint_t offsetBlock = 2 * (threadIdx.x - offsetSample);
-
         __syncthreads();
-        // Load element from even and odd block (blocks beeing merged)
-        data_t elemEven = tile[offsetBlock + offsetSample];
-        data_t elemOdd = tile[offsetBlock + offsetSample + stride];
 
-        // Calculate the rank of element from even block in odd block and vice versa
-        uint_t rankOdd = binarySearchInclusive<sortOrder, 1>(
-            tile, elemEven, offsetBlock + stride, offsetBlock + 2 * stride - 1
-        );
-        uint_t rankEven = binarySearchExclusive<sortOrder, 1>(
-            tile, elemOdd, offsetBlock, offsetBlock + stride - 1
-        );
+        for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock >> 1; tx += THREADS_PER_MERGE_SORT)
+        {
+            // Offset of current sample within block
+            uint_t offsetSample = tx & (stride - 1);
+            // Ofset to two blocks of length stride, which will be merged
+            uint_t offsetBlock = 2 * (tx - offsetSample);
 
-        __syncthreads();
-        tile[offsetSample + rankOdd - stride] = elemEven;
-        tile[offsetSample + rankEven] = elemOdd;
+            // Loads element from even and odd block (blocks beeing merged)
+            data_t elemEven = mergeTile[offsetBlock + offsetSample];
+            data_t elemOdd = mergeTile[offsetBlock + offsetSample + stride];
+
+            // Calculate the rank of element from even block in odd block and vice versa
+            uint_t rankOdd = binarySearchInclusive<sortOrder, 1>(
+                mergeTile, elemEven, offsetBlock + stride, offsetBlock + 2 * stride - 1
+            );
+            uint_t rankEven = binarySearchExclusive<sortOrder, 1>(
+                mergeTile, elemOdd, offsetBlock, offsetBlock + stride - 1
+            );
+
+            bufferTile[offsetSample + rankOdd - stride] = elemEven;
+            bufferTile[offsetSample + rankEven] = elemOdd;
+        }
+
+        data_t *temp = mergeTile;
+        mergeTile = bufferTile;
+        bufferTile = temp;
     }
 
     __syncthreads();
-    dataTable[index] = tile[threadIdx.x];
-    dataTable[index + blockDim.x] = tile[threadIdx.x + blockDim.x];
+    // Stores data from shared to global memory
+    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_MERGE_SORT)
+    {
+        globalDataTable[tx] = mergeTile[tx];
+    }
 }
 
 template __global__ void mergeSortKernel<ORDER_ASC>(data_t *dataTable);
