@@ -8,6 +8,14 @@
 #define SUB_BLOCK_SIZE 256
 
 
+/* ------------------ PADDING KERNEL ----------------- */
+
+// How many threads are used per on thread block for padding. Has to be power of 2.
+#define THREADS_PER_PADDING 128
+// How many table elements are processed by one thread in padding kernel. Min value is 2.
+#define ELEMS_PER_THREAD_PADDING 32
+
+
 /* ----------------- MERGE SORT KERNEL --------------- */
 
 // How many threads are used per one thread block for merge sort, which is performed entirely

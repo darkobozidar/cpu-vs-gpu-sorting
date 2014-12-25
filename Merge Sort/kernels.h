@@ -2,6 +2,9 @@
 #define KERNELS_H
 
 
+template <data_t value>
+__global__ void addPaddingKernel(data_t *dataTable, uint_t start, uint_t length);
+
 template <order_t sortOrder>
 __global__ void mergeSortKernel(data_t *input);
 

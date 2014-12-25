@@ -75,6 +75,33 @@ __device__ int_t binarySearchInclusive(
 
 
 /*
+Adds the padding to table from start index (original table length, which is not power of 2) to the end of the
+extended array (which is the next power of 2 of the original table length).
+*/
+template <data_t value>
+__global__ void addPaddingKernel(data_t *dataTable, uint_t start, uint_t length)
+{
+    uint_t elemsPerThreadBlock = THREADS_PER_PADDING * ELEMS_PER_THREAD_PADDING;
+    uint_t offset = blockIdx.x * elemsPerThreadBlock;
+    uint_t dataBlockLength = offset + elemsPerThreadBlock <= length ? elemsPerThreadBlock : length - offset;
+    offset += start;
+
+    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_PADDING)
+    {
+        uint_t index = offset + tx;
+        dataTable[index] = value;
+    }
+}
+
+template __global__ void addPaddingKernel<MIN_VAL>(
+    data_t *dataTable, uint_t start, uint_t length
+);
+template __global__ void addPaddingKernel<MAX_VAL>(
+    data_t *dataTable, uint_t start, uint_t length
+);
+
+
+/*
 Sorts sub blocks of input data with merge sort. Sort is stable.
 */
 template <order_t sortOrder>
@@ -82,7 +109,9 @@ __global__ void mergeSortKernel(data_t *dataTable)
 {
     extern __shared__ data_t mergeSortTile[];
 
-    uint_t elemsPerThreadBlock = THREADS_PER_MERGE_SORT * ELEMS_PER_THREAD_MERGE_SORT;
+    // Var blockDim.x needed in case there array contains less elements than one thread block in
+    // this kernel can sort
+    uint_t elemsPerThreadBlock = blockDim.x * ELEMS_PER_THREAD_MERGE_SORT;
     uint_t *globalDataTable = dataTable + blockIdx.x * elemsPerThreadBlock;
 
     // Buffer array is needed in case every thread sorts more than 2 elements
@@ -90,7 +119,7 @@ __global__ void mergeSortKernel(data_t *dataTable)
     data_t *bufferTile = mergeTile + elemsPerThreadBlock;
 
     // Reads data from global to shared memory.
-    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_MERGE_SORT)
+    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += blockDim.x)
     {
         mergeTile[tx] = globalDataTable[tx];
     }
@@ -100,7 +129,7 @@ __global__ void mergeSortKernel(data_t *dataTable)
     {
         __syncthreads();
 
-        for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock >> 1; tx += THREADS_PER_MERGE_SORT)
+        for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock >> 1; tx += blockDim.x)
         {
             // Offset of current sample within block
             uint_t offsetSample = tx & (stride - 1);
@@ -130,7 +159,7 @@ __global__ void mergeSortKernel(data_t *dataTable)
 
     __syncthreads();
     // Stores data from shared to global memory
-    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_MERGE_SORT)
+    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += blockDim.x)
     {
         globalDataTable[tx] = mergeTile[tx];
     }

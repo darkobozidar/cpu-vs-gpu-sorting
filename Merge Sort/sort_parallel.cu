@@ -15,16 +15,67 @@
 
 
 /*
+Adds padding of MAX/MIN values to input table, deppending if sort order is ascending or descending. This is
+needed, if table length is not power of 2. In order for bitonic sort to work, table length has to be power of 2.
+*/
+uint_t runAddPaddingKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder)
+{
+    if (isPowerOfTwo(tableLen))
+    {
+        return tableLen;
+    }
+
+    uint_t sortedBlockSize = THREADS_PER_MERGE_SORT * ELEMS_PER_THREAD_MERGE_SORT;
+    uint_t paddingLength = 0;
+
+    // If table length is smaller than number of elements sorted by one thread block in merge sort kernel,
+    // then table has to be padded to the next power of 2.
+    if (tableLen < sortedBlockSize)
+    {
+        if (tableLen < ELEMS_PER_THREAD_MERGE_SORT)
+        {
+            paddingLength = ELEMS_PER_THREAD_MERGE_SORT - tableLen;
+        }
+        else
+        {
+            paddingLength = nextPowerOf2(tableLen) - tableLen;
+        }
+    }
+    // If table length is greater than number of elemens sorted by one thread block in merge sort kernel, then
+    // table nees to be padded only to next multiplier of number of sorted elements per kernel.
+    else
+    {
+        paddingLength = roundUp(tableLen, sortedBlockSize) - tableLen;
+    }
+
+    uint_t elemsPerThreadBlock = THREADS_PER_PADDING * ELEMS_PER_THREAD_PADDING;
+    dim3 dimGrid((paddingLength - 1) / elemsPerThreadBlock + 1, 1, 1);
+    dim3 dimBlock(THREADS_PER_PADDING, 1, 1);
+
+    // Depending on sort order different value is used for padding.
+    if (sortOrder == ORDER_ASC)
+    {
+        addPaddingKernel<MAX_VAL><<<dimGrid, dimBlock>>>(dataTable, tableLen, paddingLength);
+    }
+    else
+    {
+        addPaddingKernel<MIN_VAL><<<dimGrid, dimBlock>>>(dataTable, tableLen, paddingLength);
+    }
+
+    return tableLen + paddingLength;
+}
+
+/*
 Sorts sub-blocks of data with merge sort.
 */
 void runMergeSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder)
 {
-    uint_t elemsPerThreadBlock = THREADS_PER_MERGE_SORT * ELEMS_PER_THREAD_MERGE_SORT;
+    uint_t elemsPerThreadBlock = min(tableLen, THREADS_PER_MERGE_SORT * ELEMS_PER_THREAD_MERGE_SORT);
     // "2 *" because buffer shared memory is used in kernel alongside primary shared memory
     uint_t sharedMemSize = 2 * elemsPerThreadBlock * sizeof(*dataTable);
 
     dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
-    dim3 dimBlock(THREADS_PER_MERGE_SORT, 1, 1);
+    dim3 dimBlock(min(tableLen / ELEMS_PER_THREAD_MERGE_SORT, THREADS_PER_MERGE_SORT) , 1, 1);
 
     if (sortOrder == ORDER_ASC)
     {
@@ -115,6 +166,9 @@ void runMergeKernel(
     }
 }
 
+/*
+Sorts data with parallel merge sort.
+*/
 double sortParallel(
     data_t *h_output, data_t *d_dataTable, data_t *d_dataBuffer, sample_t *d_samples, uint_t *d_ranksEven,
     data_t *d_ranksOdd, uint_t tableLen, order_t sortOrder
@@ -124,7 +178,8 @@ double sortParallel(
     cudaError_t error;
 
     startStopwatch(&timer);
-    runMergeSortKernel(d_dataTable, tableLen, sortOrder);
+    uint_t tableLenRoundedUp = runAddPaddingKernel(d_dataTable, tableLen, sortOrder);
+    runMergeSortKernel(d_dataTable, tableLenRoundedUp, sortOrder);
 
     uint_t sortedBlockSize = THREADS_PER_MERGE_SORT * ELEMS_PER_THREAD_MERGE_SORT;
 
