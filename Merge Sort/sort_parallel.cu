@@ -23,10 +23,13 @@ uint_t calculateMergeTableSize(uint_t tableLen, uint_t sortedBlockSize)
     {
         uint_t remainder = tableLen - tableLenMerge;
 
-        if (remainder >= sortedBlockSize || tableLenMerge == sortedBlockSize)
+        if (remainder >= sortedBlockSize)
         {
-            /*tableLenMergge += roundUp(SUB_BLOCK_SIZE, remainder);*/
-            tableLenMerge += roundUp(remainder, sortedBlockSize);
+            tableLenMerge += roundUp(remainder, 2 * sortedBlockSize);
+        }
+        else if (tableLenMerge == sortedBlockSize)
+        {
+            tableLenMerge += sortedBlockSize;
         }
     }
 
@@ -112,9 +115,9 @@ void copyPaddedElements(
         uint_t currentMergePhase = log2((double)(2 * sortedBlockSize));
         uint_t phaseDifference = currentMergePhase - lastPaddingMergePhase;
 
-        if (phaseDifference % 2 == 1)
+        if (phaseDifference % 2 == 0 && phaseDifference > 1)
         {
-            uint_t copyLength = lastPaddingMergePhase > 0 ? remainder : tableLenMerge;
+            uint_t copyLength = calculateMergeTableSize(tableLen, sortedBlockSize) - tableLen;
             cudaError_t error = cudaMemcpy(
                 toArray, fromArray, copyLength * sizeof(*toArray), cudaMemcpyDeviceToDevice
             );
@@ -132,8 +135,8 @@ void runGenerateSamplesKernel(
     data_t *dataTable, sample_t *samples, uint_t tableLen, uint_t sortedBlockSize, order_t sortOrder
 )
 {
-    uint_t tableLenSamples = calculateMergeTableSize(tableLen, sortedBlockSize);
-    uint_t numAllSamples = (tableLenSamples - 1) / SUB_BLOCK_SIZE + 1;
+    uint_t tableLenRoundedUp = calculateMergeTableSize(tableLen, sortedBlockSize);
+    uint_t numAllSamples = (tableLenRoundedUp - 1) / SUB_BLOCK_SIZE + 1;
     uint_t threadBlockSize = min(numAllSamples, THREADS_PER_GEN_SAMPLES);
 
     dim3 dimGrid((numAllSamples - 1) / threadBlockSize + 1, 1, 1);
@@ -157,8 +160,8 @@ void runGenerateRanksKernel(
     uint_t sortedBlockSize, order_t sortOrder
 )
 {
-    uint_t tableLenRanks = calculateMergeTableSize(tableLen, sortedBlockSize);
-    uint_t numAllSamples = (tableLenRanks - 1) / SUB_BLOCK_SIZE + 1;
+    uint_t tableLenRoundedUp = calculateMergeTableSize(tableLen, sortedBlockSize);
+    uint_t numAllSamples = (tableLenRoundedUp - 1) / SUB_BLOCK_SIZE + 1;
     uint_t threadBlockSize = min(numAllSamples, THREADS_PER_GEN_RANKS);
 
     dim3 dimGrid((numAllSamples - 1) / threadBlockSize + 1, 1, 1);
@@ -220,13 +223,13 @@ double sortParallel(
     cudaError_t error;
 
     startStopwatch(&timer);
-    uint_t lastPaddingMergePhase = 0;
-    uint_t tableLenPrevPower2 = previousPowerOf2(tableLen);
 
     runAddPaddingKernel(d_dataTable, d_dataBuffer, tableLen, sortOrder);
     runMergeSortKernel(d_dataTable, tableLen, sortOrder);
 
     uint_t sortedBlockSize = THREADS_PER_MERGE_SORT * ELEMS_PER_THREAD_MERGE_SORT;
+    uint_t lastPaddingMergePhase = log2((double)(sortedBlockSize));
+    uint_t tableLenPrevPower2 = previousPowerOf2(tableLen);
 
     while (sortedBlockSize < tableLen)
     {
