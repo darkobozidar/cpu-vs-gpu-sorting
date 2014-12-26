@@ -173,7 +173,8 @@ template __global__ void mergeSortKernel<ORDER_DESC>(data_t *dataTable);
 /*
 Reads every SUB_BLOCK_SIZE-th sample from data table and orders samples, which came from the same
 ordered block.
-Before blocks of samples are sorted, their ranks in sorted block are saved.
+Before blocks of samples are sorted, their ranks in sorted block are saved. This way the original rank of
+element is memorized.
 */
 template <order_t sortOrder>
 __global__ void generateSamplesKernel(data_t *dataTable, sample_t *samples, uint_t sortedBlockSize)
@@ -194,7 +195,8 @@ __global__ void generateSamplesKernel(data_t *dataTable, sample_t *samples, uint
     sample.value = dataTable[dataIndex];
     sample.index = sampleIndex;
 
-    // If current sample came from even block, search in corresponding odd block (and vice versa)
+    // Searches for sample's rank in opposite block in order to sort (output to correct location) samples per one
+    // merged block. If current sample came from even block, search in corresponding odd block (and vice versa)
     if (indexBlockCurrent % 2 == 0)
     {
         rank = binarySearchInclusive<sortOrder, SUB_BLOCK_SIZE>(
@@ -212,6 +214,8 @@ __global__ void generateSamplesKernel(data_t *dataTable, sample_t *samples, uint
         rank /= SUB_BLOCK_SIZE;
     }
 
+    // Outputs sample to: "it's rank in current sorted sub-block" + "it's rank in opposite block"
+    // => sorts samples per one merged block
     samples[sampleIndex % subBlocksPerSortedBlock + rank] = sample;
 }
 

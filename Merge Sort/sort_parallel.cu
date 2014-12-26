@@ -14,19 +14,35 @@
 #include "kernels.h"
 
 
+/*
+Returns the size of array that needs to be merged. If array size is power of 2, than array size is returned.
+In opposite case array size is broken into 2 parts:
+- main part (previous power of 2 of table length)
+- remainder (table length - main part size)
+
+> Remainder needs to be merged only until it is sorted (function returns size of whole array rounded up).
+> After that only main part of the array has to be merged (function returns size of "main part").
+> In last merge phase "main part" and "remainder" have to be merged.
+*/
 uint_t calculateMergeTableSize(uint_t tableLen, uint_t sortedBlockSize)
 {
     uint_t tableLenMerge = previousPowerOf2(tableLen);
     uint_t mergedBlockSize = 2 * sortedBlockSize;
 
+    // Table length is already a power of 2
     if (tableLenMerge != tableLen)
     {
+        // Number of elements over the power of 2 length
         uint_t remainder = tableLen - tableLenMerge;
 
+        // Remainder needs to be merged only if it is GREATER or EQUAL than current sorted block size. If it is
+        // SMALLER than current sorted block size, this means that it has already been sorted. In that case only
+        // the main part of array (previous power of 2) has to be merged.
         if (remainder >= sortedBlockSize)
         {
             tableLenMerge += roundUp(remainder, 2 * sortedBlockSize);
         }
+        // In last merge phase the whole array has to be merged (main part of array + remainder)
         else if (tableLenMerge == sortedBlockSize)
         {
             tableLenMerge += sortedBlockSize;
@@ -50,8 +66,7 @@ void runAddPaddingKernel(data_t *dataTable, data_t *dataBuffer, uint_t tableLen,
     uint_t sortedBlockSize = THREADS_PER_MERGE_SORT * ELEMS_PER_THREAD_MERGE_SORT;
     uint_t paddingLength = 0;
 
-    // If table length is smaller than number of elements sorted by one thread block in merge sort kernel,
-    // then table has to be padded to the next power of 2.
+    // Table size is rounded to the next power of 2
     if (tableLen < ELEMS_PER_THREAD_MERGE_SORT)
     {
         paddingLength = ELEMS_PER_THREAD_MERGE_SORT - tableLen;
@@ -84,7 +99,8 @@ void runMergeSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder)
     // For arrays shorther than THREADS_PER_MERGE_SORT * ELEMS_PER_THREAD_MERGE_SORT
     uint_t elemsPerThreadBlock = min(tableLen, THREADS_PER_MERGE_SORT * ELEMS_PER_THREAD_MERGE_SORT);
     // In case table length is not power of 2, table is padded with MIN/MAX values to the next power of 2.
-    // Padded MIN/MAX elements don't need to be sorted.
+    // Padded MIN/MAX elements don't need to be sorted (they are already "sorted"), that's why array is
+    // sorted only to the next multiply of number of elements processed by one thread block.
     uint_t tableLenRoundedUp = roundUp(tableLen, elemsPerThreadBlock);
 
     // "2 *" because buffer shared memory is used in kernel alongside primary shared memory
@@ -103,6 +119,17 @@ void runMergeSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder)
     }
 }
 
+/*
+If array length is not power of 2, then array is split into 2 parts:
+- main part (previous power of 2 of table length)
+- remainder (table length - main part size)
+
+Remainder needs to be merged only until it is sorted. After that only main part of the array has to be merged.
+For every merge phase data is passed from main array to buffer (and vice versa)
+In last merge phase "main part" and "remainder" have to be merged. If number of merge phases is odd, than
+"remainder" is located in buffer, while "main part" is located in primary array. In that case "remainder" has
+to be coppied to "main array", so they can be merged.
+*/
 void copyPaddedElements(
     data_t *toArray, data_t *fromArray, uint_t tableLen, uint_t sortedBlockSize, uint_t &lastPaddingMergePhase
 )
@@ -110,12 +137,17 @@ void copyPaddedElements(
     uint_t tableLenMerge = previousPowerOf2(tableLen);
     uint_t remainder = tableLen - tableLenMerge;
 
+    // If remainder has to be merged || if this is last merge phase (main part and remainder have to be merged)
     if (remainder >= sortedBlockSize || tableLenMerge == sortedBlockSize)
     {
+        // Calculates current merge phase
         uint_t currentMergePhase = log2((double)(2 * sortedBlockSize));
         uint_t phaseDifference = currentMergePhase - lastPaddingMergePhase;
 
-        if (phaseDifference % 2 == 0 && phaseDifference > 1)
+        // If difference between phase when remainder was last merged and current phase is EVEN, this means
+        // that remainder is located in buffer while main part is located in primary array. In that case
+        // remainder is coppied into primary array.
+        if (phaseDifference % 2 == 0)
         {
             uint_t copyLength = calculateMergeTableSize(tableLen, sortedBlockSize) - tableLen;
             cudaError_t error = cudaMemcpy(
@@ -124,12 +156,14 @@ void copyPaddedElements(
             checkCudaError(error);
         }
 
+        // Saves last phase when remainder was merged.
         lastPaddingMergePhase = currentMergePhase;
     }
 }
 
 /*
-Generates array of samples used to partition the table for merge step.
+Generates array of samples used to partition the table for merge step. It also sorts samples for every
+block being merged.
 */
 void runGenerateSamplesKernel(
     data_t *dataTable, sample_t *samples, uint_t tableLen, uint_t sortedBlockSize, order_t sortOrder
@@ -153,7 +187,7 @@ void runGenerateSamplesKernel(
 }
 
 /*
-Generates ranks/limits of sub-blocks that need to be merged.
+From sorted samples generates ranks/limits of sub-blocks that need to be merged.
 */
 void runGenerateRanksKernel(
     data_t *dataTable, sample_t *samples, uint_t *ranksEven, uint_t *ranksOdd, uint_t tableLen,
@@ -182,7 +216,7 @@ void runGenerateRanksKernel(
 }
 
 /*
-Executes merge kernel, which merges all consecutive sorted blocks in data.
+Executes merge kernel, which merges all consecutive sorted blocks.
 */
 void runMergeKernel(
     data_t *input, data_t *output, uint_t *ranksEven, uint_t *ranksOdd, uint_t tableLen, uint_t sortedBlockSize,
@@ -191,9 +225,14 @@ void runMergeKernel(
 {
     uint_t tableLenMerge = calculateMergeTableSize(tableLen, sortedBlockSize);
     uint_t mergedBlockSize = 2 * sortedBlockSize;
+
+    // Sub-blocks of size SUB_BLOCK_SIZE per one merged block
     uint_t subBlocksPerMergedBlock = (mergedBlockSize - 1) / SUB_BLOCK_SIZE + 1;
+    // Number of merged blocks
     uint_t numMergedBlocks = (tableLenMerge - 1) / mergedBlockSize + 1;
 
+    // "+ 1" is used because 1 thread block more is needed than number of samples/ranks/splitters per
+    // merged block (eg: if we cut something n times, we get n + 1 pieces)
     dim3 dimGrid(subBlocksPerMergedBlock + 1, numMergedBlocks, 1);
     dim3 dimBlock(SUB_BLOCK_SIZE, 1, 1);
 
@@ -228,6 +267,7 @@ double sortParallel(
     runMergeSortKernel(d_dataTable, tableLen, sortOrder);
 
     uint_t sortedBlockSize = THREADS_PER_MERGE_SORT * ELEMS_PER_THREAD_MERGE_SORT;
+    // Last merge phase when "remainder" was merged (part of array over it's last power of 2 in length)
     uint_t lastPaddingMergePhase = log2((double)(sortedBlockSize));
     uint_t tableLenPrevPower2 = previousPowerOf2(tableLen);
 
