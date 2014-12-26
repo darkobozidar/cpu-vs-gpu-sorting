@@ -149,9 +149,8 @@ void copyPaddedElements(
         // remainder is coppied into primary array.
         if (phaseDifference % 2 == 0)
         {
-            uint_t copyLength = calculateMergeTableSize(tableLen, sortedBlockSize) - tableLen;
             cudaError_t error = cudaMemcpy(
-                toArray, fromArray, copyLength * sizeof(*toArray), cudaMemcpyDeviceToDevice
+                toArray, fromArray, remainder * sizeof(*toArray), cudaMemcpyDeviceToDevice
             );
             checkCudaError(error);
         }
