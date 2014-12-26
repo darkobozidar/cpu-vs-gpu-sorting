@@ -19,7 +19,8 @@
 #include "sort_sequential.h"
 
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
     data_t *h_inputKeys, *h_inputValues;
     data_t *h_outputParallelKeys, *h_outputParallelValues;
     data_t *h_outputSequentialKeys, *h_outputSequentialValues;
@@ -88,8 +89,12 @@ int main(int argc, char **argv) {
 
         bool sortsCorrectlyParallelLocal = compareArrays(h_outputParallelKeys, h_outputCorrect, tableLen);
         bool sortsCorrectlySequentialLocal = compareArrays(h_outputSequentialKeys, h_outputCorrect, tableLen);
-        bool isStableParallelLocal = isSortStable(h_outputParallelKeys, h_outputParallelValues, tableLen);
-        bool isStableSequentialLocal = isSortStable(h_outputSequentialKeys, h_outputSequentialValues, tableLen);
+        bool isStableParallelLocal = isSortStable(
+            h_outputParallelKeys, h_outputParallelValues, tableLen, sortOrder
+        );
+        bool isStableSequentialLocal = isSortStable(
+            h_outputSequentialKeys, h_outputSequentialValues, tableLen, sortOrder
+        );
 
         sortsCorrectlyParallel &= sortsCorrectlyParallelLocal;
         sortsCorrectlySequential &= sortsCorrectlySequentialLocal;

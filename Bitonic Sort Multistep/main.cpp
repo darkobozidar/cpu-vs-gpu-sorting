@@ -19,7 +19,8 @@
 #include "sort_sequential.h"
 
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
     data_t *h_input;
     data_t *h_outputParallel, *h_outputSequential, *h_outputCorrect, *d_dataTable;
     double **timers;

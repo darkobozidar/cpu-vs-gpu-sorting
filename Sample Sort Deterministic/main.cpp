@@ -14,7 +14,8 @@
 #include "sort_sequential.h"
 
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
     el_t *input;
     /*el_t input[16] = {
         2, 0, 3, 1, 27, 2, 12, 3, 58, 4, 45, 5, 95, 6, 25, 7, 67,
