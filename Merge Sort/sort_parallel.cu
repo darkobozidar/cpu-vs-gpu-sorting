@@ -61,12 +61,17 @@ Sorts sub-blocks of data with merge sort.
 */
 void runMergeSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder)
 {
+    // For arrays shorther than THREADS_PER_MERGE_SORT * ELEMS_PER_THREAD_MERGE_SORT
     uint_t elemsPerThreadBlock = min(tableLen, THREADS_PER_MERGE_SORT * ELEMS_PER_THREAD_MERGE_SORT);
+    // In case table length is not power of 2, table is padded with MIN/MAX values to the next power of 2.
+    // Padded MIN/MAX elements don't need to be sorted.
+    uint_t tableLenRoundedUp = roundUp(tableLen, elemsPerThreadBlock);
+
     // "2 *" because buffer shared memory is used in kernel alongside primary shared memory
     uint_t sharedMemSize = 2 * elemsPerThreadBlock * sizeof(*dataTable);
 
-    dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
-    dim3 dimBlock(min(tableLen / ELEMS_PER_THREAD_MERGE_SORT, THREADS_PER_MERGE_SORT) , 1, 1);
+    dim3 dimGrid((tableLenRoundedUp - 1) / elemsPerThreadBlock + 1, 1, 1);
+    dim3 dimBlock(min(tableLenRoundedUp / ELEMS_PER_THREAD_MERGE_SORT, THREADS_PER_MERGE_SORT), 1, 1);
 
     if (sortOrder == ORDER_ASC)
     {
@@ -170,7 +175,7 @@ double sortParallel(
 
     startStopwatch(&timer);
     uint_t tableLenRoundedUp = runAddPaddingKernel(d_dataTable, tableLen, sortOrder);
-    runMergeSortKernel(d_dataTable, tableLenRoundedUp, sortOrder);
+    runMergeSortKernel(d_dataTable, tableLen, sortOrder);
 
     uint_t sortedBlockSize = THREADS_PER_MERGE_SORT * ELEMS_PER_THREAD_MERGE_SORT;
 
