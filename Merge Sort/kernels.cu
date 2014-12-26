@@ -79,7 +79,7 @@ Adds the padding to table from start index (original table length, which is not 
 extended array (which is the next power of 2 of the original table length).
 */
 template <data_t value>
-__global__ void addPaddingKernel(data_t *dataTable, uint_t start, uint_t length)
+__global__ void addPaddingKernel(data_t *dataTable, data_t *dataBuffer, uint_t start, uint_t length)
 {
     uint_t elemsPerThreadBlock = THREADS_PER_PADDING * ELEMS_PER_THREAD_PADDING;
     uint_t offset = blockIdx.x * elemsPerThreadBlock;
@@ -90,14 +90,15 @@ __global__ void addPaddingKernel(data_t *dataTable, uint_t start, uint_t length)
     {
         uint_t index = offset + tx;
         dataTable[index] = value;
+        dataBuffer[index] = value;
     }
 }
 
 template __global__ void addPaddingKernel<MIN_VAL>(
-    data_t *dataTable, uint_t start, uint_t length
+    data_t *dataTable, data_t *dataBuffer, uint_t start, uint_t length
 );
 template __global__ void addPaddingKernel<MAX_VAL>(
-    data_t *dataTable, uint_t start, uint_t length
+    data_t *dataTable, data_t *dataBuffer, uint_t start, uint_t length
 );
 
 

@@ -14,11 +14,14 @@
 #include "kernels.h"
 
 
+uint_t lastPaddingMergePhase = 0;
+
+
 /*
 Adds padding of MAX/MIN values to input table, deppending if sort order is ascending or descending. This is
 needed, if table length is not power of 2. In order for bitonic sort to work, table length has to be power of 2.
 */
-uint_t runAddPaddingKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder)
+uint_t runAddPaddingKernel(data_t *dataTable, data_t *dataBuffer, uint_t tableLen, order_t sortOrder)
 {
     if (isPowerOfTwo(tableLen))
     {
@@ -46,11 +49,11 @@ uint_t runAddPaddingKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder
     // Depending on sort order different value is used for padding.
     if (sortOrder == ORDER_ASC)
     {
-        addPaddingKernel<MAX_VAL><<<dimGrid, dimBlock>>>(dataTable, tableLen, paddingLength);
+        addPaddingKernel<MAX_VAL><<<dimGrid, dimBlock>>>(dataTable, dataBuffer, tableLen, paddingLength);
     }
     else
     {
-        addPaddingKernel<MIN_VAL><<<dimGrid, dimBlock>>>(dataTable, tableLen, paddingLength);
+        addPaddingKernel<MIN_VAL><<<dimGrid, dimBlock>>>(dataTable, dataBuffer, tableLen, paddingLength);
     }
 
     return tableLen + paddingLength;
@@ -142,8 +145,36 @@ void runMergeKernel(
     order_t sortOrder
 )
 {
-    uint_t subBlocksPerMergedBlock = (2 * sortedBlockSize - 1) / SUB_BLOCK_SIZE + 1;
-    uint_t numMergedBlocks = (tableLen - 1) / (sortedBlockSize * 2) + 1;
+    uint_t tableLenRounded = previousPowerOf2(tableLen);
+    uint_t mergedBlockSize = 2 * sortedBlockSize;
+
+    if (tableLenRounded != tableLen)
+    {
+        uint_t remainder = tableLen - tableLenRounded;
+
+        if (remainder >= sortedBlockSize || tableLenRounded == sortedBlockSize)
+        {
+            uint_t currentMergePhase = log2((double)mergedBlockSize);
+            uint_t phaseDifference = currentMergePhase - lastPaddingMergePhase;
+
+            if (phaseDifference % 2 == 1)
+            {
+                uint_t copyLength = lastPaddingMergePhase > 0 ? remainder : tableLenRounded;
+                cudaError_t error = cudaMemcpy(
+                    input + tableLenRounded, output + tableLenRounded, copyLength * sizeof(*input),
+                    cudaMemcpyDeviceToDevice
+                );
+                checkCudaError(error);
+            }
+
+            /*tableLenRounded += roundUp(SUB_BLOCK_SIZE, remainder);*/
+            tableLenRounded += roundUp(remainder, sortedBlockSize);
+            lastPaddingMergePhase = currentMergePhase;
+        }
+    }
+
+    uint_t subBlocksPerMergedBlock = (mergedBlockSize - 1) / SUB_BLOCK_SIZE + 1;
+    uint_t numMergedBlocks = (tableLenRounded - 1) / mergedBlockSize + 1;
 
     dim3 dimGrid(subBlocksPerMergedBlock + 1, numMergedBlocks, 1);
     dim3 dimBlock(SUB_BLOCK_SIZE, 1, 1);
@@ -174,7 +205,8 @@ double sortParallel(
     cudaError_t error;
 
     startStopwatch(&timer);
-    uint_t tableLenRoundedUp = runAddPaddingKernel(d_dataTable, tableLen, sortOrder);
+    lastPaddingMergePhase = 0;
+    uint_t tableLenRoundedUp = runAddPaddingKernel(d_dataTable, d_dataBuffer, tableLen, sortOrder);
     runMergeSortKernel(d_dataTable, tableLen, sortOrder);
 
     uint_t sortedBlockSize = THREADS_PER_MERGE_SORT * ELEMS_PER_THREAD_MERGE_SORT;
@@ -190,7 +222,7 @@ double sortParallel(
             d_dataBuffer, d_samples, d_ranksEven, d_ranksOdd, tableLenRoundedUp, sortedBlockSize, sortOrder
         );
         runMergeKernel(
-            d_dataBuffer, d_dataTable, d_ranksEven, d_ranksOdd, tableLenRoundedUp, sortedBlockSize, sortOrder
+            d_dataBuffer, d_dataTable, d_ranksEven, d_ranksOdd, tableLen, sortedBlockSize, sortOrder
         );
 
         sortedBlockSize *= 2;
