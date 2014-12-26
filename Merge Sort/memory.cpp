@@ -74,11 +74,12 @@ void allocDeviceMemory(
 )
 {
     cudaError_t error;
-    uint_t samplesLen = tableLen / SUB_BLOCK_SIZE;
+    uint_t tableLenPower2 = nextPowerOf2(tableLen);
+    uint_t samplesLen = (tableLenPower2 - 1) / SUB_BLOCK_SIZE + 1;
 
-    error = cudaMalloc(dataTable, tableLen * sizeof(**dataTable));
+    error = cudaMalloc(dataTable, tableLenPower2 * sizeof(**dataTable));
     checkCudaError(error);
-    error = cudaMalloc(dataBuffer, tableLen * sizeof(**dataBuffer));
+    error = cudaMalloc(dataBuffer, tableLenPower2 * sizeof(**dataBuffer));
     checkCudaError(error);
 
     error = cudaMalloc(samples, samplesLen * sizeof(**samples));

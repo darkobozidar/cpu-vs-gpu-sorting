@@ -30,22 +30,13 @@ uint_t runAddPaddingKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder
 
     // If table length is smaller than number of elements sorted by one thread block in merge sort kernel,
     // then table has to be padded to the next power of 2.
-    if (tableLen < sortedBlockSize)
+    if (tableLen < ELEMS_PER_THREAD_MERGE_SORT)
     {
-        if (tableLen < ELEMS_PER_THREAD_MERGE_SORT)
-        {
-            paddingLength = ELEMS_PER_THREAD_MERGE_SORT - tableLen;
-        }
-        else
-        {
-            paddingLength = nextPowerOf2(tableLen) - tableLen;
-        }
+        paddingLength = ELEMS_PER_THREAD_MERGE_SORT - tableLen;
     }
-    // If table length is greater than number of elemens sorted by one thread block in merge sort kernel, then
-    // table nees to be padded only to next multiplier of number of sorted elements per kernel.
     else
     {
-        paddingLength = roundUp(tableLen, sortedBlockSize) - tableLen;
+        paddingLength = nextPowerOf2(tableLen) - tableLen;
     }
 
     uint_t elemsPerThreadBlock = THREADS_PER_PADDING * ELEMS_PER_THREAD_PADDING;
@@ -189,12 +180,12 @@ double sortParallel(
         d_dataTable = d_dataBuffer;
         d_dataBuffer = temp;
 
-        runGenerateSamplesKernel(d_dataBuffer, d_samples, tableLen, sortedBlockSize, sortOrder);
+        runGenerateSamplesKernel(d_dataBuffer, d_samples, tableLenRoundedUp, sortedBlockSize, sortOrder);
         runGenerateRanksKernel(
-            d_dataBuffer, d_samples, d_ranksEven, d_ranksOdd, tableLen, sortedBlockSize, sortOrder
+            d_dataBuffer, d_samples, d_ranksEven, d_ranksOdd, tableLenRoundedUp, sortedBlockSize, sortOrder
         );
         runMergeKernel(
-            d_dataBuffer, d_dataTable, d_ranksEven, d_ranksOdd, tableLen, sortedBlockSize, sortOrder
+            d_dataBuffer, d_dataTable, d_ranksEven, d_ranksOdd, tableLenRoundedUp, sortedBlockSize, sortOrder
         );
 
         sortedBlockSize *= 2;
