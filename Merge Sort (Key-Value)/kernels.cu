@@ -290,11 +290,14 @@ Merges consecutive even and odd sub-blocks determined by ranks.
 */
 template <order_t sortOrder>
 __global__ void mergeKernel(
-    data_t* input, data_t* output, uint_t *ranksEven, uint_t *ranksOdd, uint_t sortedBlockSize
+    data_t* keysInput, data_t *valuesInput, data_t* keysOutput, data_t *valuesOutput, uint_t *ranksEven,
+    uint_t *ranksOdd, uint_t sortedBlockSize
 )
 {
-    __shared__ data_t tileEven[SUB_BLOCK_SIZE];
-    __shared__ data_t tileOdd[SUB_BLOCK_SIZE];
+    __shared__ data_t keysEven[SUB_BLOCK_SIZE];
+    __shared__ data_t valuesEven[SUB_BLOCK_SIZE];
+    __shared__ data_t keysOdd[SUB_BLOCK_SIZE];
+    __shared__ data_t valuesOdd[SUB_BLOCK_SIZE];
 
     uint_t indexRank = blockIdx.y * (sortedBlockSize / SUB_BLOCK_SIZE * 2) + blockIdx.x;
     uint_t indexSortedBlock = blockIdx.y * 2 * sortedBlockSize;
@@ -334,13 +337,15 @@ __global__ void mergeKernel(
     if (threadIdx.x < numElementsEven)
     {
         offsetEven = indexSortedBlock + indexStartEven + threadIdx.x;
-        tileEven[threadIdx.x] = input[offsetEven];
+        keysEven[threadIdx.x] = keysInput[offsetEven];
+        valuesEven[threadIdx.x] = valuesInput[offsetEven];
     }
     // Reads data for sub-block in ODD sorted block
     if (threadIdx.x < numElementsOdd)
     {
         offsetOdd = indexSortedBlock + indexStartOdd + threadIdx.x;
-        tileOdd[threadIdx.x] = input[offsetOdd + sortedBlockSize];
+        keysOdd[threadIdx.x] = keysInput[offsetOdd + sortedBlockSize];
+        valuesOdd[threadIdx.x] = valuesInput[offsetOdd + sortedBlockSize];
     }
 
     __syncthreads();
@@ -348,25 +353,31 @@ __global__ void mergeKernel(
     if (threadIdx.x < numElementsEven)
     {
         uint_t rankOdd = binarySearchInclusive<sortOrder, 1>(
-            tileOdd, tileEven[threadIdx.x], 0, numElementsOdd - 1
+            keysOdd, keysEven[threadIdx.x], 0, numElementsOdd - 1
         );
         rankOdd += indexStartOdd;
-        output[offsetEven + rankOdd] = tileEven[threadIdx.x];
+
+        keysOutput[offsetEven + rankOdd] = keysEven[threadIdx.x];
+        valuesOutput[offsetEven + rankOdd] = valuesEven[threadIdx.x];
     }
     // Search for ranks in EVEN sub-block for all elements in ODD sub-block
     if (threadIdx.x < numElementsOdd)
     {
         uint_t rankEven = binarySearchExclusive<sortOrder, 1>(
-            tileEven, tileOdd[threadIdx.x], 0, numElementsEven - 1
+            keysEven, keysOdd[threadIdx.x], 0, numElementsEven - 1
         );
         rankEven += indexStartEven;
-        output[offsetOdd + rankEven] = tileOdd[threadIdx.x];
+
+        keysOutput[offsetOdd + rankEven] = keysOdd[threadIdx.x];
+        valuesOutput[offsetOdd + rankEven] = valuesOdd[threadIdx.x];
     }
 }
 
 template __global__ void mergeKernel<ORDER_ASC>(
-    data_t* input, data_t* output, uint_t *ranksEven, uint_t *ranksOdd, uint_t sortedBlockSize
+    data_t* keysInput, data_t *valuesInput, data_t* keysOutput, data_t *valuesOutput, uint_t *ranksEven,
+    uint_t *ranksOdd, uint_t sortedBlockSize
 );
 template __global__ void mergeKernel<ORDER_DESC>(
-    data_t* input, data_t* output, uint_t *ranksEven, uint_t *ranksOdd, uint_t sortedBlockSize
+    data_t* keysInput, data_t *valuesInput, data_t* keysOutput, data_t *valuesOutput, uint_t *ranksEven,
+    uint_t *ranksOdd, uint_t sortedBlockSize
 );

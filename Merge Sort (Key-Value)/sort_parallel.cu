@@ -131,7 +131,8 @@ In last merge phase "main part" and "remainder" have to be merged. If number of 
 to be coppied to "main array", so they can be merged.
 */
 void copyPaddedElements(
-    data_t *toArray, data_t *fromArray, uint_t tableLen, uint_t sortedBlockSize, uint_t &lastPaddingMergePhase
+    data_t *toKeys, data_t *toValues, data_t *fromKeys, data_t *fromValues, uint_t tableLen,
+    uint_t sortedBlockSize, uint_t &lastPaddingMergePhase
 )
 {
     uint_t tableLenMerge = previousPowerOf2(tableLen);
@@ -149,8 +150,14 @@ void copyPaddedElements(
         // remainder is coppied into primary array.
         if (phaseDifference % 2 == 0)
         {
-            cudaError_t error = cudaMemcpy(
-                toArray, fromArray, remainder * sizeof(*toArray), cudaMemcpyDeviceToDevice
+            cudaError_t error;
+
+            error = cudaMemcpy(
+                toKeys, fromKeys, remainder * sizeof(*toKeys), cudaMemcpyDeviceToDevice
+            );
+            checkCudaError(error);
+            error = cudaMemcpy(
+                toValues, fromValues, remainder * sizeof(*toValues), cudaMemcpyDeviceToDevice
             );
             checkCudaError(error);
         }
@@ -193,8 +200,8 @@ void runGenerateRanksKernel(
 Executes merge kernel, which merges all consecutive sorted blocks.
 */
 void runMergeKernel(
-    data_t *input, data_t *output, uint_t *ranksEven, uint_t *ranksOdd, uint_t tableLen, uint_t sortedBlockSize,
-    order_t sortOrder
+    data_t *keysInput, data_t *valuesInput, data_t *keysOutput, data_t *valuesOutput, uint_t *ranksEven,
+    uint_t *ranksOdd, uint_t tableLen, uint_t sortedBlockSize, order_t sortOrder
 )
 {
     uint_t tableLenMerge = calculateMergeTableSize(tableLen, sortedBlockSize);
@@ -213,13 +220,13 @@ void runMergeKernel(
     if (sortOrder == ORDER_ASC)
     {
         mergeKernel<ORDER_ASC><<<dimGrid, dimBlock>>>(
-            input, output, ranksEven, ranksOdd, sortedBlockSize
+            keysInput, valuesInput, keysOutput, valuesOutput, ranksEven, ranksOdd, sortedBlockSize
         );
     }
     else
     {
         mergeKernel<ORDER_DESC><<<dimGrid, dimBlock>>>(
-            input, output, ranksEven, ranksOdd, sortedBlockSize
+            keysInput, valuesInput, keysOutput, valuesOutput, ranksEven, ranksOdd, sortedBlockSize
         );
     }
 }
@@ -257,12 +264,14 @@ double sortParallel(
         d_bufferValues = temp;
 
         copyPaddedElements(
-            d_bufferKeys + tableLenPrevPower2, d_dataKeys + tableLenPrevPower2, tableLen, sortedBlockSize,
+            d_bufferKeys + tableLenPrevPower2, d_bufferValues + tableLenPrevPower2,
+            d_dataKeys + tableLenPrevPower2, d_dataValues + tableLenPrevPower2, tableLen, sortedBlockSize,
             lastPaddingMergePhase
         );
         runGenerateRanksKernel(d_bufferKeys, d_ranksEven, d_ranksOdd, tableLen, sortedBlockSize, sortOrder);
         runMergeKernel(
-            d_bufferKeys, d_dataKeys, d_ranksEven, d_ranksOdd, tableLen, sortedBlockSize, sortOrder
+            d_bufferKeys, d_bufferValues, d_dataKeys, d_dataValues, d_ranksEven, d_ranksOdd, tableLen,
+            sortedBlockSize, sortOrder
         );
 
         sortedBlockSize *= 2;
