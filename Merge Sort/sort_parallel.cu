@@ -164,8 +164,8 @@ void copyPaddedElements(
 Generates array of samples used to partition the table for merge step. It also sorts samples for every
 block being merged.
 */
-void runGenerateSamplesKernel(
-    data_t *dataTable, sample_t *samples, uint_t tableLen, uint_t sortedBlockSize, order_t sortOrder
+void runGenerateRanksKernel(
+    data_t *dataTable, uint_t *ranksEven, uint_t *ranksOdd, uint_t tableLen, uint_t sortedBlockSize, order_t sortOrder
 )
 {
     uint_t tableLenRoundedUp = calculateMergeTableSize(tableLen, sortedBlockSize);
@@ -177,39 +177,14 @@ void runGenerateSamplesKernel(
 
     if (sortOrder == ORDER_ASC)
     {
-        generateSamplesKernel<ORDER_ASC><<<dimGrid, dimBlock>>>(dataTable, samples, sortedBlockSize);
-    }
-    else
-    {
-        generateSamplesKernel<ORDER_DESC><<<dimGrid, dimBlock>>>(dataTable, samples, sortedBlockSize);
-    }
-}
-
-/*
-From sorted samples generates ranks/limits of sub-blocks that need to be merged.
-*/
-void runGenerateRanksKernel(
-    data_t *dataTable, sample_t *samples, uint_t *ranksEven, uint_t *ranksOdd, uint_t tableLen,
-    uint_t sortedBlockSize, order_t sortOrder
-)
-{
-    uint_t tableLenRoundedUp = calculateMergeTableSize(tableLen, sortedBlockSize);
-    uint_t numAllSamples = (tableLenRoundedUp - 1) / SUB_BLOCK_SIZE + 1;
-    uint_t threadBlockSize = min(numAllSamples, THREADS_PER_GEN_RANKS);
-
-    dim3 dimGrid((numAllSamples - 1) / threadBlockSize + 1, 1, 1);
-    dim3 dimBlock(threadBlockSize, 1, 1);
-
-    if (sortOrder == ORDER_ASC)
-    {
         generateRanksKernel<ORDER_ASC><<<dimGrid, dimBlock>>>(
-            dataTable, samples, ranksEven, ranksOdd, sortedBlockSize
+            dataTable, ranksEven, ranksOdd, sortedBlockSize
         );
     }
     else
     {
         generateRanksKernel<ORDER_DESC><<<dimGrid, dimBlock>>>(
-            dataTable, samples, ranksEven, ranksOdd, sortedBlockSize
+            dataTable, ranksEven, ranksOdd, sortedBlockSize
         );
     }
 }
@@ -253,8 +228,8 @@ void runMergeKernel(
 Sorts data with parallel merge sort.
 */
 double sortParallel(
-    data_t *h_output, data_t *d_dataTable, data_t *d_dataBuffer, sample_t *d_samples, uint_t *d_ranksEven,
-    data_t *d_ranksOdd, uint_t tableLen, order_t sortOrder
+    data_t *h_output, data_t *d_dataTable, data_t *d_dataBuffer, uint_t *d_ranksEven, data_t *d_ranksOdd,
+    uint_t tableLen, order_t sortOrder
 )
 {
     LARGE_INTEGER timer;
@@ -281,10 +256,7 @@ double sortParallel(
             lastPaddingMergePhase
         );
 
-        runGenerateSamplesKernel(d_dataBuffer, d_samples, tableLen, sortedBlockSize, sortOrder);
-        runGenerateRanksKernel(
-            d_dataBuffer, d_samples, d_ranksEven, d_ranksOdd, tableLen, sortedBlockSize, sortOrder
-        );
+        runGenerateRanksKernel(d_dataBuffer, d_ranksEven, d_ranksOdd, tableLen, sortedBlockSize, sortOrder);
 
         runMergeKernel(
             d_dataBuffer, d_dataTable, d_ranksEven, d_ranksOdd, tableLen, sortedBlockSize, sortOrder

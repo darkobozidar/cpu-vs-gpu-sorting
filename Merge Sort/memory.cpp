@@ -69,25 +69,21 @@ void freeHostMemory(
 Allocates device memory.
 */
 void allocDeviceMemory(
-    data_t **dataTable, data_t **dataBuffer, sample_t **samples, uint_t **ranksEven, uint_t **ranksOdd,
-    uint_t tableLen
+    data_t **dataTable, data_t **dataBuffer, uint_t **ranksEven, uint_t **ranksOdd, uint_t tableLen
 )
 {
     cudaError_t error;
     uint_t tableLenPower2 = nextPowerOf2(tableLen);
-    uint_t samplesLen = (tableLenPower2 - 1) / SUB_BLOCK_SIZE + 1;
+    uint_t ranksLen = (tableLenPower2 - 1) / SUB_BLOCK_SIZE + 1;
 
     error = cudaMalloc(dataTable, tableLenPower2 * sizeof(**dataTable));
     checkCudaError(error);
     error = cudaMalloc(dataBuffer, tableLenPower2 * sizeof(**dataBuffer));
     checkCudaError(error);
 
-    error = cudaMalloc(samples, samplesLen * sizeof(**samples));
+    error = cudaMalloc(ranksEven, ranksLen * sizeof(**ranksEven));
     checkCudaError(error);
-
-    error = cudaMalloc(ranksEven, samplesLen * sizeof(**ranksEven));
-    checkCudaError(error);
-    error = cudaMalloc(ranksOdd, samplesLen * sizeof(**ranksOdd));
+    error = cudaMalloc(ranksOdd, ranksLen * sizeof(**ranksOdd));
     checkCudaError(error);
 }
 
@@ -95,7 +91,7 @@ void allocDeviceMemory(
 Frees device memory.
 */
 void freeDeviceMemory(
-    data_t *dataTable, data_t *dataBuffer, sample_t *samples, uint_t *ranksEven, uint_t *ranksOdd
+    data_t *dataTable, data_t *dataBuffer, uint_t *ranksEven, uint_t *ranksOdd
 )
 {
     cudaError_t error;
@@ -103,9 +99,6 @@ void freeDeviceMemory(
     error = cudaFree(dataTable);
     checkCudaError(error);
     error = cudaFree(dataBuffer);
-    checkCudaError(error);
-
-    error = cudaFree(samples);
     checkCudaError(error);
 
     error = cudaFree(ranksEven);

@@ -177,7 +177,7 @@ Before blocks of samples are sorted, their ranks in sorted block are saved. This
 element is memorized.
 */
 template <order_t sortOrder>
-__global__ void generateSamplesKernel(data_t *dataTable, sample_t *samples, uint_t sortedBlockSize)
+__global__ void generateRanksKernel(data_t *dataTable, uint_t *ranksEven, uint_t *ranksOdd, uint_t sortedBlockSize)
 {
     // Indexes of sample in global memory and in table of samples
     uint_t dataIndex = blockIdx.x * (blockDim.x * SUB_BLOCK_SIZE) + threadIdx.x * SUB_BLOCK_SIZE;
@@ -186,6 +186,7 @@ __global__ void generateSamplesKernel(data_t *dataTable, sample_t *samples, uint
     // Calculates index of current sorted block and opposite block, with wich current block
     // will be merged (even - odd and vice versa)
     uint_t subBlocksPerSortedBlock = sortedBlockSize / SUB_BLOCK_SIZE;
+    uint_t subBlocksPerMergedBlock = 2 * subBlocksPerSortedBlock;
     uint_t indexBlockCurrent = sampleIndex / subBlocksPerSortedBlock;
     uint_t indexBlockOpposite = indexBlockCurrent ^ 1;
     sample_t sample;
@@ -214,36 +215,8 @@ __global__ void generateSamplesKernel(data_t *dataTable, sample_t *samples, uint
         rank /= SUB_BLOCK_SIZE;
     }
 
-    // Outputs sample to: "it's rank in current sorted sub-block" + "it's rank in opposite block"
-    // => sorts samples per one merged block
-    samples[sampleIndex % subBlocksPerSortedBlock + rank] = sample;
-}
-
-template __global__ void generateSamplesKernel<ORDER_ASC>(
-    data_t *dataTable, sample_t *samples, uint_t sortedBlockSize
-);
-template __global__ void generateSamplesKernel<ORDER_DESC>(
-    data_t *dataTable, sample_t *samples, uint_t sortedBlockSize
-);
-
-
-/*
-From array of sorted samples for every soted block generates the ranks/limits of sub-blocks,
-which will be merged by merge kernel.
-*/
-template <order_t sortOrder>
-__global__ void generateRanksKernel(
-    data_t* dataTable, sample_t *samples, uint_t *ranksEven, uint_t *ranksOdd, uint_t sortedBlockSize
-)
-{
-    uint_t index = blockIdx.x * blockDim.x + threadIdx.x;
-
-    uint_t subBlocksPerSortedBlock = sortedBlockSize / SUB_BLOCK_SIZE;
-    uint_t subBlocksPerMergedBlock = 2 * subBlocksPerSortedBlock;
-
-    // Key -> sample value, Val -> rank of sample element in current table
-    sample_t sample = samples[index];
     // Calculates ranks of current and opposite sorted block in global table
+    uint_t index = sampleIndex % subBlocksPerSortedBlock + rank;
     uint_t rankDataCurrent = (sample.index * SUB_BLOCK_SIZE % sortedBlockSize) + 1;
     uint_t rankDataOpposite;
 
@@ -291,13 +264,15 @@ __global__ void generateRanksKernel(
 }
 
 template __global__ void generateRanksKernel<ORDER_ASC>(
-    data_t* dataTable, sample_t *samples, uint_t *ranksEven, uint_t *ranksOdd, uint_t sortedBlockSize
+    data_t *dataTable, uint_t *ranksEven, uint_t *ranksOdd, uint_t sortedBlockSize
 );
 template __global__ void generateRanksKernel<ORDER_DESC>(
-    data_t* dataTable, sample_t *samples, uint_t *ranksEven, uint_t *ranksOdd, uint_t sortedBlockSize
+    data_t *dataTable, uint_t *ranksEven, uint_t *ranksOdd, uint_t sortedBlockSize
 );
 
-
+/*
+Merges consecutive even and odd sub-blocks determined by ranks.
+*/
 template <order_t sortOrder>
 __global__ void mergeKernel(
     data_t* input, data_t* output, uint_t *ranksEven, uint_t *ranksOdd, uint_t sortedBlockSize
@@ -305,6 +280,7 @@ __global__ void mergeKernel(
 {
     __shared__ data_t tileEven[SUB_BLOCK_SIZE];
     __shared__ data_t tileOdd[SUB_BLOCK_SIZE];
+
     uint_t indexRank = blockIdx.y * (sortedBlockSize / SUB_BLOCK_SIZE * 2) + blockIdx.x;
     uint_t indexSortedBlock = blockIdx.y * 2 * sortedBlockSize;
 
