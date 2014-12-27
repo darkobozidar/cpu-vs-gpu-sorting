@@ -64,7 +64,7 @@ double sortSequential(data_t *&dataTable, data_t *&dataBuffer, uint_t tableLen, 
                 data_t oddElement = dataTable[oddIndex];
                 data_t evenElement = dataTable[evenIndex];
 
-                if (sortOrder == ORDER_ASC ? oddElement < evenElement : oddElement > evenElement)
+                if (sortOrder == ORDER_ASC ? oddElement <= evenElement : oddElement >= evenElement)
                 {
                     dataBuffer[mergeIndex++] = oddElement;
                     oddIndex++;

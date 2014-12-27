@@ -25,7 +25,7 @@ in primary array. If it wasn't for this, there would be 50% chance (depending on
 be in buffer array.
 */
 double sortSequential(
-    data_t *&dataKeys, data_t *&dataValues, data_t *&keysBuffer, data_t *&valuesBuffer, uint_t tableLen,
+    data_t *&dataKeys, data_t *&dataValues, data_t *&bufferKeys, data_t *&bufferValues, uint_t tableLen,
     order_t sortOrder
 )
 {
@@ -52,7 +52,8 @@ double sortSequential(
             // If there is only odd block without even block, then only odd block is coppied into buffer
             if (oddEnd == tableLen)
             {
-                std::copy(dataKeys + oddIndex, dataKeys + oddEnd, keysBuffer + oddIndex);
+                std::copy(dataKeys + oddIndex, dataKeys + oddEnd, bufferKeys + oddIndex);
+                std::copy(dataValues + oddIndex, dataValues + oddEnd, bufferValues + oddIndex);
                 continue;
             }
 
@@ -67,14 +68,20 @@ double sortSequential(
                 data_t oddElement = dataKeys[oddIndex];
                 data_t evenElement = dataKeys[evenIndex];
 
-                if (sortOrder == ORDER_ASC ? oddElement < evenElement : oddElement > evenElement)
+                if (sortOrder == ORDER_ASC ? oddElement <= evenElement : oddElement >= evenElement)
                 {
-                    keysBuffer[mergeIndex++] = oddElement;
+                    bufferKeys[mergeIndex] = oddElement;
+                    bufferValues[mergeIndex] = dataValues[oddIndex];
+
+                    mergeIndex++;
                     oddIndex++;
                 }
                 else
                 {
-                    keysBuffer[mergeIndex++] = evenElement;
+                    bufferKeys[mergeIndex] = evenElement;
+                    bufferValues[mergeIndex] = dataValues[evenIndex];
+
+                    mergeIndex++;
                     evenIndex++;
                 }
             }
@@ -82,18 +89,24 @@ double sortSequential(
             // Block that wasn't merged entirely is coppied into buffer array
             if (oddIndex == oddEnd)
             {
-                std::copy(dataKeys + evenIndex, dataKeys + evenEnd, keysBuffer + mergeIndex);
+                std::copy(dataKeys + evenIndex, dataKeys + evenEnd, bufferKeys + mergeIndex);
+                std::copy(dataValues + evenIndex, dataValues + evenEnd, bufferValues + mergeIndex);
             }
             else
             {
-                std::copy(dataKeys + oddIndex, dataKeys + oddEnd, keysBuffer + mergeIndex);
+                std::copy(dataKeys + oddIndex, dataKeys + oddEnd, bufferKeys + mergeIndex);
+                std::copy(dataValues + oddIndex, dataValues + oddEnd, bufferValues + mergeIndex);
             }
         }
 
         // Exchanges key and value pointers with buffer
         data_t *temp = dataKeys;
-        dataKeys = keysBuffer;
-        keysBuffer = temp;
+        dataKeys = bufferKeys;
+        bufferKeys = temp;
+
+        temp = dataValues;
+        dataValues = bufferValues;
+        bufferValues = temp;
     }
 
     return endStopwatch(timer);
