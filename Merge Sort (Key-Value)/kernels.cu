@@ -295,9 +295,10 @@ __global__ void mergeKernel(
 )
 {
     __shared__ data_t keysEven[SUB_BLOCK_SIZE];
-    __shared__ data_t valuesEven[SUB_BLOCK_SIZE];
     __shared__ data_t keysOdd[SUB_BLOCK_SIZE];
-    __shared__ data_t valuesOdd[SUB_BLOCK_SIZE];
+    // Values don't need to be read in shared memory, because we need to search only in keys. Value
+    // variables are used to read values in coalasced manner when keys are read from global memory.
+    data_t valueEven, valueOdd;
 
     uint_t indexRank = blockIdx.y * (sortedBlockSize / SUB_BLOCK_SIZE * 2) + blockIdx.x;
     uint_t indexSortedBlock = blockIdx.y * 2 * sortedBlockSize;
@@ -334,18 +335,19 @@ __global__ void mergeKernel(
     numElementsOdd = indexEndOdd - indexStartOdd;
 
     // Reads data for sub-block in EVEN sorted block
+    // Values are also read alongside keys because they are read in coalasced manner
     if (threadIdx.x < numElementsEven)
     {
         offsetEven = indexSortedBlock + indexStartEven + threadIdx.x;
         keysEven[threadIdx.x] = keysInput[offsetEven];
-        valuesEven[threadIdx.x] = valuesInput[offsetEven];
+        valueEven = valuesInput[offsetEven];
     }
     // Reads data for sub-block in ODD sorted block
     if (threadIdx.x < numElementsOdd)
     {
         offsetOdd = indexSortedBlock + indexStartOdd + threadIdx.x;
         keysOdd[threadIdx.x] = keysInput[offsetOdd + sortedBlockSize];
-        valuesOdd[threadIdx.x] = valuesInput[offsetOdd + sortedBlockSize];
+        valueOdd = valuesInput[offsetOdd + sortedBlockSize];
     }
 
     __syncthreads();
@@ -358,7 +360,7 @@ __global__ void mergeKernel(
         rankOdd += indexStartOdd;
 
         keysOutput[offsetEven + rankOdd] = keysEven[threadIdx.x];
-        valuesOutput[offsetEven + rankOdd] = valuesEven[threadIdx.x];
+        valuesOutput[offsetEven + rankOdd] = valueEven;
     }
     // Search for ranks in EVEN sub-block for all elements in ODD sub-block
     if (threadIdx.x < numElementsOdd)
@@ -369,7 +371,7 @@ __global__ void mergeKernel(
         rankEven += indexStartEven;
 
         keysOutput[offsetOdd + rankEven] = keysOdd[threadIdx.x];
-        valuesOutput[offsetOdd + rankEven] = valuesOdd[threadIdx.x];
+        valuesOutput[offsetOdd + rankEven] = valueOdd;
     }
 }
 
