@@ -48,7 +48,7 @@ int main(int argc, char **argv)
         &h_outputSequentialValues, &h_outputCorrect, &timers, tableLen, testRepetitions
     );
     allocDeviceMemory(
-        &d_dataKeys, &d_dataValues, &d_dataKeys, &d_dataValues, &d_ranksEven, &d_ranksOdd, tableLen
+        &d_dataKeys, &d_dataValues, &d_bufferKeys, &d_bufferValues, &d_ranksEven, &d_ranksOdd, tableLen
     );
 
     printf(">>> MERGE SORT (Key-Value) <<<\n\n\n");
@@ -75,9 +75,10 @@ int main(int argc, char **argv)
         checkCudaError(error);
         error = cudaDeviceSynchronize();
         checkCudaError(error);
-        timers[SORT_PARALLEL][i] = 999;  /*sortParallel(
-            h_outputParallelKeys, h_outputParallelValues, d_dataKeys, d_dataValues, tableLen, sortOrder
-        );*/
+        timers[SORT_PARALLEL][i] = sortParallel(
+            h_outputParallelKeys, h_outputParallelValues, d_dataKeys, d_dataValues, d_bufferKeys,
+            d_bufferValues, d_ranksEven, d_ranksOdd, tableLen, sortOrder
+        );
 
         // Sort sequential
         std::copy(h_inputKeys, h_inputKeys + tableLen, h_outputSequentialKeys);

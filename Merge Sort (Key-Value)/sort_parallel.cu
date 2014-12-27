@@ -227,8 +227,8 @@ void runMergeKernel(
 Sorts data with parallel merge sort.
 */
 double sortParallel(
-    data_t *h_output, data_t *d_dataTable, data_t *d_dataBuffer, uint_t *d_ranksEven, data_t *d_ranksOdd,
-    uint_t tableLen, order_t sortOrder
+    data_t *h_keys, data_t *h_values, data_t *d_dataKeys, data_t *d_dataValues, data_t *d_bufferKeys,
+    data_t *d_bufferValues, uint_t *d_ranksEven, data_t *d_ranksOdd, uint_t tableLen, order_t sortOrder
 )
 {
     LARGE_INTEGER timer;
@@ -236,8 +236,8 @@ double sortParallel(
 
     startStopwatch(&timer);
 
-    runAddPaddingKernel(d_dataTable, d_dataBuffer, tableLen, sortOrder);
-    runMergeSortKernel(d_dataTable, tableLen, sortOrder);
+    runAddPaddingKernel(d_dataKeys, d_bufferKeys, tableLen, sortOrder);
+    runMergeSortKernel(d_dataKeys, tableLen, sortOrder);
 
     uint_t sortedBlockSize = THREADS_PER_MERGE_SORT * ELEMS_PER_THREAD_MERGE_SORT;
     // Last merge phase when "remainder" was merged (part of array over it's last power of 2 in length)
@@ -246,17 +246,22 @@ double sortParallel(
 
     while (sortedBlockSize < tableLen)
     {
-        data_t* temp = d_dataTable;
-        d_dataTable = d_dataBuffer;
-        d_dataBuffer = temp;
+        // Exchanges keys and values
+        data_t* temp = d_dataKeys;
+        d_dataKeys = d_bufferKeys;
+        d_bufferKeys = temp;
+
+        temp = d_dataValues;
+        d_dataValues = d_bufferValues;
+        d_bufferValues = temp;
 
         copyPaddedElements(
-            d_dataBuffer + tableLenPrevPower2, d_dataTable + tableLenPrevPower2, tableLen, sortedBlockSize,
+            d_bufferKeys + tableLenPrevPower2, d_dataKeys + tableLenPrevPower2, tableLen, sortedBlockSize,
             lastPaddingMergePhase
         );
-        runGenerateRanksKernel(d_dataBuffer, d_ranksEven, d_ranksOdd, tableLen, sortedBlockSize, sortOrder);
+        runGenerateRanksKernel(d_bufferKeys, d_ranksEven, d_ranksOdd, tableLen, sortedBlockSize, sortOrder);
         runMergeKernel(
-            d_dataBuffer, d_dataTable, d_ranksEven, d_ranksOdd, tableLen, sortedBlockSize, sortOrder
+            d_bufferKeys, d_dataKeys, d_ranksEven, d_ranksOdd, tableLen, sortedBlockSize, sortOrder
         );
 
         sortedBlockSize *= 2;
@@ -266,7 +271,9 @@ double sortParallel(
     checkCudaError(error);
     double time = endStopwatch(timer);
 
-    error = cudaMemcpy(h_output, d_dataTable, tableLen * sizeof(*h_output), cudaMemcpyDeviceToHost);
+    error = cudaMemcpy(h_keys, d_dataKeys, tableLen * sizeof(*h_keys), cudaMemcpyDeviceToHost);
+    checkCudaError(error);
+    error = cudaMemcpy(h_values, d_dataValues, tableLen * sizeof(*h_values), cudaMemcpyDeviceToHost);
     checkCudaError(error);
 
     return time;
