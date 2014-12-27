@@ -23,7 +23,7 @@
 #define THREADS_PER_MERGE_SORT 512
 // How many elements are processed by one thread in merge sort kernel. Min value is 2.
 // Has to be divisable by 2.
-#define ELEMS_PER_THREAD_MERGE_SORT 4
+#define ELEMS_PER_THREAD_MERGE_SORT 2
 
 
 /* -------------- GENERATE SAMPLES KERNEL ------------ */

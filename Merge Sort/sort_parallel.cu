@@ -10,7 +10,6 @@
 #include "../Utils/cuda.h"
 #include "../Utils/host.h"
 #include "constants.h"
-#include "data_types.h"
 #include "kernels.h"
 
 

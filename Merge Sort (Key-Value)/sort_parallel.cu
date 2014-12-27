@@ -93,7 +93,7 @@ void runAddPaddingKernel(data_t *dataTable, data_t *dataBuffer, uint_t tableLen,
 /*
 Sorts sub-blocks of data with merge sort.
 */
-void runMergeSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder)
+void runMergeSortKernel(data_t *keys, data_t *values, uint_t tableLen, order_t sortOrder)
 {
     // For arrays shorther than THREADS_PER_MERGE_SORT * ELEMS_PER_THREAD_MERGE_SORT
     uint_t elemsPerThreadBlock = min(tableLen, THREADS_PER_MERGE_SORT * ELEMS_PER_THREAD_MERGE_SORT);
@@ -103,18 +103,19 @@ void runMergeSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder)
     uint_t tableLenRoundedUp = roundUp(tableLen, elemsPerThreadBlock);
 
     // "2 *" because buffer shared memory is used in kernel alongside primary shared memory
-    uint_t sharedMemSize = 2 * elemsPerThreadBlock * sizeof(*dataTable);
+    // "2 *" for because values are sorted alongside keys
+    uint_t sharedMemSize = 4 * elemsPerThreadBlock * sizeof(*keys);
 
     dim3 dimGrid((tableLenRoundedUp - 1) / elemsPerThreadBlock + 1, 1, 1);
     dim3 dimBlock(min(tableLenRoundedUp / ELEMS_PER_THREAD_MERGE_SORT, THREADS_PER_MERGE_SORT), 1, 1);
 
     if (sortOrder == ORDER_ASC)
     {
-        mergeSortKernel<ORDER_ASC><<<dimGrid, dimBlock, sharedMemSize>>>(dataTable);
+        mergeSortKernel<ORDER_ASC><<<dimGrid, dimBlock, sharedMemSize>>>(keys, values);
     }
     else
     {
-        mergeSortKernel<ORDER_DESC><<<dimGrid, dimBlock, sharedMemSize>>>(dataTable);
+        mergeSortKernel<ORDER_DESC><<<dimGrid, dimBlock, sharedMemSize>>>(keys, values);
     }
 }
 
@@ -237,7 +238,7 @@ double sortParallel(
     startStopwatch(&timer);
 
     runAddPaddingKernel(d_dataKeys, d_bufferKeys, tableLen, sortOrder);
-    runMergeSortKernel(d_dataKeys, tableLen, sortOrder);
+    runMergeSortKernel(d_dataKeys, d_dataValues, tableLen, sortOrder);
 
     uint_t sortedBlockSize = THREADS_PER_MERGE_SORT * ELEMS_PER_THREAD_MERGE_SORT;
     // Last merge phase when "remainder" was merged (part of array over it's last power of 2 in length)

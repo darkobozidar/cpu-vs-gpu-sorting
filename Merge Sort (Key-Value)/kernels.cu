@@ -105,23 +105,27 @@ template __global__ void addPaddingKernel<MAX_VAL>(
 Sorts sub blocks of input data with merge sort. Sort is stable.
 */
 template <order_t sortOrder>
-__global__ void mergeSortKernel(data_t *dataTable)
+__global__ void mergeSortKernel(data_t *keys, data_t *values)
 {
     extern __shared__ data_t mergeSortTile[];
 
     // Var blockDim.x needed in case there array contains less elements than one thread block in
     // this kernel can sort
     uint_t elemsPerThreadBlock = blockDim.x * ELEMS_PER_THREAD_MERGE_SORT;
-    uint_t *globalDataTable = dataTable + blockIdx.x * elemsPerThreadBlock;
+    uint_t *globalKeys = keys + blockIdx.x * elemsPerThreadBlock;
+    uint_t *globalValues = values + blockIdx.x * elemsPerThreadBlock;
 
     // Buffer array is needed in case every thread sorts more than 2 elements
-    data_t *mergeTile = mergeSortTile;
-    data_t *bufferTile = mergeTile + elemsPerThreadBlock;
+    data_t *dataKeys = mergeSortTile;
+    data_t *dataValues = mergeSortTile + elemsPerThreadBlock;
+    data_t *bufferKeys = mergeSortTile + 2 * elemsPerThreadBlock;
+    data_t *bufferValues = mergeSortTile + 3 * elemsPerThreadBlock;
 
     // Reads data from global to shared memory.
     for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += blockDim.x)
     {
-        mergeTile[tx] = globalDataTable[tx];
+        dataKeys[tx] = globalKeys[tx];
+        dataValues[tx] = globalValues[tx];
     }
 
     // Stride - length of sorted blocks
@@ -137,36 +141,53 @@ __global__ void mergeSortKernel(data_t *dataTable)
             uint_t offsetBlock = 2 * (tx - offsetSample);
 
             // Loads element from even and odd block (blocks beeing merged)
-            data_t elemEven = mergeTile[offsetBlock + offsetSample];
-            data_t elemOdd = mergeTile[offsetBlock + offsetSample + stride];
+            uint_t indexEven = offsetBlock + offsetSample;
+            uint_t indexOdd = indexEven + stride;
+
+            data_t keyEven = dataKeys[indexEven];
+            data_t valueEven = dataValues[indexEven];
+            data_t keyOdd = dataKeys[indexOdd];
+            data_t valueOdd = dataValues[indexOdd];
 
             // Calculate the rank of element from even block in odd block and vice versa
             uint_t rankOdd = binarySearchInclusive<sortOrder, 1>(
-                mergeTile, elemEven, offsetBlock + stride, offsetBlock + 2 * stride - 1
+                dataKeys, keyEven, offsetBlock + stride, offsetBlock + 2 * stride - 1
             );
             uint_t rankEven = binarySearchExclusive<sortOrder, 1>(
-                mergeTile, elemOdd, offsetBlock, offsetBlock + stride - 1
+                dataKeys, keyOdd, offsetBlock, offsetBlock + stride - 1
             );
 
-            bufferTile[offsetSample + rankOdd - stride] = elemEven;
-            bufferTile[offsetSample + rankEven] = elemOdd;
+            // Stores elements
+            indexEven = offsetSample + rankOdd - stride;
+            indexOdd = offsetSample + rankEven;
+
+            bufferKeys[indexEven] = keyEven;
+            bufferValues[indexEven] = valueEven;
+            bufferKeys[indexOdd] = keyOdd;
+            bufferValues[indexOdd] = valueOdd;
         }
 
-        data_t *temp = mergeTile;
-        mergeTile = bufferTile;
-        bufferTile = temp;
+        // Exchanges keys and values pointers with buffer pointers
+        data_t *temp = dataKeys;
+        dataKeys = bufferKeys;
+        bufferKeys = temp;
+
+        temp = dataValues;
+        dataValues = bufferValues;
+        bufferValues = temp;
     }
 
     __syncthreads();
     // Stores data from shared to global memory
     for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += blockDim.x)
     {
-        globalDataTable[tx] = mergeTile[tx];
+        globalKeys[tx] = dataKeys[tx];
+        globalValues[tx] = dataValues[tx];
     }
 }
 
-template __global__ void mergeSortKernel<ORDER_ASC>(data_t *dataTable);
-template __global__ void mergeSortKernel<ORDER_DESC>(data_t *dataTable);
+template __global__ void mergeSortKernel<ORDER_ASC>(data_t *keys, data_t *values);
+template __global__ void mergeSortKernel<ORDER_DESC>(data_t *keys, data_t *values);
 
 
 /*
