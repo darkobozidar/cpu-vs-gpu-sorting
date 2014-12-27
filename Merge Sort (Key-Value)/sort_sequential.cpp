@@ -24,7 +24,10 @@ Pointers to data table and data buffer are carried by reference in order to insu
 in primary array. If it wasn't for this, there would be 50% chance (depending on array size) that output would
 be in buffer array.
 */
-double sortSequential(data_t *&dataTable, data_t *&dataBuffer, uint_t tableLen, order_t sortOrder)
+double sortSequential(
+    data_t *&dataKeys, data_t *&dataValues, data_t *&keysBuffer, data_t *&valuesBuffer, uint_t tableLen,
+    order_t sortOrder
+)
 {
     LARGE_INTEGER timer;
     startStopwatch(&timer);
@@ -49,7 +52,7 @@ double sortSequential(data_t *&dataTable, data_t *&dataBuffer, uint_t tableLen, 
             // If there is only odd block without even block, then only odd block is coppied into buffer
             if (oddEnd == tableLen)
             {
-                std::copy(dataTable + oddIndex, dataTable + oddEnd, dataBuffer + oddIndex);
+                std::copy(dataKeys + oddIndex, dataKeys + oddEnd, keysBuffer + oddIndex);
                 continue;
             }
 
@@ -61,17 +64,17 @@ double sortSequential(data_t *&dataTable, data_t *&dataBuffer, uint_t tableLen, 
             // Merge of odd and even block
             while (oddIndex < oddEnd && evenIndex < evenEnd)
             {
-                data_t oddElement = dataTable[oddIndex];
-                data_t evenElement = dataTable[evenIndex];
+                data_t oddElement = dataKeys[oddIndex];
+                data_t evenElement = dataKeys[evenIndex];
 
                 if (sortOrder == ORDER_ASC ? oddElement < evenElement : oddElement > evenElement)
                 {
-                    dataBuffer[mergeIndex++] = oddElement;
+                    keysBuffer[mergeIndex++] = oddElement;
                     oddIndex++;
                 }
                 else
                 {
-                    dataBuffer[mergeIndex++] = evenElement;
+                    keysBuffer[mergeIndex++] = evenElement;
                     evenIndex++;
                 }
             }
@@ -79,17 +82,18 @@ double sortSequential(data_t *&dataTable, data_t *&dataBuffer, uint_t tableLen, 
             // Block that wasn't merged entirely is coppied into buffer array
             if (oddIndex == oddEnd)
             {
-                std::copy(dataTable + evenIndex, dataTable + evenEnd, dataBuffer + mergeIndex);
+                std::copy(dataKeys + evenIndex, dataKeys + evenEnd, keysBuffer + mergeIndex);
             }
             else
             {
-                std::copy(dataTable + oddIndex, dataTable + oddEnd, dataBuffer + mergeIndex);
+                std::copy(dataKeys + oddIndex, dataKeys + oddEnd, keysBuffer + mergeIndex);
             }
         }
 
-        data_t *temp = dataTable;
-        dataTable = dataBuffer;
-        dataBuffer = temp;
+        // Exchanges key and value pointers with buffer
+        data_t *temp = dataKeys;
+        dataKeys = keysBuffer;
+        keysBuffer = temp;
     }
 
     return endStopwatch(timer);

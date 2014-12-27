@@ -16,8 +16,8 @@ Allocates host memory.
 */
 void allocHostMemory(
     data_t **inputKeys, data_t **inputValues, data_t **outputParallelKeys, data_t **outputParallelValues,
-    data_t **outputSequentialKeys, data_t **outputSequentialValues, data_t **outputCorrect, double ***timers,
-    uint_t tableLen, uint_t testRepetitions
+    data_t **outputSequentialKeys, data_t **outputSequentialValues, data_t **bufferSequentialKeys,
+    data_t **bufferSequentialValues, data_t **outputCorrect, double ***timers, uint_t tableLen, uint_t testRepetitions
 )
 {
     // Data input
@@ -35,6 +35,10 @@ void allocHostMemory(
     checkMallocError(*outputSequentialKeys);
     *outputSequentialValues = (data_t*)malloc(tableLen * sizeof(**outputSequentialValues));
     checkMallocError(*outputSequentialValues);
+    *bufferSequentialKeys = (data_t*)malloc(tableLen * sizeof(**bufferSequentialKeys));
+    checkMallocError(*bufferSequentialKeys);
+    *bufferSequentialValues = (data_t*)malloc(tableLen * sizeof(**bufferSequentialValues));
+    checkMallocError(*bufferSequentialValues);
     *outputCorrect = (data_t*)malloc(tableLen * sizeof(**outputCorrect));
     checkMallocError(*outputCorrect);
 
@@ -53,7 +57,8 @@ Frees host memory.
 */
 void freeHostMemory(
     data_t *inputKeys, data_t *inputValues, data_t *outputParallelKeys, data_t *outputParallelValues,
-    data_t *outputSequentialKeys, data_t *outputSequentialValues, data_t *outputCorrect, double **timers
+    data_t *outputSequentialKeys, data_t *outputSequentialValues, data_t *bufferSequentialKeys,
+    data_t *bufferSequentialValues, data_t *outputCorrect, double **timers
 )
 {
     free(inputKeys);
@@ -62,6 +67,8 @@ void freeHostMemory(
     free(outputParallelValues);
     free(outputSequentialKeys);
     free(outputSequentialValues);
+    free(bufferSequentialKeys);
+    free(bufferSequentialValues);
     free(outputCorrect);
 
     for (uint_t i = 0; i < NUM_STOPWATCHES; ++i)

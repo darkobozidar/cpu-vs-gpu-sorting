@@ -23,7 +23,7 @@ int main(int argc, char **argv)
 {
     data_t *h_inputKeys, *h_inputValues;
     data_t *h_outputParallelKeys, *h_outputParallelValues;
-    data_t *h_outputSequentialKeys, *h_outputSequentialValues;
+    data_t *h_outputSequentialKeys, *h_outputSequentialValues, *h_bufferSequentialKeys, *h_bufferSequentialValues;
     data_t *h_outputCorrect;
     data_t *d_dataKeys, *d_dataValues, *d_bufferKeys, *d_bufferValues;
     uint_t *d_ranksEven, *d_ranksOdd;
@@ -45,7 +45,8 @@ int main(int argc, char **argv)
     // Memory alloc
     allocHostMemory(
         &h_inputKeys, &h_inputValues, &h_outputParallelKeys, &h_outputParallelValues, &h_outputSequentialKeys,
-        &h_outputSequentialValues, &h_outputCorrect, &timers, tableLen, testRepetitions
+        &h_outputSequentialValues, &h_bufferSequentialKeys, &h_bufferSequentialValues, &h_outputCorrect,
+        &timers, tableLen, testRepetitions
     );
     allocDeviceMemory(
         &d_dataKeys, &d_dataValues, &d_bufferKeys, &d_bufferValues, &d_ranksEven, &d_ranksOdd, tableLen
@@ -83,9 +84,10 @@ int main(int argc, char **argv)
         // Sort sequential
         std::copy(h_inputKeys, h_inputKeys + tableLen, h_outputSequentialKeys);
         std::copy(h_inputValues, h_inputValues + tableLen, h_outputSequentialValues);
-        timers[SORT_SEQUENTIAL][i] = 999; /*sortSequential(
-            h_outputSequentialKeys, h_outputSequentialValues, tableLen, sortOrder
-        );*/
+        timers[SORT_SEQUENTIAL][i] = sortSequential(
+            h_outputSequentialKeys, h_outputSequentialValues, h_bufferSequentialKeys, h_bufferSequentialValues,
+            tableLen, sortOrder
+        );
 
         // Sort correct
         std::copy(h_inputKeys, h_inputKeys + tableLen, h_outputCorrect);
@@ -143,7 +145,7 @@ int main(int argc, char **argv)
     // Memory free
     freeHostMemory(
         h_inputKeys, h_inputValues, h_outputParallelKeys, h_outputParallelValues, h_outputSequentialKeys,
-        h_outputSequentialValues, h_outputCorrect, timers
+        h_outputSequentialValues, h_bufferSequentialKeys, h_bufferSequentialValues, h_outputCorrect, timers
     );
     freeDeviceMemory(d_dataKeys, d_dataValues, d_dataKeys, d_dataValues, d_ranksEven, d_ranksOdd);
 
