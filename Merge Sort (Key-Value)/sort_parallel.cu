@@ -177,7 +177,7 @@ void runGenerateRanksKernel(
 {
     uint_t tableLenRoundedUp = calculateMergeTableSize(tableLen, sortedBlockSize);
     uint_t numAllSamples = (tableLenRoundedUp - 1) / SUB_BLOCK_SIZE + 1;
-    uint_t threadBlockSize = min(numAllSamples, THREADS_PER_GEN_SAMPLES);
+    uint_t threadBlockSize = min(numAllSamples, THREADS_PER_GEN_RANKS);
 
     dim3 dimGrid((numAllSamples - 1) / threadBlockSize + 1, 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
