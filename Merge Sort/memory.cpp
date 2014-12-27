@@ -9,7 +9,6 @@
 #include "../Utils/host.h"
 #include "../Utils/cuda.h"
 #include "constants.h"
-#include "data_types.h"
 
 
 /*
@@ -90,9 +89,7 @@ void allocDeviceMemory(
 /*
 Frees device memory.
 */
-void freeDeviceMemory(
-    data_t *dataTable, data_t *dataBuffer, uint_t *ranksEven, uint_t *ranksOdd
-)
+void freeDeviceMemory(data_t *dataTable, data_t *dataBuffer, uint_t *ranksEven, uint_t *ranksOdd)
 {
     cudaError_t error;
 
