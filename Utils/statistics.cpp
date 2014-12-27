@@ -136,7 +136,7 @@ double getSpeedup(double **timers, sort_type_t sortType1, sort_type_t sortType2,
 /*
 Determines if array is sorted in stable manner.
 */
-bool isSortStable(data_t *keys, data_t *values, uint_t tableLen, order_t sortOrder)
+bool isSortStable(data_t *keys, data_t *values, uint_t tableLen)
 {
     if (tableLen == 1)
     {
@@ -146,7 +146,7 @@ bool isSortStable(data_t *keys, data_t *values, uint_t tableLen, order_t sortOrd
     for (uint_t i = 1; i < tableLen; i++)
     {
         // For same keys, values have to be ordered in ascending order.
-        if (keys[i - 1] == keys[i] && (sortOrder == ORDER_ASC ? values[i - 1] > values[i] : values[i - 1] < values[i]))
+        if (keys[i - 1] == keys[i] && values[i - 1] > values[i])
         {
             return false;
         }

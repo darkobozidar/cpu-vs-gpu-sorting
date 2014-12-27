@@ -22,6 +22,6 @@ void printStatisticsKeyValue(
 
 // Statistics utils
 double getSpeedup(double **timers, sort_type_t sortType1, sort_type_t sortType2, uint_t testRepetitions);
-bool isSortStable(data_t *keys, data_t *values, uint_t tableLen, order_t sortOrder);
+bool isSortStable(data_t *keys, data_t *values, uint_t tableLen);
 
 #endif
