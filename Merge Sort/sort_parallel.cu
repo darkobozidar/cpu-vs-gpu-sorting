@@ -161,11 +161,11 @@ void copyPaddedElements(
 }
 
 /*
-Generates array of samples used to partition the table for merge step. It also sorts samples for every
-block being merged.
+Generates array of ranks/boundaries of sub-block, which will be merged.
 */
 void runGenerateRanksKernel(
-    data_t *dataTable, uint_t *ranksEven, uint_t *ranksOdd, uint_t tableLen, uint_t sortedBlockSize, order_t sortOrder
+    data_t *dataTable, uint_t *ranksEven, uint_t *ranksOdd, uint_t tableLen, uint_t sortedBlockSize,
+    order_t sortOrder
 )
 {
     uint_t tableLenRoundedUp = calculateMergeTableSize(tableLen, sortedBlockSize);
@@ -255,9 +255,7 @@ double sortParallel(
             d_dataBuffer + tableLenPrevPower2, d_dataTable + tableLenPrevPower2, tableLen, sortedBlockSize,
             lastPaddingMergePhase
         );
-
         runGenerateRanksKernel(d_dataBuffer, d_ranksEven, d_ranksOdd, tableLen, sortedBlockSize, sortOrder);
-
         runMergeKernel(
             d_dataBuffer, d_dataTable, d_ranksEven, d_ranksOdd, tableLen, sortedBlockSize, sortOrder
         );

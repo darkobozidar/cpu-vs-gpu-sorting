@@ -171,95 +171,90 @@ template __global__ void mergeSortKernel<ORDER_DESC>(data_t *dataTable);
 
 
 /*
-Reads every SUB_BLOCK_SIZE-th sample from data table and orders samples, which came from the same
-ordered block.
-Before blocks of samples are sorted, their ranks in sorted block are saved. This way the original rank of
-element is memorized.
+Generates array of ranks/boundaries of sub-block, which will be merged.
 */
 template <order_t sortOrder>
 __global__ void generateRanksKernel(data_t *dataTable, uint_t *ranksEven, uint_t *ranksOdd, uint_t sortedBlockSize)
 {
-    // Indexes of sample in global memory and in table of samples
-    uint_t dataIndex = blockIdx.x * (blockDim.x * SUB_BLOCK_SIZE) + threadIdx.x * SUB_BLOCK_SIZE;
-    uint_t sampleIndex = blockIdx.x * blockDim.x + threadIdx.x;
-
-    // Calculates index of current sorted block and opposite block, with wich current block
-    // will be merged (even - odd and vice versa)
     uint_t subBlocksPerSortedBlock = sortedBlockSize / SUB_BLOCK_SIZE;
     uint_t subBlocksPerMergedBlock = 2 * subBlocksPerSortedBlock;
-    uint_t indexBlockCurrent = sampleIndex / subBlocksPerSortedBlock;
+
+    // Reads sample value and calculates sample's global rank
+    data_t sampleValue = dataTable[blockIdx.x * (blockDim.x * SUB_BLOCK_SIZE) + threadIdx.x * SUB_BLOCK_SIZE];
+    uint_t rankSampleCurrent = blockIdx.x * blockDim.x + threadIdx.x;
+    uint_t rankSampleOpposite;
+
+    // Calculates index of current sorted block and opposite sorted block, with wich current block will be
+    // merged (even - odd and vice versa)
+    uint_t indexBlockCurrent = rankSampleCurrent / subBlocksPerSortedBlock;
     uint_t indexBlockOpposite = indexBlockCurrent ^ 1;
-    sample_t sample;
-    uint_t rank;
 
-    // Reads the sample and the current rank in table
-    sample.value = dataTable[dataIndex];
-    sample.index = sampleIndex;
-
-    // Searches for sample's rank in opposite block in order to sort (output to correct location) samples per one
-    // merged block. If current sample came from even block, search in corresponding odd block (and vice versa)
+    // Searches for sample's rank in opposite block in order to calculate sample's index in merged block.
+    // If current sample came from even block, it searches in corresponding odd block (and vice versa)
     if (indexBlockCurrent % 2 == 0)
     {
-        rank = binarySearchInclusive<sortOrder, SUB_BLOCK_SIZE>(
-            dataTable, sample.value, indexBlockOpposite * sortedBlockSize,
+        rankSampleOpposite = binarySearchInclusive<sortOrder, SUB_BLOCK_SIZE>(
+            dataTable, sampleValue, indexBlockOpposite * sortedBlockSize,
             indexBlockOpposite * sortedBlockSize + sortedBlockSize - SUB_BLOCK_SIZE
         );
-        rank = (rank - sortedBlockSize) / SUB_BLOCK_SIZE;
+        rankSampleOpposite = (rankSampleOpposite - sortedBlockSize) / SUB_BLOCK_SIZE;
     }
     else
     {
-        rank = binarySearchExclusive<sortOrder, SUB_BLOCK_SIZE>(
-            dataTable, sample.value, indexBlockOpposite * sortedBlockSize,
+        rankSampleOpposite = binarySearchExclusive<sortOrder, SUB_BLOCK_SIZE>(
+            dataTable, sampleValue, indexBlockOpposite * sortedBlockSize,
             indexBlockOpposite * sortedBlockSize + sortedBlockSize - SUB_BLOCK_SIZE
         );
-        rank /= SUB_BLOCK_SIZE;
+        rankSampleOpposite /= SUB_BLOCK_SIZE;
     }
 
-    // Calculates ranks of current and opposite sorted block in global table
-    uint_t index = sampleIndex % subBlocksPerSortedBlock + rank;
-    uint_t rankDataCurrent = (sample.index * SUB_BLOCK_SIZE % sortedBlockSize) + 1;
+    // Calculates index of sample inside merged block
+    uint_t sortedIndex = rankSampleCurrent % subBlocksPerSortedBlock + rankSampleOpposite;
+
+    // Calculates sample's rank in current and opposite sorted block
+    uint_t rankDataCurrent = (rankSampleCurrent * SUB_BLOCK_SIZE % sortedBlockSize) + 1;
     uint_t rankDataOpposite;
 
-    // Calculates index of opposite block, with wich current block will be merged
-    uint_t offsetBlockOpposite = (sample.index / subBlocksPerSortedBlock) ^ 1;
-    // Calculate the index of sub-block within sorted block
-    uint_t offsetSubBlockOpposite = index % subBlocksPerMergedBlock - sample.index % subBlocksPerSortedBlock - 1;
+    // Calculate the index of sub-block within opposite sorted block
+    uint_t indexSubBlockOpposite = sortedIndex % subBlocksPerMergedBlock - rankSampleCurrent % subBlocksPerSortedBlock - 1;
     // Start and end index for binary search
-    uint_t indexStart = offsetBlockOpposite * sortedBlockSize + offsetSubBlockOpposite * SUB_BLOCK_SIZE + 1;
+    uint_t indexStart = indexBlockOpposite * sortedBlockSize + indexSubBlockOpposite * SUB_BLOCK_SIZE + 1;
     uint_t indexEnd = indexStart + SUB_BLOCK_SIZE - 2;
 
+    // Searches for sample's index in opposite sub-block (which is inside opposite sorted block)
     // Has to be explicitly converted to int, because it can be negative
-    if ((int_t)(indexStart - offsetBlockOpposite * sortedBlockSize) >= 0)
+    if ((int_t)(indexStart - indexBlockOpposite * sortedBlockSize) >= 0)
     {
-        if (offsetBlockOpposite % 2 == 0)
+        if (indexBlockOpposite % 2 == 0)
         {
             rankDataOpposite = binarySearchExclusive<sortOrder, 1>(
-                dataTable, sample.value, indexStart, indexEnd
+                dataTable, sampleValue, indexStart, indexEnd
             );
         }
         else
         {
             rankDataOpposite = binarySearchInclusive<sortOrder, 1>(
-                dataTable, sample.value, indexStart, indexEnd
+                dataTable, sampleValue, indexStart, indexEnd
             );
         }
 
-        rankDataOpposite -= offsetBlockOpposite * sortedBlockSize;
+        rankDataOpposite -= indexBlockOpposite * sortedBlockSize;
     }
     else
     {
         rankDataOpposite = 0;
     }
 
-    if ((sample.index / subBlocksPerSortedBlock) % 2 == 0)
+    // Outputs ranks
+    if ((rankSampleCurrent / subBlocksPerSortedBlock) % 2 == 0)
     {
-        ranksEven[index] = rankDataCurrent;
-        ranksOdd[index] = rankDataOpposite;
+        ranksEven[sortedIndex] = rankDataCurrent;
+        ranksOdd[sortedIndex] = rankDataOpposite;
     }
     else
     {
-        ranksEven[index] = rankDataOpposite;
-        ranksOdd[index] = rankDataCurrent;
+        ranksEven[sortedIndex] = rankDataOpposite;
+        ranksOdd[sortedIndex] = rankDataCurrent;
     }
 }
 
