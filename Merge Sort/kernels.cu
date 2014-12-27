@@ -27,7 +27,7 @@ __device__ int_t binarySearchExclusive(
         // Floor to multiplier of stride - needed for strides > 1
         int_t index = ((indexStart + indexEnd) / 2) & ((stride - 1) ^ MAX_VAL);
 
-        if ((target < table[index]) ^ sortOrder)
+        if (sortOrder == ORDER_ASC ? (target < table[index]) : (target > table[index]))
         {
             indexEnd = index - stride;
         }
@@ -54,7 +54,7 @@ __device__ int_t binarySearchInclusive(
         // Floor to multiplier of stride - needed for strides > 1
         int_t index = ((indexStart + indexEnd) / 2) & ((stride - 1) ^ MAX_VAL);
 
-        if ((target <= table[index]) ^ sortOrder)
+        if (sortOrder == ORDER_ASC ? (target <= table[index]) : (target >= table[index]))
         {
             indexEnd = index - stride;
         }
