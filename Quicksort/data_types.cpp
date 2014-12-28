@@ -2,12 +2,14 @@
 
 
 /*
-Because of circular dependencies between stuctures, methods have to be implemented after structure definitons.
+Because of circular dependencies between stuctures, structure methods have to be implemented after
+structure definitons.
 */
 
 /* HostGlobalSequence */
 
-void HostGlobalSequence::setInitSeq(uint_t tableLen, data_t initMinVal, data_t initMaxVal) {
+void HostGlobalSequence::setInitSeq(uint_t tableLen, data_t initMinVal, data_t initMaxVal)
+{
     start = 0;
     length = tableLen;
     oldStart = start;
@@ -17,7 +19,8 @@ void HostGlobalSequence::setInitSeq(uint_t tableLen, data_t initMinVal, data_t i
     direction = PRIMARY_MEM_TO_BUFFER;
 }
 
-void HostGlobalSequence::setLowerSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev) {
+void HostGlobalSequence::setLowerSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev)
+{
     start = globalSeqHost.oldStart;
     length = globalSeqDev.offsetLower;
     oldStart = start;
@@ -31,7 +34,8 @@ void HostGlobalSequence::setLowerSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t gl
     direction = (direct_t)!globalSeqHost.direction;
 }
 
-void HostGlobalSequence::setGreaterSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev) {
+void HostGlobalSequence::setGreaterSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev)
+{
     start = globalSeqHost.oldStart + globalSeqHost.length - globalSeqDev.offsetGreater;
     length = globalSeqDev.offsetGreater;
     oldStart = start;
@@ -48,8 +52,10 @@ void HostGlobalSequence::setGreaterSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t 
 
 /* DeviceGlobalSequence */
 
-void DeviceGlobalSequence::setFromHostSeq(h_glob_seq_t globalSeqHost, uint_t startThreadBlock,
-                                         uint_t threadBlocksPerSequence) {
+void DeviceGlobalSequence::setFromHostSeq(
+    h_glob_seq_t globalSeqHost, uint_t startThreadBlock, uint_t threadBlocksPerSequence
+)
+{
     start = globalSeqHost.start;
     length = globalSeqHost.length;
     pivot = (globalSeqHost.minVal + globalSeqHost.maxVal) / 2;
@@ -70,25 +76,29 @@ void DeviceGlobalSequence::setFromHostSeq(h_glob_seq_t globalSeqHost, uint_t sta
 
 /* LocalSequence */
 
-void LocalSequence::setInitSeq(uint_t tableLen) {
+void LocalSequence::setInitSeq(uint_t tableLen)
+{
     start = 0;
     length = tableLen;
     direction = PRIMARY_MEM_TO_BUFFER;
 }
 
-void LocalSequence::setLowerSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev) {
+void LocalSequence::setLowerSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev)
+{
     start = globalSeqHost.oldStart;
     length = globalSeqDev.offsetLower;
     direction = (direct_t)!globalSeqHost.direction;
 }
 
-void LocalSequence::setGreaterSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev) {
+void LocalSequence::setGreaterSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev)
+{
     start = globalSeqHost.oldStart + globalSeqHost.length - globalSeqDev.offsetGreater;
     length = globalSeqDev.offsetGreater;
     direction = (direct_t)!globalSeqHost.direction;
 }
 
-void LocalSequence::setFromGlobalSeq(h_glob_seq_t globalParams) {
+void LocalSequence::setFromGlobalSeq(h_glob_seq_t globalParams)
+{
     start = globalParams.start;
     length = globalParams.length;
     direction = globalParams.direction;

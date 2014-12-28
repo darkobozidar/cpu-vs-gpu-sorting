@@ -2,18 +2,11 @@
 #define DATA_TYPES_H
 
 #include <stdint.h>
+
+#include "../Utils/data_types_common.h"
 #include "constants.h"
 
-typedef uint32_t uint_t;
-typedef int32_t int_t;
 
-// Data type used for input elements
-typedef uint32_t data_t;
-// Min and max values for defined data type
-#define MIN_VAL 0
-#define MAX_VAL UINT32_MAX
-
-typedef struct Element el_t;
 typedef struct HostGlobalSequence h_glob_seq_t;
 typedef struct DeviceGlobalSequence d_glob_seq_t;
 typedef struct LocalSequence loc_seq_t;
@@ -23,25 +16,18 @@ typedef enum TransferDirection direct_t;
 /*
 Enum used to denote, in which direction is the data transfered to during local and global quicksort.
 */
-enum TransferDirection {
+enum TransferDirection
+{
     PRIMARY_MEM_TO_BUFFER,
     BUFFER_TO_PRIMARY_MEM
-};
-
-
-/*
-Key value pair used for sorting
-*/
-struct Element {
-    data_t key;
-    data_t val;
 };
 
 /*
 Params for sequence used in GLOBAL quicksort on HOST.
 Host needs different params for sequence beeing partitioned than device.
 */
-struct HostGlobalSequence {
+struct HostGlobalSequence
+{
     uint_t start;
     uint_t length;
     uint_t oldStart;
@@ -59,7 +45,8 @@ struct HostGlobalSequence {
 Params for sequence used in GLOBAL quicksort on DEVICE.
 Device needs different params for sequence beeing partitioned than host.
 */
-struct DeviceGlobalSequence {
+struct DeviceGlobalSequence
+{
     uint_t start;
     uint_t length;
     data_t pivot;
@@ -95,7 +82,8 @@ struct DeviceGlobalSequence {
 /*
 Params for sequence used in LOCAL quicksort on DEVICE.
 */
-struct LocalSequence {
+struct LocalSequence
+{
     uint_t start;
     uint_t length;
     TransferDirection direction;
