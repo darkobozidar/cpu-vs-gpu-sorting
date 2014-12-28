@@ -23,7 +23,8 @@
 int main(int argc, char **argv)
 {
     data_t *h_input;
-    data_t *h_outputParallel, *h_outputSequential, *h_outputCorrect, *d_dataTable;
+    data_t *h_outputParallel, *h_outputSequential, *h_outputCorrect;
+    data_t *d_dataTable, *d_dataBuffer;
     // When initial min/max parallel reduction reduces data to threashold, min/max values are coppied to host
     // and reduction is finnished on host. Multiplier "2" is used because of min and max values.
     data_t h_minMaxValues[2 * THRESHOLD_REDUCTION];
@@ -55,7 +56,7 @@ int main(int argc, char **argv)
         &h_globalSeqHostBuffer, &h_globalSeqDev, &h_globalSeqIndexes, &h_localSeq, &timers,
         tableLen, testRepetitions
     );
-    allocDeviceMemory(&d_dataTable, tableLen);
+    allocDeviceMemory(&d_dataTable, &d_dataBuffer, &d_globalSeqDev, &d_globalSeqIndexes, &d_localSeq, tableLen);
 
     printf(">>> BITONIC SORT <<<\n\n\n");
     printDataDistribution(distribution);
@@ -124,7 +125,7 @@ int main(int argc, char **argv)
         h_input, h_outputParallel, h_outputSequential, h_outputCorrect, h_globalSeqHost,
         h_globalSeqHostBuffer, h_globalSeqDev, h_globalSeqIndexes, h_localSeq, timers
     );
-    freeDeviceMemory(d_dataTable);
+    freeDeviceMemory(d_dataTable, d_dataBuffer, d_globalSeqDev, d_globalSeqIndexes, d_localSeq);
 
     getchar();
     return 0;

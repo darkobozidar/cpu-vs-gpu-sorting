@@ -15,7 +15,12 @@ void freeHostMemory(
     uint_t *h_globalSeqIndexes, loc_seq_t *h_localSeq, double **timers
 );
 
-void allocDeviceMemory(data_t **dataTable, uint_t tableLen);
-void freeDeviceMemory(data_t *dataTable);
+void allocDeviceMemory(
+    data_t **dataTable, data_t **dataBuffer, d_glob_seq_t **globalSeqDev, uint_t **globalSeqIndexes,
+    loc_seq_t **localSeq, uint_t tableLen
+);
+void freeDeviceMemory(
+    data_t *dataTable, data_t *dataBuffer, d_glob_seq_t *globalSeqDev, uint_t *globalSeqIndexes, loc_seq_t *localSeq
+);
 
 #endif
