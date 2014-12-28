@@ -16,7 +16,8 @@
 /*
 Sorts sub-blocks of input data with bitonic sort.
 */
-void runBitoicSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder) {
+void runBitoicSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder)
+{
     uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
     uint_t sharedMemSize = elemsPerThreadBlock * sizeof(*dataTable);
 
