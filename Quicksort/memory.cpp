@@ -44,7 +44,9 @@ void allocHostMemory(
 
     // Sequence metadata memory allocation
     *globalSeqHost = (h_glob_seq_t*)malloc(maxNumSequences * sizeof(**globalSeqHost));
+    checkMallocError(*globalSeqHost);
     *globalSeqHostBuffer = (h_glob_seq_t*)malloc(maxNumSequences * sizeof(**globalSeqHostBuffer));
+    checkMallocError(*globalSeqHostBuffer);
 
     // These sequences are transfered between host and device and are therfore allocated in CUDA pinned memory
     error = cudaHostAlloc(
@@ -89,13 +91,13 @@ void freeHostMemory(
     free(globalSeqHostBuffer);
 
     // These arrays are allocated in CUDA pinned memory
-    error = cudaFree(minMaxValues);
+    error = cudaFreeHost(minMaxValues);
     checkCudaError(error);
-    error = cudaFree(globalSeqDev);
+    error = cudaFreeHost(globalSeqDev);
     checkCudaError(error);
-    error = cudaFree(globalSeqIndexes);
+    error = cudaFreeHost(globalSeqIndexes);
     checkCudaError(error);
-    error = cudaFree(localSeq);
+    error = cudaFreeHost(localSeq);
     checkCudaError(error);
 
     for (uint_t i = 0; i < NUM_STOPWATCHES; ++i)
@@ -124,7 +126,7 @@ void allocDeviceMemory(
     // Data memory allocation
     error = cudaMalloc(dataTable, tableLen * sizeof(**dataTable));
     checkCudaError(error);
-    error = cudaMalloc(dataTable, tableLen * sizeof(**dataTable));
+    error = cudaMalloc(dataBuffer, tableLen * sizeof(**dataBuffer));
     checkCudaError(error);
 
     // Sequence metadata memory allocation

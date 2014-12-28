@@ -161,8 +161,9 @@ void quickSort(
     minMaxReduction(
         h_dataInput, d_dataInput, (data_t*)d_dataBuffer, h_minMaxValues, tableLen, minVal, maxVal
     );
-    // Null distribution
-    if (minVal == maxVal) {
+    // Null/zero distribution
+    if (minVal == maxVal)
+    {
         return;
     }
     h_globalSeqHost[0].setInitSeq(tableLen, minVal, maxVal);
