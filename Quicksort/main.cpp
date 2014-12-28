@@ -14,6 +14,7 @@
 #include "../Utils/sort_correct.h"
 #include "../Utils/statistics.h"
 #include "constants.h"
+#include "data_types.h"
 #include "memory.h"
 #include "sort_parallel.h"
 #include "sort_sequential.h"
@@ -23,6 +24,18 @@ int main(int argc, char **argv)
 {
     data_t *h_input;
     data_t *h_outputParallel, *h_outputSequential, *h_outputCorrect, *d_dataTable;
+    // When initial min/max parallel reduction reduces data to threashold, min/max values are coppied to host
+    // and reduction is finnished on host. Multiplier "2" is used because of min and max values.
+    data_t h_minMaxValues[2 * THRESHOLD_REDUCTION];
+    // Sequences metadata for GLOBAL quicksort on HOST
+    h_glob_seq_t *h_globalSeqHost, *h_globalSeqHostBuffer;
+    // Sequences metadata for GLOBAL quicksort on DEVICE
+    d_glob_seq_t *h_globalSeqDev, *d_globalSeqDev;
+    // Array of sequence indexes for thread blocks in GLOBAL quicksort. This way thread blocks know which
+    // sequence they have to partition.
+    uint_t *h_globalSeqIndexes, *d_globalSeqIndexes;
+    // Sequences metadata for LOCAL quicksort
+    loc_seq_t *h_localSeq, *d_localSeq;
     double **timers;
 
     uint_t tableLen = (1 << 20);
@@ -38,7 +51,9 @@ int main(int argc, char **argv)
 
     // Memory alloc
     allocHostMemory(
-        &h_input, &h_outputParallel, &h_outputSequential, &h_outputCorrect, &timers, tableLen, testRepetitions
+        &h_input, &h_outputParallel, &h_outputSequential, &h_outputCorrect, &h_globalSeqHost,
+        &h_globalSeqHostBuffer, &h_globalSeqDev, &h_globalSeqIndexes, &h_localSeq, &timers,
+        tableLen, testRepetitions
     );
     allocDeviceMemory(&d_dataTable, tableLen);
 
@@ -105,7 +120,10 @@ int main(int argc, char **argv)
     );
 
     // Memory free
-    freeHostMemory(h_input, h_outputParallel, h_outputSequential, h_outputCorrect, timers);
+    freeHostMemory(
+        h_input, h_outputParallel, h_outputSequential, h_outputCorrect, h_globalSeqHost,
+        h_globalSeqHostBuffer, h_globalSeqDev, h_globalSeqIndexes, h_localSeq, timers
+    );
     freeDeviceMemory(d_dataTable);
 
     getchar();
