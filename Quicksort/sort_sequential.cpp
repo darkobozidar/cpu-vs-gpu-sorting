@@ -6,6 +6,9 @@
 #include "../Utils/host.h"
 
 
+/*
+Exchanges elements on provided pointer adresses.
+*/
 void exchangeElemens(data_t *elem1, data_t *elem2)
 {
     data_t temp = *elem1;
@@ -13,8 +16,16 @@ void exchangeElemens(data_t *elem1, data_t *elem2)
     *elem2 = temp;
 }
 
-uint_t searchMedian(data_t *dataTable, uint_t index1, uint_t index2, uint_t index3)
+/*
+Searches for pivot.
+Searches for median of first, middle and last element in array.
+*/
+uint_t getPivotIndex(data_t *dataTable, uint_t length)
 {
+    uint_t index1 = 0;
+    uint_t index2 = length / 2;
+    uint_t index3 = length - 1;
+
     if (dataTable[index1] > dataTable[index2])
     {
         if (dataTable[index2] > dataTable[index3])
@@ -47,16 +58,9 @@ uint_t searchMedian(data_t *dataTable, uint_t index1, uint_t index2, uint_t inde
     }
 }
 
-data_t getPivotIndex(data_t *dataTable, uint_t length)
-{
-    if (length <= 2)
-    {
-        return 0;
-    }
-
-    return searchMedian(dataTable, 0, length / 2, length - 1);
-}
-
+/*
+Partitions array into 2 partitions - elemens lower and elements greater than pivot.
+*/
 template <order_t sortOrder>
 uint_t partitionArray(data_t *dataTable, uint_t length)
 {
@@ -79,11 +83,22 @@ uint_t partitionArray(data_t *dataTable, uint_t length)
     return storeIndex;
 }
 
+/*
+Sorts the array with quicksort.
+*/
 template <order_t sortOrder>
 void quickSort(data_t *dataTable, uint_t length)
 {
     if (length <= 1)
     {
+        return;
+    }
+    else if (length == 2)
+    {
+        if (sortOrder ^ (dataTable[0] > dataTable[1]))
+        {
+            exchangeElemens(&dataTable[0], &dataTable[1]);
+        }
         return;
     }
 
