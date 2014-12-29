@@ -422,7 +422,7 @@ __global__ void quickSortGlobalKernel(
     data_t *dataInput, data_t *dataBuffer, d_glob_seq_t *sequences, uint_t *seqIndexes
 )
 {
-    extern __shared__ uint_t globalSortTile[];
+    extern __shared__ data_t globalSortTile[];
     data_t *minValues = globalSortTile;
     data_t *maxValues = globalSortTile + THREADS_PER_SORT_GLOBAL;
 
