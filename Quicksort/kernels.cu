@@ -10,28 +10,17 @@
 #include "data_types.h"
 
 
-/////////////////////////////////////////////////////////////////////
-//////////////////////////////// UTILS //////////////////////////////
-/////////////////////////////////////////////////////////////////////
-//
-//
-//__global__ void printTableKernel(el_t *table, uint_t tableLen) {
-//    for (uint_t i = 0; i < tableLen; i++) {
-//        printf("%2d ", table[i].key);
-//    }
-//    printf("\n");
-//}
-//
 //////////////////////////// GENERAL UTILS //////////////////////////
-//
-///*
-//http://stackoverflow.com/questions/1582356/fastest-way-of-finding-the-middle-value-of-a-triple
-//*/
-//__device__ data_t getMedian(data_t a, data_t b, data_t c) {
-//    data_t maxVal = max(max(a, b), c);
-//    data_t minVal = min(min(a, b), c);
-//    return a ^ b ^ c ^ maxVal ^ minVal;
-//}
+
+/*
+http://stackoverflow.com/questions/1582356/fastest-way-of-finding-the-middle-value-of-a-triple
+*/
+__device__ data_t getMedian(data_t a, data_t b, data_t c)
+{
+    data_t maxVal = max(max(a, b), c);
+    data_t minVal = min(min(a, b), c);
+    return a ^ b ^ c ^ maxVal ^ minVal;
+}
 
 __device__ uint_t nextPowerOf2Device(uint_t value)
 {
@@ -213,110 +202,131 @@ __device__ void warpMaxReduce(volatile data_t *maxValues) {
 
 
 ///////////////////////// BITONIC SORT UTILS ////////////////////////
-//
-///*
-//Compares 2 elements and exchanges them according to orderAsc.
-//*/
-//__device__ void compareExchange(el_t *elem1, el_t *elem2, bool orderAsc) {
-//    if (((int_t)(elem1->key - elem2->key) <= 0) ^ orderAsc) {
-//        el_t temp = *elem1;
-//        *elem1 = *elem2;
-//        *elem2 = temp;
-//    }
-//}
-//
-///*
-//Sorts input data with NORMALIZED bitonic sort (all comparisons are made in same direction,
-//easy to implement for input sequences of arbitrary size) and outputs them to output array.
-//
-//- TODO use quick sort kernel instead of bitonic sort
-//*/
-//__device__ void normalizedBitonicSort(el_t *input, el_t *output, loc_seq_t localParams, bool orderAsc) {
-//    extern __shared__ el_t bitonicSortTile[];
-//
-//    // Read data from global to shared memory.
-//    for (uint_t tx = threadIdx.x; tx < localParams.length; tx += THREADS_PER_SORT_LOCAL) {
-//        bitonicSortTile[tx] = input[localParams.start + tx];
-//    }
-//    __syncthreads();
-//
-//    // Bitonic sort PHASES
-//    for (uint_t subBlockSize = 1; subBlockSize < localParams.length; subBlockSize <<= 1) {
-//        // Bitonic merge STEPS
-//        for (uint_t stride = subBlockSize; stride > 0; stride >>= 1) {
-//            for (uint_t tx = threadIdx.x; tx < localParams.length >> 1; tx += THREADS_PER_SORT_LOCAL) {
-//                uint_t indexThread = tx;
-//                uint_t offset = stride;
-//
-//                // In normalized bitonic sort, first STEP of every PHASE uses different offset than all other
-//                // STEPS. Also in first step of every phase, offsets sizes are generated in ASCENDING order
-//                // (normalized bitnic sort requires DESCENDING order). Because of that we can break the loop if
-//                // index + offset >= length (bellow). If we want to generate offset sizes in ASCENDING order,
-//                // than thread indexes inside every sub-block have to be reversed.
-//                if (stride == subBlockSize) {
-//                    indexThread = (tx / stride) * stride + ((stride - 1) - (tx % stride));
-//                    offset = ((tx & (stride - 1)) << 1) + 1;
-//                }
-//
-//                uint_t index = (indexThread << 1) - (indexThread & (stride - 1));
-//                if (index + offset >= localParams.length) {
-//                    break;
-//                }
-//
-//                compareExchange(&bitonicSortTile[index], &bitonicSortTile[index + offset], orderAsc);
-//            }
-//            __syncthreads();
-//        }
-//    }
-//
-//    // Store data from shared to global memory
-//    for (uint_t tx = threadIdx.x; tx < localParams.length; tx += THREADS_PER_SORT_LOCAL) {
-//        output[localParams.start + tx] = bitonicSortTile[tx];
-//    }
-//}
-//
-//
+
+/*
+Compares 2 elements and exchanges them according to sortOrder.
+*/
+template <order_t sortOrder>
+__device__ void compareExchange(data_t *elem1, data_t *elem2)
+{
+    if ((*elem1 > *elem2) ^ sortOrder)
+    {
+        data_t temp = *elem1;
+        *elem1 = *elem2;
+        *elem2 = temp;
+    }
+}
+
+/*
+Sorts input data with NORMALIZED bitonic sort (all comparisons are made in same direction,
+easy to implement for input sequences of arbitrary size) and outputs them to output array.
+*/
+template <order_t sortOrder>
+__device__ void normalizedBitonicSort(data_t *input, data_t *output, loc_seq_t localParams)
+{
+    extern __shared__ data_t bitonicSortTile[];
+
+    // Read data from global to shared memory.
+    for (uint_t tx = threadIdx.x; tx < localParams.length; tx += THREADS_PER_SORT_LOCAL)
+    {
+        bitonicSortTile[tx] = input[localParams.start + tx];
+    }
+    __syncthreads();
+
+    // Bitonic sort PHASES
+    for (uint_t subBlockSize = 1; subBlockSize < localParams.length; subBlockSize <<= 1)
+    {
+        // Bitonic merge STEPS
+        for (uint_t stride = subBlockSize; stride > 0; stride >>= 1)
+        {
+            for (uint_t tx = threadIdx.x; tx < localParams.length >> 1; tx += THREADS_PER_SORT_LOCAL)
+            {
+                uint_t indexThread = tx;
+                uint_t offset = stride;
+
+                // In normalized bitonic sort, first STEP of every PHASE uses different offset than all other
+                // STEPS. Also in first step of every phase, offsets sizes are generated in ASCENDING order
+                // (normalized bitnic sort requires DESCENDING order). Because of that we can break the loop if
+                // index + offset >= length (bellow). If we want to generate offset sizes in ASCENDING order,
+                // than thread indexes inside every sub-block have to be reversed.
+                if (stride == subBlockSize)
+                {
+                    indexThread = (tx / stride) * stride + ((stride - 1) - (tx % stride));
+                    offset = ((tx & (stride - 1)) << 1) + 1;
+                }
+
+                uint_t index = (indexThread << 1) - (indexThread & (stride - 1));
+                if (index + offset >= localParams.length)
+                {
+                    break;
+                }
+
+                compareExchange<sortOrder>(&bitonicSortTile[index], &bitonicSortTile[index + offset]);
+            }
+
+            __syncthreads();
+        }
+    }
+
+    // Store data from shared to global memory
+    for (uint_t tx = threadIdx.x; tx < localParams.length; tx += THREADS_PER_SORT_LOCAL)
+    {
+        output[localParams.start + tx] = bitonicSortTile[tx];
+    }
+}
+
+
 //////////////////////// LOCAL QUICKSORT UTILS //////////////////////
-//
-//__device__ loc_seq_t popWorkstack(loc_seq_t *workstack, int_t &workstackCounter) {
-//    if (threadIdx.x == 0) {
-//        workstackCounter--;
-//    }
-//    __syncthreads();
-//
-//    return workstack[workstackCounter + 1];
-//}
-//
-//__device__ int_t pushWorkstack(loc_seq_t *workstack, int_t &workstackCounter, loc_seq_t params,
-//                               uint_t lowerCounter, uint_t greaterCounter) {
-//    loc_seq_t newParams1, newParams2;
-//
-//    newParams1.direction = (direct_t)!params.direction;
-//    newParams2.direction = (direct_t)!params.direction;
-//
-//    // TODO try in-place change directly on workstack without newParams 1 and 2 - if not possible move to struct construcor
-//    if (lowerCounter <= greaterCounter) {
-//        newParams1.start = params.start + params.length - greaterCounter;
-//        newParams1.length = greaterCounter;
-//        newParams2.start = params.start;
-//        newParams2.length = lowerCounter;
-//    } else {
-//        newParams1.start = params.start;
-//        newParams1.length = lowerCounter;
-//        newParams2.start = params.start + params.length - greaterCounter;
-//        newParams2.length = greaterCounter;
-//    }
-//
-//    // TODO verify if there are any benefits with this if statement
-//    if (newParams1.length > 0) {
-//        workstack[++workstackCounter] = newParams1;
-//    }
-//    if (newParams2.length > 0) {
-//        workstack[++workstackCounter] = newParams2;
-//    }
-//
-//    return workstackCounter;
-//}
+
+__device__ loc_seq_t popWorkstack(loc_seq_t *workstack, int_t &workstackCounter)
+{
+    if (threadIdx.x == 0)
+    {
+        workstackCounter--;
+    }
+    __syncthreads();
+
+    return workstack[workstackCounter + 1];
+}
+
+__device__ int_t pushWorkstack(
+    loc_seq_t *workstack, int_t &workstackCounter, loc_seq_t params, uint_t lowerCounter, uint_t greaterCounter
+)
+{
+    loc_seq_t newParams1, newParams2;
+
+    newParams1.direction = (direct_t)!params.direction;
+    newParams2.direction = (direct_t)!params.direction;
+
+    // TODO try in-place change directly on workstack without newParams 1 and 2 - if not possible move to
+    // struct construcor
+    if (lowerCounter <= greaterCounter)
+    {
+        newParams1.start = params.start + params.length - greaterCounter;
+        newParams1.length = greaterCounter;
+        newParams2.start = params.start;
+        newParams2.length = lowerCounter;
+    }
+    else
+    {
+        newParams1.start = params.start;
+        newParams1.length = lowerCounter;
+        newParams2.start = params.start + params.length - greaterCounter;
+        newParams2.length = greaterCounter;
+    }
+
+    // TODO verify if there are any benefits with this if statement
+    if (newParams1.length > 0)
+    {
+        workstack[++workstackCounter] = newParams1;
+    }
+    if (newParams2.length > 0)
+    {
+        workstack[++workstackCounter] = newParams2;
+    }
+
+    return workstackCounter;
+}
 
 
 /////////////////////////////////////////////////////////////////////
@@ -522,96 +532,113 @@ __global__ void quickSortGlobalKernel(
     }
 }
 
-//// TODO in general chech if __shared__ values work faster (pivot, array1, array2, ...)
-//// TODO try alignment with 32 for coalasced reading
-//__global__ void quickSortLocalKernel(el_t *dataInput, el_t *dataBuffer, loc_seq_t *sequences, bool orderAsc) {
-//    // Explicit stack (instead of recursion), which holds sequences, which need to be processed.
-//    // TODO allocate explicit stack dynamically according to sub-block size
-//    __shared__ loc_seq_t workstack[32];
-//    __shared__ int_t workstackCounter;
-//
-//    // Global offset for scattering of pivots
-//    __shared__ uint_t pivotLowerOffset, pivotGreaterOffset;
-//    __shared__ data_t pivot;
-//
-//    if (threadIdx.x == 0) {
-//        workstack[0] = sequences[blockIdx.x];
-//        workstackCounter = 0;
-//    }
-//    __syncthreads();
-//
-//    while (workstackCounter >= 0) {
-//        __syncthreads();
-//        loc_seq_t sequence = popWorkstack(workstack, workstackCounter);
-//
-//        if (sequence.length <= THRESHOLD_BITONIC_SORT_LOCAL) {
-//            // Bitonic sort is executed in-place and sorted data has to be writter to output.
-//            el_t *inputTemp = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataInput : dataBuffer;
-//            normalizedBitonicSort(inputTemp, dataBuffer, sequence, orderAsc);
-//
-//            continue;
-//        }
-//
-//        el_t *primaryArray = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataInput : dataBuffer;
-//        el_t *bufferArray = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataInput : dataBuffer;
-//
-//        if (threadIdx.x == 0) {
-//            pivot = getMedian(
-//                primaryArray[sequence.start].key, primaryArray[sequence.start + (sequence.length / 2)].key,
-//                primaryArray[sequence.start + sequence.length - 1].key
-//            );
-//        }
-//        __syncthreads();
-//
-//        // Counters for number of elements lower/greater than pivot
-//        uint_t localLower = 0, localGreater = 0;
-//
-//        // Every thread counts the number of elements lower/greater than pivot
-//        for (uint_t tx = threadIdx.x; tx < sequence.length; tx += THREADS_PER_SORT_LOCAL) {
-//            el_t temp = primaryArray[sequence.start + tx];
-//            localLower += temp.key < pivot;
-//            localGreater += temp.key > pivot;
-//        }
-//
-//        // Calculates global offsets for each thread with inclusive scan
-//        uint_t globalLower = intraBlockScan<THREADS_PER_SORT_LOCAL>(localLower);
-//        __syncthreads();
-//        uint_t globalGreater = intraBlockScan<THREADS_PER_SORT_LOCAL>(localGreater);
-//        __syncthreads();
-//
-//        uint_t indexLower = sequence.start + globalLower - localLower;
-//        uint_t indexGreater = sequence.start + sequence.length - globalGreater;
-//
-//        // Scatter elements to newly generated left/right subsequences
-//        for (uint_t tx = threadIdx.x; tx < sequence.length; tx += THREADS_PER_SORT_LOCAL) {
-//            el_t temp = primaryArray[sequence.start + tx];
-//
-//            if (temp.key < pivot) {
-//                bufferArray[indexLower++] = temp;
-//            } else if (temp.key > pivot) {
-//                bufferArray[indexGreater++] = temp;
-//            }
-//        }
-//
-//        // Pushes new subsequences on explicit stack and broadcast pivot offsets into shared memory
-//        if (threadIdx.x == (THREADS_PER_SORT_LOCAL - 1)) {
-//            pushWorkstack(workstack, workstackCounter, sequence, globalLower, globalGreater);
-//
-//            pivotLowerOffset = globalLower;
-//            pivotGreaterOffset = globalGreater;
-//        }
-//        __syncthreads();
-//
-//        // Scatters the pivots to output array. Pivots have to be stored in output array, because they won't be moved anymore
-//        el_t pivotEl;
-//        pivotEl.key = pivot;
-//
-//        uint_t index = sequence.start + pivotLowerOffset + threadIdx.x;
-//        uint_t end = sequence.start + sequence.length - pivotGreaterOffset;
-//
-//        while (index < end) {
-//            dataBuffer[index] = pivotEl;
-//            index += THREADS_PER_SORT_LOCAL;
-//        }
-//    }
-//}
+// TODO in general chech if __shared__ values work faster (pivot, array1, array2, ...)
+// TODO try alignment with 32 for coalasced reading
+template <order_t sortOrder>
+__global__ void quickSortLocalKernel(data_t *dataInput, data_t *dataBuffer, loc_seq_t *sequences)
+{
+    // Explicit stack (instead of recursion), which holds sequences, which need to be processed.
+    __shared__ loc_seq_t workstack[32];
+    __shared__ int_t workstackCounter;
+
+    // Global offset for scattering of pivots
+    __shared__ uint_t pivotLowerOffset, pivotGreaterOffset;
+    __shared__ data_t pivot;
+
+    if (threadIdx.x == 0)
+    {
+        workstack[0] = sequences[blockIdx.x];
+        workstackCounter = 0;
+    }
+    __syncthreads();
+
+    while (workstackCounter >= 0)
+    {
+        __syncthreads();
+        loc_seq_t sequence = popWorkstack(workstack, workstackCounter);
+
+        if (sequence.length <= THRESHOLD_BITONIC_SORT_LOCAL)
+        {
+            // Bitonic sort is executed in-place and sorted data has to be writter to output.
+            data_t *inputTemp = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataInput : dataBuffer;
+            normalizedBitonicSort<sortOrder>(inputTemp, dataBuffer, sequence);
+
+            continue;
+        }
+
+        data_t *primaryArray = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataInput : dataBuffer;
+        data_t *bufferArray = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataInput : dataBuffer;
+
+        if (threadIdx.x == 0)
+        {
+            pivot = getMedian(
+                primaryArray[sequence.start], primaryArray[sequence.start + (sequence.length / 2)],
+                primaryArray[sequence.start + sequence.length - 1]
+            );
+        }
+        __syncthreads();
+
+        // Counters for number of elements lower/greater than pivot
+        uint_t localLower = 0, localGreater = 0;
+
+        // Every thread counts the number of elements lower/greater than pivot
+        for (uint_t tx = threadIdx.x; tx < sequence.length; tx += THREADS_PER_SORT_LOCAL)
+        {
+            data_t temp = primaryArray[sequence.start + tx];
+            localLower += temp < pivot;
+            localGreater += temp > pivot;
+        }
+
+        // Calculates global offsets for each thread with inclusive scan
+        uint_t globalLower = intraBlockScan<THREADS_PER_SORT_LOCAL>(localLower);
+        __syncthreads();
+        uint_t globalGreater = intraBlockScan<THREADS_PER_SORT_LOCAL>(localGreater);
+        __syncthreads();
+
+        uint_t indexLower = sequence.start + globalLower - localLower;
+        uint_t indexGreater = sequence.start + sequence.length - globalGreater;
+
+        // Scatter elements to newly generated left/right subsequences
+        for (uint_t tx = threadIdx.x; tx < sequence.length; tx += THREADS_PER_SORT_LOCAL)
+        {
+            data_t temp = primaryArray[sequence.start + tx];
+
+            if (temp < pivot)
+            {
+                bufferArray[indexLower++] = temp;
+            }
+            else if (temp > pivot)
+            {
+                bufferArray[indexGreater++] = temp;
+            }
+        }
+
+        // Pushes new subsequences on explicit stack and broadcast pivot offsets into shared memory
+        if (threadIdx.x == (THREADS_PER_SORT_LOCAL - 1))
+        {
+            pushWorkstack(workstack, workstackCounter, sequence, globalLower, globalGreater);
+
+            pivotLowerOffset = globalLower;
+            pivotGreaterOffset = globalGreater;
+        }
+        __syncthreads();
+
+        // Scatters the pivots to output array. Pivots have to be stored in output array, because they
+        // won't be moved anymore
+        uint_t index = sequence.start + pivotLowerOffset + threadIdx.x;
+        uint_t end = sequence.start + sequence.length - pivotGreaterOffset;
+
+        while (index < end)
+        {
+            dataBuffer[index] = pivot;
+            index += THREADS_PER_SORT_LOCAL;
+        }
+    }
+}
+
+template __global__ void quickSortLocalKernel<ORDER_ASC>(
+    data_t *dataInput, data_t *dataBuffer, loc_seq_t *sequences
+);
+template __global__ void quickSortLocalKernel<ORDER_DESC>(
+    data_t *dataInput, data_t *dataBuffer, loc_seq_t *sequences
+);

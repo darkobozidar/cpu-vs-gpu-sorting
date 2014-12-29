@@ -70,7 +70,7 @@ void minMaxReduction(
 Runs global quicksort and coppies required data to and from device.
 */
 void runQuickSortGlobalKernel(
-    data_t *dataInput, data_t *dataBuffer, d_glob_seq_t *h_globalSeqDev, d_glob_seq_t *d_globalSeqDev,
+    data_t *dataTable, data_t *dataBuffer, d_glob_seq_t *h_globalSeqDev, d_glob_seq_t *d_globalSeqDev,
     uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes, uint_t numSeqGlobal, uint_t threadBlockCounter
 )
 {
@@ -96,7 +96,7 @@ void runQuickSortGlobalKernel(
     checkCudaError(error);
 
     quickSortGlobalKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
-        dataInput, dataBuffer, d_globalSeqDev, d_globalSeqIndexes
+        dataTable, dataBuffer, d_globalSeqDev, d_globalSeqIndexes
     );
 
     error = cudaMemcpy(
@@ -105,36 +105,37 @@ void runQuickSortGlobalKernel(
     checkCudaError(error);
 }
 
-//void runQuickSortLocalKernel(el_t *dataInput, el_t *dataBuffer, loc_seq_t *h_localSeq, loc_seq_t *d_localSeq,
-//                             uint_t numThreadBlocks, bool orderAsc) {
-//    cudaError_t error;
-//    LARGE_INTEGER timer;
-//
-//    // The same shared memory array is used for counting elements greater/lower than pivot and for bitonic sort.
-//    // max(intra-block scan array size, array size for bitonic sort)
-//    uint_t sharedMemSize = max(
-//        2 * THREADS_PER_SORT_LOCAL * sizeof(uint_t), THRESHOLD_BITONIC_SORT_LOCAL * sizeof(*dataInput)
-//    );
-//    dim3 dimGrid(numThreadBlocks, 1, 1);
-//    dim3 dimBlock(THREADS_PER_SORT_LOCAL, 1, 1);
-//
-//    startStopwatch(&timer);
-//    error = cudaMemcpy(d_localSeq, h_localSeq, numThreadBlocks * sizeof(*d_localSeq), cudaMemcpyHostToDevice);
-//    checkCudaError(error);
-//
-//    quickSortLocalKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
-//        dataInput, dataBuffer, d_localSeq, orderAsc
-//    );
-//    /*error = cudaDeviceSynchronize();
-//    checkCudaError(error);
-//    endStopwatch(timer, "Executing local parallel quicksort.");*/
-//}
-//
-//void runPrintTableKernel(el_t *table, uint_t tableLen) {
-//    printTableKernel<<<1, 1>>>(table, tableLen);
-//    cudaError_t error = cudaDeviceSynchronize();
-//    checkCudaError(error);
-//}
+void runQuickSortLocalKernel(
+    data_t *dataTable, data_t *dataBuffer, loc_seq_t *h_localSeq, loc_seq_t *d_localSeq,
+    uint_t numThreadBlocks, order_t sortOrder
+)
+{
+    cudaError_t error;
+
+    // The same shared memory array is used for counting elements greater/lower than pivot and for bitonic sort.
+    // max(intra-block scan array size, array size for bitonic sort)
+    uint_t sharedMemSize = max(
+        2 * THREADS_PER_SORT_LOCAL * sizeof(uint_t), THRESHOLD_BITONIC_SORT_LOCAL * sizeof(*dataTable)
+    );
+    dim3 dimGrid(numThreadBlocks, 1, 1);
+    dim3 dimBlock(THREADS_PER_SORT_LOCAL, 1, 1);
+
+    error = cudaMemcpy(d_localSeq, h_localSeq, numThreadBlocks * sizeof(*d_localSeq), cudaMemcpyHostToDevice);
+    checkCudaError(error);
+
+    if (sortOrder == ORDER_ASC)
+    {
+        quickSortLocalKernel<ORDER_ASC><<<dimGrid, dimBlock, sharedMemSize>>>(
+            dataTable, dataBuffer, d_localSeq
+        );
+    }
+    else
+    {
+        quickSortLocalKernel<ORDER_DESC><<<dimGrid, dimBlock, sharedMemSize>>>(
+            dataTable, dataBuffer, d_localSeq
+        );
+    }
+}
 
 // TODO handle empty sub-blocks??
 data_t* quickSort(
@@ -229,15 +230,16 @@ data_t* quickSort(
         generateSequences &= numSeqAll < numSeqLimit && numSeqGlobal > 0;
     }
 
-    //// If global quicksort was not used, than sequence is initialized for LOCAL quicksort
-    //if (tableLen <= THRESHOLD_PARTITION_SIZE_GLOBAL) {
-    //    numSeqLocal++;
-    //    h_localSeq[0].setInitSeq(tableLen);
-    //}
+    // If global quicksort was not used, than sequence is initialized for LOCAL quicksort
+    if (tableLen <= THRESHOLD_PARTITION_SIZE_GLOBAL)
+    {
+        numSeqLocal++;
+        h_localSeq[0].setInitSeq(tableLen);
+    }
 
-    //runQuickSortLocalKernel(
-    //    d_dataInput, d_dataBuffer, h_localSeq, d_localSeq, numSeqLocal, orderAsc
-    //);
+    runQuickSortLocalKernel(
+        d_dataInput, d_dataBuffer, h_localSeq, d_localSeq, numSeqLocal, sortOrder
+    );
 
     return d_dataBuffer;
 }
