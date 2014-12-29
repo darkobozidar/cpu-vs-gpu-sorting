@@ -13,16 +13,6 @@
 //////////////////////////// GENERAL UTILS //////////////////////////
 
 /*
-Calculates median of 3 provided values.
-*/
-__device__ data_t getMedian(data_t a, data_t b, data_t c)
-{
-    data_t maxVal = max(max(a, b), c);
-    data_t minVal = min(min(a, b), c);
-    return a ^ b ^ c ^ maxVal ^ minVal;
-}
-
-/*
 Calculates the next power of 2 of provided value or returns value if it is already a power of 2.
 */
 __device__ uint_t nextPowerOf2Device(uint_t value)
@@ -299,29 +289,25 @@ __device__ loc_seq_t popWorkstack(loc_seq_t *workstack, int_t &workstackCounter)
 From provided sequence generates 2 new sequences and pushes them on stack of sequences.
 */
 __device__ int_t pushWorkstack(
-    loc_seq_t *workstack, int_t &workstackCounter, loc_seq_t sequence, uint_t lowerCounter, uint_t greaterCounter
+    loc_seq_t *workstack, int_t &workstackCounter, loc_seq_t sequence, data_t pivot, uint_t lowerCounter, uint_t greaterCounter
 )
 {
     loc_seq_t newSequence1, newSequence2;
 
     newSequence1.direction = (direct_t)!sequence.direction;
     newSequence2.direction = (direct_t)!sequence.direction;
+    bool isLowerShorter = lowerCounter <= greaterCounter;
 
     // From provided sequence generates new sequences
-    if (lowerCounter <= greaterCounter)
-    {
-        newSequence1.start = sequence.start + sequence.length - greaterCounter;
-        newSequence1.length = greaterCounter;
-        newSequence2.start = sequence.start;
-        newSequence2.length = lowerCounter;
-    }
-    else
-    {
-        newSequence1.start = sequence.start;
-        newSequence1.length = lowerCounter;
-        newSequence2.start = sequence.start + sequence.length - greaterCounter;
-        newSequence2.length = greaterCounter;
-    }
+    newSequence1.start = isLowerShorter ? sequence.start + sequence.length - greaterCounter : sequence.start;
+    newSequence1.length = isLowerShorter ? greaterCounter : lowerCounter;
+    newSequence1.minVal = isLowerShorter ? pivot : sequence.minVal;
+    newSequence1.maxVal = isLowerShorter ? sequence.maxVal : pivot;
+
+    newSequence2.start = isLowerShorter ? sequence.start : sequence.start + sequence.length - greaterCounter;
+    newSequence2.length = isLowerShorter ? lowerCounter : greaterCounter;
+    newSequence2.minVal = isLowerShorter ? sequence.minVal : pivot;
+    newSequence2.maxVal = isLowerShorter ? pivot : sequence.maxVal;
 
     // Push news sequences on stack
     if (newSequence1.length > 0)
@@ -562,7 +548,6 @@ __global__ void quickSortLocalKernel(data_t *dataInput, data_t *dataBuffer, loc_
 
     // Global offset for scattering of pivots
     __shared__ uint_t pivotLowerOffset, pivotGreaterOffset;
-    __shared__ data_t pivot;
 
     if (threadIdx.x == 0)
     {
@@ -575,6 +560,7 @@ __global__ void quickSortLocalKernel(data_t *dataInput, data_t *dataBuffer, loc_
     {
         __syncthreads();
         loc_seq_t sequence = popWorkstack(workstack, workstackCounter);
+        data_t pivot = (sequence.minVal + sequence.maxVal) / 2;
 
         if (sequence.length <= THRESHOLD_BITONIC_SORT_LOCAL)
         {
@@ -587,15 +573,6 @@ __global__ void quickSortLocalKernel(data_t *dataInput, data_t *dataBuffer, loc_
 
         data_t *primaryArray = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataInput : dataBuffer;
         data_t *bufferArray = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataInput : dataBuffer;
-
-        if (threadIdx.x == 0)
-        {
-            pivot = getMedian(
-                primaryArray[sequence.start], primaryArray[sequence.start + (sequence.length / 2)],
-                primaryArray[sequence.start + sequence.length - 1]
-            );
-        }
-        __syncthreads();
 
         // Counters for number of elements lower/greater than pivot
         uint_t localLower = 0, localGreater = 0;
@@ -635,7 +612,7 @@ __global__ void quickSortLocalKernel(data_t *dataInput, data_t *dataBuffer, loc_
         // Pushes new subsequences on explicit stack and broadcast pivot offsets into shared memory
         if (threadIdx.x == (THREADS_PER_SORT_LOCAL - 1))
         {
-            pushWorkstack(workstack, workstackCounter, sequence, globalLower, globalGreater);
+            pushWorkstack(workstack, workstackCounter, sequence, pivot, globalLower, globalGreater);
 
             pivotLowerOffset = globalLower;
             pivotGreaterOffset = globalGreater;
