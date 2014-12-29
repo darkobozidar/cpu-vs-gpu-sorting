@@ -32,101 +32,116 @@
 //    data_t minVal = min(min(a, b), c);
 //    return a ^ b ^ c ^ maxVal ^ minVal;
 //}
-//
-//__device__ uint_t nextPowerOf2(uint_t value) {
-//    value--;
-//    value |= value >> 1;
-//    value |= value >> 2;
-//    value |= value >> 4;
-//    value |= value >> 8;
-//    value |= value >> 16;
-//    value++;
-//
-//    return value;
-//}
-//
-//
+
+__device__ uint_t nextPowerOf2Device(uint_t value)
+{
+    value--;
+    value |= value >> 1;
+    value |= value >> 2;
+    value |= value >> 4;
+    value |= value >> 8;
+    value |= value >> 16;
+    value++;
+
+    return value;
+}
+
+
 ///////////////////////////// SCAN UTILS ////////////////////////////
-//
-///*
-//Performs scan and computes, how many elements have 'true' predicate before current element.
-//*/
-//template <uint_t blockSize>
-//__device__ uint_t intraWarpScan(volatile uint_t *scanTile, uint_t val) {
-//    // The same kind of indexing as for bitonic sort
-//    uint_t index = 2 * threadIdx.x - (threadIdx.x & (min(blockSize, WARP_SIZE) - 1));
-//
-//    scanTile[index] = 0;
-//    index += min(blockSize, WARP_SIZE);
-//    scanTile[index] = val;
-//
-//    if (blockSize >= 2) {
-//        scanTile[index] += scanTile[index - 1];
-//    }
-//    if (blockSize >= 4) {
-//        scanTile[index] += scanTile[index - 2];
-//    }
-//    if (blockSize >= 8) {
-//        scanTile[index] += scanTile[index - 4];
-//    }
-//    if (blockSize >= 16) {
-//        scanTile[index] += scanTile[index - 8];
-//    }
-//    if (blockSize >= 32) {
-//        scanTile[index] += scanTile[index - 16];
-//    }
-//
-//    // Converts inclusive scan to exclusive
-//    return scanTile[index] - val;
-//}
-//
-///*
-//Performs intra-block INCLUSIVE scan.
-//*/
-//template <uint_t blockSize>
-//__device__ uint_t intraBlockScan(uint_t val) {
-//    extern __shared__ uint_t scanTile[];
-//    uint_t warpIdx = threadIdx.x / WARP_SIZE;
-//    uint_t laneIdx = threadIdx.x & (WARP_SIZE - 1);  // Thread index inside warp
-//
-//    uint_t warpResult = intraWarpScan<blockSize>(scanTile, val);
-//    __syncthreads();
-//
-//    if (laneIdx == WARP_SIZE - 1) {
-//        scanTile[warpIdx] = warpResult + val;
-//    }
-//    __syncthreads();
-//
-//    // Maximum number of elements for scan is warpSize ^ 2
-//    if (threadIdx.x < blockSize / WARP_SIZE) {
-//        scanTile[threadIdx.x] = intraWarpScan<blockSize / WARP_SIZE>(scanTile, scanTile[threadIdx.x]);
-//    }
-//    __syncthreads();
-//
-//    return warpResult + scanTile[warpIdx] + val;
-//}
-//
-//
+
+/*
+Performs scan and computes, how many elements have 'true' predicate before current element.
+*/
+template <uint_t blockSize>
+__device__ uint_t intraWarpScan(volatile uint_t *scanTile, uint_t val)
+{
+    // The same kind of indexing as for bitonic sort
+    uint_t index = 2 * threadIdx.x - (threadIdx.x & (min(blockSize, WARP_SIZE) - 1));
+
+    scanTile[index] = 0;
+    index += min(blockSize, WARP_SIZE);
+    scanTile[index] = val;
+
+    if (blockSize >= 2)
+    {
+        scanTile[index] += scanTile[index - 1];
+    }
+    if (blockSize >= 4)
+    {
+        scanTile[index] += scanTile[index - 2];
+    }
+    if (blockSize >= 8)
+    {
+        scanTile[index] += scanTile[index - 4];
+    }
+    if (blockSize >= 16)
+    {
+        scanTile[index] += scanTile[index - 8];
+    }
+    if (blockSize >= 32)
+    {
+        scanTile[index] += scanTile[index - 16];
+    }
+
+    // Converts inclusive scan to exclusive
+    return scanTile[index] - val;
+}
+
+/*
+Performs intra-block INCLUSIVE scan.
+*/
+template <uint_t blockSize>
+__device__ uint_t intraBlockScan(uint_t val)
+{
+    extern __shared__ uint_t scanTile[];
+    uint_t warpIdx = threadIdx.x / WARP_SIZE;
+    uint_t laneIdx = threadIdx.x & (WARP_SIZE - 1);  // Thread index inside warp
+
+    uint_t warpResult = intraWarpScan<blockSize>(scanTile, val);
+    __syncthreads();
+
+    if (laneIdx == WARP_SIZE - 1)
+    {
+        scanTile[warpIdx] = warpResult + val;
+    }
+    __syncthreads();
+
+    // Maximum number of elements for scan is warpSize ^ 2
+    if (threadIdx.x < blockSize / WARP_SIZE)
+    {
+        scanTile[threadIdx.x] = intraWarpScan<blockSize / WARP_SIZE>(scanTile, scanTile[threadIdx.x]);
+    }
+    __syncthreads();
+
+    return warpResult + scanTile[warpIdx] + val;
+}
+
+
 ////////////////////////// MIN/MAX REDUCTION ////////////////////////
-//
-///*
-//Performs parallel min/max reduction. Half of the threads in thread block calculates min value,
-//other half calculates max value. Result is returned as the first element in each array.
-//*/
-//__device__ void minMaxReduction(uint_t length) {
-//    extern __shared__ data_t reductionTile[];
-//    data_t *minValues = reductionTile;
-//    data_t *maxValues = reductionTile + THREADS_PER_REDUCTION;
-//
-//    for (uint_t stride = length / 2; stride > 0; stride >>= 1) {
-//        if (threadIdx.x < stride) {
-//            minValues[threadIdx.x] = min(minValues[threadIdx.x], minValues[threadIdx.x + stride]);
-//        } else if (threadIdx.x < 2 * stride) {
-//            maxValues[threadIdx.x - stride] = max(maxValues[threadIdx.x - stride], maxValues[threadIdx.x]);
-//        }
-//        __syncthreads();
-//    }
-//}
+
+/*
+Performs parallel min/max reduction. Half of the threads in thread block calculates min value,
+other half calculates max value. Result is returned as the first element in each array.
+*/
+__device__ void minMaxReduction(uint_t length)
+{
+    extern __shared__ data_t reductionTile[];
+    data_t *minValues = reductionTile;
+    data_t *maxValues = reductionTile + THREADS_PER_REDUCTION;
+
+    for (uint_t stride = length / 2; stride > 0; stride >>= 1)
+    {
+        if (threadIdx.x < stride)
+        {
+            minValues[threadIdx.x] = min(minValues[threadIdx.x], minValues[threadIdx.x + stride]);
+        }
+        else if (threadIdx.x < 2 * stride)
+        {
+            maxValues[threadIdx.x - stride] = max(maxValues[threadIdx.x - stride], maxValues[threadIdx.x]);
+        }
+        __syncthreads();
+    }
+}
 
 /*
 Min reduction for warp. Every warp can reduce 64 elements or less.
@@ -378,122 +393,135 @@ __global__ void minMaxReductionKernel(data_t *input, data_t *output, uint_t tabl
     }
 }
 
-//// TODO try alignment with 32 for coalasced reading
-//__global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_seq_t *sequences, uint_t *seqIndexes) {
-//    extern __shared__ uint_t globalSortTile[];
-//    data_t *minValues = globalSortTile;
-//    data_t *maxValues = globalSortTile + THREADS_PER_SORT_GLOBAL;
-//
-//    // Index of sequence, which this thread block is partitioning
-//    __shared__ uint_t seqIdx;
-//    // Start and length of the data assigned to this thread block
-//    __shared__ uint_t localStart, localLength, numActiveThreads;
-//    __shared__ d_glob_seq_t sequence;
-//
-//    if (threadIdx.x == (THREADS_PER_SORT_GLOBAL - 1)) {
-//        seqIdx = seqIndexes[blockIdx.x];
-//        sequence = sequences[seqIdx];
-//        uint_t elemsPerBlock = THREADS_PER_SORT_GLOBAL * ELEMENTS_PER_THREAD_GLOBAL;
-//        uint_t localBlockIdx = blockIdx.x - sequence.startThreadBlockIdx;
-//
-//        // Params.threadBlockCounter cannot be used, because it can get modified by other blocks.
-//        uint_t offset = localBlockIdx * elemsPerBlock;
-//        localStart = sequence.start + offset;
-//        localLength = offset + elemsPerBlock <= sequence.length ? elemsPerBlock : sequence.length - offset;
-//        numActiveThreads = nextPowerOf2(min(THREADS_PER_SORT_GLOBAL, localLength));
-//    }
-//    __syncthreads();
-//
-//    el_t *primaryArray = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataInput : dataBuffer;
-//    el_t *bufferArray = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataInput : dataBuffer;
-//
-//#if USE_REDUCTION_IN_GLOBAL_SORT
-//    // Initializes min/max values.
-//    data_t minVal = MAX_VAL, maxVal = MIN_VAL;
-//#endif
-//
-//    // Number of elements lower/greater than pivot (local for thread)
-//    uint_t localLower = 0, localGreater = 0;
-//
-//    // Counts the number of elements lower/greater than pivot and finds min/max
-//    for (uint_t tx = threadIdx.x; tx < localLength; tx += THREADS_PER_SORT_GLOBAL) {
-//        el_t temp = primaryArray[localStart + tx];
-//        localLower += temp.key < sequence.pivot;
-//        localGreater += temp.key > sequence.pivot;
-//
-//#if USE_REDUCTION_IN_GLOBAL_SORT
-//        // Max value is calculated for "lower" sequence and min value is calculated for "greater" sequence.
-//        // Min for lower sequence and max of greater sequence (min and max of currently partitioned
-//        // sequence) were already calculated on host.
-//        maxVal = max(maxVal, temp.key < sequence.pivot ? temp.key : MIN_VAL);
-//        minVal = min(minVal, temp.key > sequence.pivot ? temp.key : MAX_VAL);
-//#endif
-//    }
-//
-//#if USE_REDUCTION_IN_GLOBAL_SORT
-//    minValues[threadIdx.x] = minVal;
-//    maxValues[threadIdx.x] = maxVal;
-//    __syncthreads();
-//
-//    // Calculates and saves min/max values, before shared memory gets overriden by scan
-//    minMaxReduction(numActiveThreads);
-//    if (threadIdx.x == (THREADS_PER_SORT_GLOBAL - 1)) {
-//        atomicMin(&sequences[seqIdx].greaterSeqMinVal, minValues[0]);
-//        atomicMax(&sequences[seqIdx].lowerSeqMaxVal, maxValues[0]);
-//    }
-//#endif
-//    __syncthreads();
-//
-//    // Calculates number of elements lower/greater than pivot inside whole thread blocks
-//    uint_t scanLower = intraBlockScan<THREADS_PER_SORT_GLOBAL>(localLower);
-//    __syncthreads();
-//    uint_t scanGreater = intraBlockScan<THREADS_PER_SORT_GLOBAL>(localGreater);
-//    __syncthreads();
-//
-//    // Calculates number of elements lower/greater than pivot for all thread blocks processing this sequence
-//    __shared__ uint_t globalLower, globalGreater;
-//    if (threadIdx.x == (THREADS_PER_SORT_GLOBAL - 1)) {
-//        globalLower = atomicAdd(&sequences[seqIdx].offsetLower, scanLower);
-//        globalGreater = atomicAdd(&sequences[seqIdx].offsetGreater, scanGreater);
-//    }
-//    __syncthreads();
-//
-//    uint_t indexLower = sequence.start + globalLower + scanLower - localLower;
-//    uint_t indexGreater = sequence.start + sequence.length - globalGreater - scanGreater;
-//
-//    // Scatters elements to newly generated left/right subsequences
-//    for (uint_t tx = threadIdx.x; tx < localLength; tx += THREADS_PER_SORT_GLOBAL) {
-//        el_t temp = primaryArray[localStart + tx];
-//
-//        if (temp.key < sequence.pivot) {
-//            bufferArray[indexLower++] = temp;
-//        } else if (temp.key > sequence.pivot) {
-//            bufferArray[indexGreater++] = temp;
-//        }
-//    }
-//
-//    // Atomic sub has to be executed at the end of the kernel - after scattering of elements has been completed
-//    if (threadIdx.x == (THREADS_PER_SORT_GLOBAL - 1)) {
-//        sequence.threadBlockCounter = atomicSub(&sequences[seqIdx].threadBlockCounter, 1) - 1;
-//    }
-//    __syncthreads();
-//
-//    // Last block assigned to current sub-sequence stores pivots
-//    if (sequence.threadBlockCounter == 0) {
-//        el_t pivot;
-//        pivot.key = sequence.pivot;
-//
-//        uint_t index = sequence.start + sequences[seqIdx].offsetLower + threadIdx.x;
-//        uint_t end = sequence.start + sequence.length - sequences[seqIdx].offsetGreater;
-//
-//        // Pivots have to be stored in output array, because they won't be moved anymore
-//        while (index < end) {
-//            dataBuffer[index] = pivot;
-//            index += THREADS_PER_SORT_GLOBAL;
-//        }
-//    }
-//}
-//
+// TODO try alignment with 32 for coalasced reading
+__global__ void quickSortGlobalKernel(
+    data_t *dataInput, data_t *dataBuffer, d_glob_seq_t *sequences, uint_t *seqIndexes
+)
+{
+    extern __shared__ uint_t globalSortTile[];
+    data_t *minValues = globalSortTile;
+    data_t *maxValues = globalSortTile + THREADS_PER_SORT_GLOBAL;
+
+    // Index of sequence, which this thread block is partitioning
+    __shared__ uint_t seqIdx;
+    // Start and length of the data assigned to this thread block
+    __shared__ uint_t localStart, localLength, numActiveThreads;
+    __shared__ d_glob_seq_t sequence;
+
+    if (threadIdx.x == (THREADS_PER_SORT_GLOBAL - 1))
+    {
+        seqIdx = seqIndexes[blockIdx.x];
+        sequence = sequences[seqIdx];
+        uint_t elemsPerBlock = THREADS_PER_SORT_GLOBAL * ELEMENTS_PER_THREAD_GLOBAL;
+        uint_t localBlockIdx = blockIdx.x - sequence.startThreadBlockIdx;
+
+        // Params.threadBlockCounter cannot be used, because it can get modified by other blocks.
+        uint_t offset = localBlockIdx * elemsPerBlock;
+        localStart = sequence.start + offset;
+        localLength = offset + elemsPerBlock <= sequence.length ? elemsPerBlock : sequence.length - offset;
+        numActiveThreads = nextPowerOf2Device(min(THREADS_PER_SORT_GLOBAL, localLength));
+    }
+    __syncthreads();
+
+    data_t *primaryArray = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataInput : dataBuffer;
+    data_t *bufferArray = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataInput : dataBuffer;
+
+#if USE_REDUCTION_IN_GLOBAL_SORT
+    // Initializes min/max values.
+    data_t minVal = MAX_VAL, maxVal = MIN_VAL;
+#endif
+
+    // Number of elements lower/greater than pivot (local for thread)
+    uint_t localLower = 0, localGreater = 0;
+
+    // Counts the number of elements lower/greater than pivot and finds min/max
+    for (uint_t tx = threadIdx.x; tx < localLength; tx += THREADS_PER_SORT_GLOBAL)
+    {
+        data_t temp = primaryArray[localStart + tx];
+        localLower += temp < sequence.pivot;
+        localGreater += temp > sequence.pivot;
+
+#if USE_REDUCTION_IN_GLOBAL_SORT
+        // Max value is calculated for "lower" sequence and min value is calculated for "greater" sequence.
+        // Min for lower sequence and max of greater sequence (min and max of currently partitioned
+        // sequence) were already calculated on host.
+        maxVal = max(maxVal, temp < sequence.pivot ? temp : MIN_VAL);
+        minVal = min(minVal, temp > sequence.pivot ? temp : MAX_VAL);
+#endif
+    }
+
+#if USE_REDUCTION_IN_GLOBAL_SORT
+    minValues[threadIdx.x] = minVal;
+    maxValues[threadIdx.x] = maxVal;
+    __syncthreads();
+
+    // Calculates and saves min/max values, before shared memory gets overriden by scan
+    minMaxReduction(numActiveThreads);
+    if (threadIdx.x == (THREADS_PER_SORT_GLOBAL - 1))
+    {
+        atomicMin(&sequences[seqIdx].greaterSeqMinVal, minValues[0]);
+        atomicMax(&sequences[seqIdx].lowerSeqMaxVal, maxValues[0]);
+    }
+#endif
+    __syncthreads();
+
+    // Calculates number of elements lower/greater than pivot inside whole thread blocks
+    uint_t scanLower = intraBlockScan<THREADS_PER_SORT_GLOBAL>(localLower);
+    __syncthreads();
+    uint_t scanGreater = intraBlockScan<THREADS_PER_SORT_GLOBAL>(localGreater);
+    __syncthreads();
+
+    // Calculates number of elements lower/greater than pivot for all thread blocks processing this sequence
+    __shared__ uint_t globalLower, globalGreater;
+    if (threadIdx.x == (THREADS_PER_SORT_GLOBAL - 1))
+    {
+        globalLower = atomicAdd(&sequences[seqIdx].offsetLower, scanLower);
+        globalGreater = atomicAdd(&sequences[seqIdx].offsetGreater, scanGreater);
+    }
+    __syncthreads();
+
+    uint_t indexLower = sequence.start + globalLower + scanLower - localLower;
+    uint_t indexGreater = sequence.start + sequence.length - globalGreater - scanGreater;
+
+    // Scatters elements to newly generated left/right subsequences
+    for (uint_t tx = threadIdx.x; tx < localLength; tx += THREADS_PER_SORT_GLOBAL)
+    {
+        data_t temp = primaryArray[localStart + tx];
+
+        if (temp < sequence.pivot)
+        {
+            bufferArray[indexLower++] = temp;
+        }
+        else if (temp > sequence.pivot)
+        {
+            bufferArray[indexGreater++] = temp;
+        }
+    }
+
+    // Atomic sub has to be executed at the end of the kernel - after scattering of elements has been completed
+    if (threadIdx.x == (THREADS_PER_SORT_GLOBAL - 1))
+    {
+        sequence.threadBlockCounter = atomicSub(&sequences[seqIdx].threadBlockCounter, 1) - 1;
+    }
+    __syncthreads();
+
+    // Last block assigned to current sub-sequence stores pivots
+    if (sequence.threadBlockCounter == 0)
+    {
+        data_t pivot = sequence.pivot;
+
+        uint_t index = sequence.start + sequences[seqIdx].offsetLower + threadIdx.x;
+        uint_t end = sequence.start + sequence.length - sequences[seqIdx].offsetGreater;
+
+        // Pivots have to be stored in output array, because they won't be moved anymore
+        while (index < end)
+        {
+            dataBuffer[index] = pivot;
+            index += THREADS_PER_SORT_GLOBAL;
+        }
+    }
+}
+
 //// TODO in general chech if __shared__ values work faster (pivot, array1, array2, ...)
 //// TODO try alignment with 32 for coalasced reading
 //__global__ void quickSortLocalKernel(el_t *dataInput, el_t *dataBuffer, loc_seq_t *sequences, bool orderAsc) {

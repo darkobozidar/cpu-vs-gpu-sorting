@@ -3,7 +3,9 @@
 
 
 __global__ void minMaxReductionKernel(data_t *input, data_t *output, uint_t tableLen);
-//__global__ void quickSortGlobalKernel(el_t *dataInput, el_t *dataBuffer, d_glob_seq_t *sequences, uint_t *seqIndexes);
+__global__ void quickSortGlobalKernel(
+    data_t *dataInput, data_t *dataBuffer, d_glob_seq_t *sequences, uint_t *seqIndexes
+);
 //__global__ void quickSortLocalKernel(el_t *dataInput, el_t *dataBuffer, loc_seq_t *sequences, bool orderAsc);
 
 #endif

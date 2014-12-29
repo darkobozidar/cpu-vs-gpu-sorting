@@ -66,46 +66,45 @@ void minMaxReduction(
     }
 }
 
-///*
-//Runs global quicksort and coppies required data to and from device.
-//*/
-//void runQuickSortGlobalKernel(el_t *dataInput, el_t* dataBuffer, d_glob_seq_t *h_globalSeqDev,
-//                              d_glob_seq_t *d_globalSeqDev, uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes,
-//                              uint_t numSeqGlobal, uint_t threadBlockCounter) {
-//    cudaError_t error;
-//    LARGE_INTEGER timer;
-//
-//    // 1. arg: Size of array for calculation of min/max value ("2" because of MIN and MAX)
-//    // 2. arg: Size of array needed to perform scan of counters for number of elements lower/greater than
-//    //         pivot ("2" because of intra-warp scan).
-//    uint_t sharedMemSize = max(
-//        2 * THREADS_PER_SORT_GLOBAL * sizeof(data_t), 2 * THREADS_PER_SORT_GLOBAL * sizeof(uint_t)
-//    );
-//    dim3 dimGrid(threadBlockCounter, 1, 1);
-//    dim3 dimBlock(THREADS_PER_SORT_GLOBAL, 1, 1);
-//
-//    startStopwatch(&timer);
-//
-//    error = cudaMemcpy(d_globalSeqDev, h_globalSeqDev, numSeqGlobal * sizeof(*d_globalSeqDev),
-//                       cudaMemcpyHostToDevice);
-//    checkCudaError(error);
-//    error = cudaMemcpy(d_globalSeqIndexes, h_globalSeqIndexes, threadBlockCounter * sizeof(*d_globalSeqIndexes),
-//                       cudaMemcpyHostToDevice);
-//    checkCudaError(error);
-//
-//    quickSortGlobalKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
-//        dataInput, dataBuffer, d_globalSeqDev, d_globalSeqIndexes
-//    );
-//
-//    error = cudaMemcpy(h_globalSeqDev, d_globalSeqDev, numSeqGlobal * sizeof(*h_globalSeqDev),
-//                       cudaMemcpyDeviceToHost);
-//    checkCudaError(error);
-//
-//    /*error = cudaDeviceSynchronize();
-//    checkCudaError(error);
-//    endStopwatch(timer, "Executing global parallel quicksort.");*/
-//}
-//
+/*
+Runs global quicksort and coppies required data to and from device.
+*/
+void runQuickSortGlobalKernel(
+    data_t *dataInput, data_t *dataBuffer, d_glob_seq_t *h_globalSeqDev, d_glob_seq_t *d_globalSeqDev,
+    uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes, uint_t numSeqGlobal, uint_t threadBlockCounter
+)
+{
+    cudaError_t error;
+
+    // 1. arg: Size of array for calculation of min/max value ("2" because of MIN and MAX)
+    // 2. arg: Size of array needed to perform scan of counters for number of elements lower/greater than
+    //         pivot ("2" because of intra-warp scan).
+    uint_t sharedMemSize = max(
+        2 * THREADS_PER_SORT_GLOBAL * sizeof(data_t), 2 * THREADS_PER_SORT_GLOBAL * sizeof(uint_t)
+    );
+    dim3 dimGrid(threadBlockCounter, 1, 1);
+    dim3 dimBlock(THREADS_PER_SORT_GLOBAL, 1, 1);
+
+    error = cudaMemcpy(
+        d_globalSeqDev, h_globalSeqDev, numSeqGlobal * sizeof(*d_globalSeqDev), cudaMemcpyHostToDevice
+    );
+    checkCudaError(error);
+    error = cudaMemcpy(
+        d_globalSeqIndexes, h_globalSeqIndexes, threadBlockCounter * sizeof(*d_globalSeqIndexes),
+        cudaMemcpyHostToDevice
+    );
+    checkCudaError(error);
+
+    quickSortGlobalKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
+        dataInput, dataBuffer, d_globalSeqDev, d_globalSeqIndexes
+    );
+
+    error = cudaMemcpy(
+        h_globalSeqDev, d_globalSeqDev, numSeqGlobal * sizeof(*h_globalSeqDev), cudaMemcpyDeviceToHost
+    );
+    checkCudaError(error);
+}
+
 //void runQuickSortLocalKernel(el_t *dataInput, el_t *dataBuffer, loc_seq_t *h_localSeq, loc_seq_t *d_localSeq,
 //                             uint_t numThreadBlocks, bool orderAsc) {
 //    cudaError_t error;
@@ -138,7 +137,7 @@ void minMaxReduction(
 //}
 
 // TODO handle empty sub-blocks??
-void quickSort(
+data_t* quickSort(
     data_t *h_dataInput, data_t *&d_dataInput, data_t *&d_dataBuffer, data_t *h_minMaxValues,
     h_glob_seq_t *h_globalSeqHost, h_glob_seq_t *h_globalSeqHostBuffer, d_glob_seq_t *h_globalSeqDev,
     d_glob_seq_t *d_globalSeqDev, uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes,
@@ -164,61 +163,71 @@ void quickSort(
     // Null/zero distribution
     if (minVal == maxVal)
     {
-        return;
+        return d_dataInput;
     }
     h_globalSeqHost[0].setInitSeq(tableLen, minVal, maxVal);
 
-    //// GLOBAL QUICKSORT
-    //while (generateSequences) {
-    //    uint_t threadBlockCounter = 0;
+    // GLOBAL QUICKSORT
+    while (generateSequences)
+    {
+        uint_t threadBlockCounter = 0;
 
-    //    // Transfers host sequences to device sequences (device needs different data about sequence than host)
-    //    for (uint_t seqIdx = 0; seqIdx < numSeqGlobal; seqIdx++) {
-    //        uint_t threadBlocksPerSeq = (h_globalSeqHost[seqIdx].length - 1) / elemsPerThreadBlock + 1;
-    //        h_globalSeqDev[seqIdx].setFromHostSeq(h_globalSeqHost[seqIdx], threadBlockCounter, threadBlocksPerSeq);
+        // Transfers host sequences to device sequences (device needs different data about sequence than host)
+        for (uint_t seqIdx = 0; seqIdx < numSeqGlobal; seqIdx++)
+        {
+            uint_t threadBlocksPerSeq = (h_globalSeqHost[seqIdx].length - 1) / elemsPerThreadBlock + 1;
+            h_globalSeqDev[seqIdx].setFromHostSeq(h_globalSeqHost[seqIdx], threadBlockCounter, threadBlocksPerSeq);
 
-    //        // For all thread blocks in current iteration marks, they are assigned to current sequence.
-    //        for (uint_t blockIdx = 0; blockIdx < threadBlocksPerSeq; blockIdx++) {
-    //            h_globalSeqIndexes[threadBlockCounter++] = seqIdx;
-    //        }
-    //    }
+            // For all thread blocks in current iteration marks, they are assigned to current sequence.
+            for (uint_t blockIdx = 0; blockIdx < threadBlocksPerSeq; blockIdx++)
+            {
+                h_globalSeqIndexes[threadBlockCounter++] = seqIdx;
+            }
+        }
 
-    //    runQuickSortGlobalKernel(
-    //        d_dataInput, d_dataBuffer, h_globalSeqDev, d_globalSeqDev, h_globalSeqIndexes,
-    //        d_globalSeqIndexes, numSeqGlobal, threadBlockCounter
-    //    );
+        runQuickSortGlobalKernel(
+            d_dataInput, d_dataBuffer, h_globalSeqDev, d_globalSeqDev, h_globalSeqIndexes,
+            d_globalSeqIndexes, numSeqGlobal, threadBlockCounter
+        );
 
-    //    uint_t numSeqGlobalOld = numSeqGlobal;
-    //    numSeqGlobal = 0;
-    //    numSeqAll *= 2;
+        uint_t numSeqGlobalOld = numSeqGlobal;
+        numSeqGlobal = 0;
+        numSeqAll *= 2;
 
-    //    // Generates new sub-sequences and depending on their size adds them to list for GLOBAL or LOCAL quicksort
-    //    // If theoretical number of sequences reached limit, sequences are transfered to array for LOCAL quicksort
-    //    for (uint_t seqIdx = 0; seqIdx < numSeqGlobalOld; seqIdx++) {
-    //        h_glob_seq_t seqHost = h_globalSeqHost[seqIdx];
-    //        d_glob_seq_t seqDev = h_globalSeqDev[seqIdx];
+        // Generates new sub-sequences and depending on their size adds them to list for GLOBAL or LOCAL quicksort
+        // If theoretical number of sequences reached limit, sequences are transfered to array for LOCAL quicksort
+        for (uint_t seqIdx = 0; seqIdx < numSeqGlobalOld; seqIdx++)
+        {
+            h_glob_seq_t seqHost = h_globalSeqHost[seqIdx];
+            d_glob_seq_t seqDev = h_globalSeqDev[seqIdx];
 
-    //        // New subsequece (lower)
-    //        if (seqDev.offsetLower > THRESHOLD_PARTITION_SIZE_GLOBAL && numSeqAll < numSeqLimit) {
-    //            h_globalSeqHostBuffer[numSeqGlobal++].setLowerSeq(seqHost, seqDev);
-    //        } else if (seqDev.offsetLower > 0) {
-    //            h_localSeq[numSeqLocal++].setLowerSeq(seqHost, seqDev);
-    //        }
+            // New subsequece (lower)
+            if (seqDev.offsetLower > THRESHOLD_PARTITION_SIZE_GLOBAL && numSeqAll < numSeqLimit)
+            {
+                h_globalSeqHostBuffer[numSeqGlobal++].setLowerSeq(seqHost, seqDev);
+            }
+            else if (seqDev.offsetLower > 0)
+            {
+                h_localSeq[numSeqLocal++].setLowerSeq(seqHost, seqDev);
+            }
 
-    //        // New subsequece (greater)
-    //        if (seqDev.offsetGreater > THRESHOLD_PARTITION_SIZE_GLOBAL && numSeqAll < numSeqLimit) {
-    //            h_globalSeqHostBuffer[numSeqGlobal++].setGreaterSeq(seqHost, seqDev);
-    //        } else if (seqDev.offsetGreater > 0) {
-    //            h_localSeq[numSeqLocal++].setGreaterSeq(seqHost, seqDev);
-    //        }
-    //    }
+            // New subsequece (greater)
+            if (seqDev.offsetGreater > THRESHOLD_PARTITION_SIZE_GLOBAL && numSeqAll < numSeqLimit)
+            {
+                h_globalSeqHostBuffer[numSeqGlobal++].setGreaterSeq(seqHost, seqDev);
+            }
+            else if (seqDev.offsetGreater > 0)
+            {
+                h_localSeq[numSeqLocal++].setGreaterSeq(seqHost, seqDev);
+            }
+        }
 
-    //    h_glob_seq_t *temp = h_globalSeqHost;
-    //    h_globalSeqHost = h_globalSeqHostBuffer;
-    //    h_globalSeqHostBuffer = temp;
+        h_glob_seq_t *temp = h_globalSeqHost;
+        h_globalSeqHost = h_globalSeqHostBuffer;
+        h_globalSeqHostBuffer = temp;
 
-    //    generateSequences &= numSeqAll < numSeqLimit && numSeqGlobal > 0;
-    //}
+        generateSequences &= numSeqAll < numSeqLimit && numSeqGlobal > 0;
+    }
 
     //// If global quicksort was not used, than sequence is initialized for LOCAL quicksort
     //if (tableLen <= THRESHOLD_PARTITION_SIZE_GLOBAL) {
@@ -230,31 +239,31 @@ void quickSort(
     //    d_dataInput, d_dataBuffer, h_localSeq, d_localSeq, numSeqLocal, orderAsc
     //);
 
-    //return d_dataBuffer;
+    return d_dataBuffer;
 }
 
 double sortParallel(
-    data_t *h_output, data_t *d_dataTable, data_t *h_minMaxValues, h_glob_seq_t *h_globalSeqHost,
-    h_glob_seq_t *h_globalSeqHostBuffer, d_glob_seq_t *h_globalSeqDev, d_glob_seq_t *d_globalSeqDev,
-    uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes, loc_seq_t *h_localSeq, loc_seq_t *d_localSeq,
-    uint_t tableLen, order_t sortOrder
+    data_t *h_dataInput, data_t *h_dataOutput, data_t *d_dataTable, data_t *d_dataBuffer, data_t *h_minMaxValues,
+    h_glob_seq_t *h_globalSeqHost, h_glob_seq_t *h_globalSeqHostBuffer, d_glob_seq_t *h_globalSeqDev,
+    d_glob_seq_t *d_globalSeqDev, uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes,
+    loc_seq_t *h_localSeq, loc_seq_t *d_localSeq, uint_t tableLen, order_t sortOrder
 )
 {
     LARGE_INTEGER timer;
     cudaError_t error;
 
     startStopwatch(&timer);
-    /*d_dataResult = quickSort(
-        h_dataInput, d_dataInput, d_dataBuffer, h_minMaxValues, h_globalSeqHost, h_globalSeqHostBuffer,
+    data_t* d_dataResult = quickSort(
+        h_dataInput, d_dataTable, d_dataBuffer, h_minMaxValues, h_globalSeqHost, h_globalSeqHostBuffer,
         h_globalSeqDev, d_globalSeqDev, h_globalSeqIndexes, d_globalSeqIndexes, h_localSeq, d_localSeq,
-        tableLen, orderAsc
-    );*/
+        tableLen, sortOrder
+    );
 
     error = cudaDeviceSynchronize();
     checkCudaError(error);
     double time = endStopwatch(timer);
 
-    error = cudaMemcpy(h_output, d_dataTable, tableLen * sizeof(*h_output), cudaMemcpyDeviceToHost);
+    error = cudaMemcpy(h_dataOutput, d_dataResult, tableLen * sizeof(*h_dataOutput), cudaMemcpyDeviceToHost);
     checkCudaError(error);
 
     return time;
