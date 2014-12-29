@@ -77,7 +77,11 @@ int main(int argc, char **argv)
         checkCudaError(error);
         error = cudaDeviceSynchronize();
         checkCudaError(error);
-        timers[SORT_PARALLEL][i] = 9999;  // sortParallel(h_outputParallel, d_dataTable, tableLen, sortOrder);
+        timers[SORT_PARALLEL][i] = sortParallel(
+            h_input, h_outputParallel, d_dataTable, d_dataBuffer, h_minMaxValues, h_globalSeqHost,
+            h_globalSeqHostBuffer, h_globalSeqDev, d_globalSeqDev, h_globalSeqIndexes, d_globalSeqIndexes,
+            h_localSeq, d_localSeq, tableLen, sortOrder
+        );
 
         // Sort sequential
         std::copy(h_input, h_input + tableLen, h_outputSequential);
