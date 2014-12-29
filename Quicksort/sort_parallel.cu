@@ -14,6 +14,11 @@
 #include "kernels.h"
 
 
+/*
+Executes kernel for finding min/max values. Every thread block searches for min/max values in their
+corresponding chunk of data. This means kernel will return a list of min/max values with same length
+as number of thread blocks executing in kernel.
+*/
 uint_t runMinMaxReductionKernel(data_t *primaryArray, data_t *bufferArray, uint_t tableLen)
 {
     // Half of the array for min values and the other half for max values
@@ -28,6 +33,9 @@ uint_t runMinMaxReductionKernel(data_t *primaryArray, data_t *bufferArray, uint_
     return dimGrid.x;
 }
 
+/*
+Searches for min/max values in array.
+*/
 void minMaxReduction(
     data_t *h_dataInput, data_t *d_dataInput, data_t *d_dataBuffer, data_t *h_minMaxValues, uint_t tableLen,
     data_t &minVal, data_t &maxVal
@@ -39,6 +47,7 @@ void minMaxReduction(
     // Checks whether array is short enough to be reduced entirely on host or if reduction on device is needed
     if (tableLen > THRESHOLD_REDUCTION)
     {
+        // Kernel returns array with min/max values of length numVales
         uint_t numValues = runMinMaxReductionKernel(d_dataInput, d_dataBuffer, tableLen);
 
         cudaError_t error = cudaMemcpy(
@@ -67,7 +76,8 @@ void minMaxReduction(
 }
 
 /*
-Runs global quicksort and coppies required data to and from device.
+Runs global (multiple thread blocks process one sequence) quicksort and coppies required data to and
+from device.
 */
 void runQuickSortGlobalKernel(
     data_t *dataTable, data_t *dataBuffer, d_glob_seq_t *h_globalSeqDev, d_glob_seq_t *d_globalSeqDev,
@@ -105,6 +115,9 @@ void runQuickSortGlobalKernel(
     checkCudaError(error);
 }
 
+/*
+Finishes quicksort with local (one thread block processes one block) quicksort.
+*/
 void runQuickSortLocalKernel(
     data_t *dataTable, data_t *dataBuffer, loc_seq_t *h_localSeq, loc_seq_t *d_localSeq,
     uint_t numThreadBlocks, order_t sortOrder
@@ -137,7 +150,9 @@ void runQuickSortLocalKernel(
     }
 }
 
-// TODO handle empty sub-blocks??
+/*
+Executes parallel quicksort.
+*/
 data_t* quickSort(
     data_t *h_dataInput, data_t *&d_dataInput, data_t *&d_dataBuffer, data_t *h_minMaxValues,
     h_glob_seq_t *h_globalSeqHost, h_glob_seq_t *h_globalSeqHostBuffer, d_glob_seq_t *h_globalSeqDev,
@@ -244,6 +259,9 @@ data_t* quickSort(
     return d_dataBuffer;
 }
 
+/*
+Sorts data wit parallel quicksort.
+*/
 double sortParallel(
     data_t *h_dataInput, data_t *h_dataOutput, data_t *d_dataTable, data_t *d_dataBuffer, data_t *h_minMaxValues,
     h_glob_seq_t *h_globalSeqHost, h_glob_seq_t *h_globalSeqHostBuffer, d_glob_seq_t *h_globalSeqDev,

@@ -13,7 +13,7 @@
 //////////////////////////// GENERAL UTILS //////////////////////////
 
 /*
-http://stackoverflow.com/questions/1582356/fastest-way-of-finding-the-middle-value-of-a-triple
+Calculates median of 3 provided values.
 */
 __device__ data_t getMedian(data_t a, data_t b, data_t c)
 {
@@ -22,6 +22,9 @@ __device__ data_t getMedian(data_t a, data_t b, data_t c)
     return a ^ b ^ c ^ maxVal ^ minVal;
 }
 
+/*
+Calculates the next power of 2 of provided value or returns value if it is already a power of 2.
+*/
 __device__ uint_t nextPowerOf2Device(uint_t value)
 {
     value--;
@@ -39,7 +42,7 @@ __device__ uint_t nextPowerOf2Device(uint_t value)
 ///////////////////////////// SCAN UTILS ////////////////////////////
 
 /*
-Performs scan and computes, how many elements have 'true' predicate before current element.
+Performs exclusive scan and computes, how many elements have 'true' predicate before current element.
 */
 template <uint_t blockSize>
 __device__ uint_t intraWarpScan(volatile uint_t *scanTile, uint_t val)
@@ -278,6 +281,9 @@ __device__ void normalizedBitonicSort(data_t *input, data_t *output, loc_seq_t l
 
 //////////////////////// LOCAL QUICKSORT UTILS //////////////////////
 
+/*
+Returns last local sequence on workstack and decreases workstack counter (pop).
+*/
 __device__ loc_seq_t popWorkstack(loc_seq_t *workstack, int_t &workstackCounter)
 {
     if (threadIdx.x == 0)
@@ -289,40 +295,42 @@ __device__ loc_seq_t popWorkstack(loc_seq_t *workstack, int_t &workstackCounter)
     return workstack[workstackCounter + 1];
 }
 
+/*
+From provided sequence generates 2 new sequences and pushes them on stack of sequences.
+*/
 __device__ int_t pushWorkstack(
-    loc_seq_t *workstack, int_t &workstackCounter, loc_seq_t params, uint_t lowerCounter, uint_t greaterCounter
+    loc_seq_t *workstack, int_t &workstackCounter, loc_seq_t sequence, uint_t lowerCounter, uint_t greaterCounter
 )
 {
-    loc_seq_t newParams1, newParams2;
+    loc_seq_t newSequence1, newSequence2;
 
-    newParams1.direction = (direct_t)!params.direction;
-    newParams2.direction = (direct_t)!params.direction;
+    newSequence1.direction = (direct_t)!sequence.direction;
+    newSequence2.direction = (direct_t)!sequence.direction;
 
-    // TODO try in-place change directly on workstack without newParams 1 and 2 - if not possible move to
-    // struct construcor
+    // From provided sequence generates new sequences
     if (lowerCounter <= greaterCounter)
     {
-        newParams1.start = params.start + params.length - greaterCounter;
-        newParams1.length = greaterCounter;
-        newParams2.start = params.start;
-        newParams2.length = lowerCounter;
+        newSequence1.start = sequence.start + sequence.length - greaterCounter;
+        newSequence1.length = greaterCounter;
+        newSequence2.start = sequence.start;
+        newSequence2.length = lowerCounter;
     }
     else
     {
-        newParams1.start = params.start;
-        newParams1.length = lowerCounter;
-        newParams2.start = params.start + params.length - greaterCounter;
-        newParams2.length = greaterCounter;
+        newSequence1.start = sequence.start;
+        newSequence1.length = lowerCounter;
+        newSequence2.start = sequence.start + sequence.length - greaterCounter;
+        newSequence2.length = greaterCounter;
     }
 
-    // TODO verify if there are any benefits with this if statement
-    if (newParams1.length > 0)
+    // Push news sequences on stack
+    if (newSequence1.length > 0)
     {
-        workstack[++workstackCounter] = newParams1;
+        workstack[++workstackCounter] = newSequence1;
     }
-    if (newParams2.length > 0)
+    if (newSequence2.length > 0)
     {
-        workstack[++workstackCounter] = newParams2;
+        workstack[++workstackCounter] = newSequence2;
     }
 
     return workstackCounter;
@@ -403,7 +411,13 @@ __global__ void minMaxReductionKernel(data_t *input, data_t *output, uint_t tabl
     }
 }
 
-// TODO try alignment with 32 for coalasced reading
+/*
+Executes global quicksort - multiple thread blocks process one sequence. They count how many elements are
+lower/greater than pivot and then execute partitioning. At the end last thread block processing the
+sequence stores the pivots.
+
+TODO try alignment with 32 for coalasced reading
+*/
 __global__ void quickSortGlobalKernel(
     data_t *dataInput, data_t *dataBuffer, d_glob_seq_t *sequences, uint_t *seqIndexes
 )
@@ -532,8 +546,13 @@ __global__ void quickSortGlobalKernel(
     }
 }
 
-// TODO in general chech if __shared__ values work faster (pivot, array1, array2, ...)
-// TODO try alignment with 32 for coalasced reading
+/*
+Executes local quicksort - one thread block processes one sequence. It counts number of elements
+lower/greater than pivot and then performs partitioning.
+Workstack is used - shortest sequence is always processed.
+
+TODO try alignment with 32 for coalasced reading
+*/
 template <order_t sortOrder>
 __global__ void quickSortLocalKernel(data_t *dataInput, data_t *dataBuffer, loc_seq_t *sequences)
 {
