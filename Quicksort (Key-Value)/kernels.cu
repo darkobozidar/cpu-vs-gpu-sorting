@@ -406,7 +406,8 @@ sequence stores the pivots.
 TODO try alignment with 32 for coalasced reading
 */
 __global__ void quickSortGlobalKernel(
-    data_t *dataInput, data_t *dataBuffer, d_glob_seq_t *sequences, uint_t *seqIndexes
+    data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, d_glob_seq_t *sequences,
+    uint_t *seqIndexes
 )
 {
     extern __shared__ data_t globalSortTile[];
@@ -434,8 +435,8 @@ __global__ void quickSortGlobalKernel(
     }
     __syncthreads();
 
-    data_t *primaryArray = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataInput : dataBuffer;
-    data_t *bufferArray = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataInput : dataBuffer;
+    data_t *keysPrimary = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataKeys : bufferKeys;
+    data_t *keysBuffer = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataKeys : bufferKeys;
 
 #if USE_REDUCTION_IN_GLOBAL_SORT
     // Initializes min/max values.
@@ -448,7 +449,7 @@ __global__ void quickSortGlobalKernel(
     // Counts the number of elements lower/greater than pivot and finds min/max
     for (uint_t tx = threadIdx.x; tx < localLength; tx += THREADS_PER_SORT_GLOBAL)
     {
-        data_t temp = primaryArray[localStart + tx];
+        data_t temp = keysPrimary[localStart + tx];
         localLower += temp < sequence.pivot;
         localGreater += temp > sequence.pivot;
 
@@ -497,15 +498,15 @@ __global__ void quickSortGlobalKernel(
     // Scatters elements to newly generated left/right subsequences
     for (uint_t tx = threadIdx.x; tx < localLength; tx += THREADS_PER_SORT_GLOBAL)
     {
-        data_t temp = primaryArray[localStart + tx];
+        data_t temp = keysPrimary[localStart + tx];
 
         if (temp < sequence.pivot)
         {
-            bufferArray[indexLower++] = temp;
+            keysBuffer[indexLower++] = temp;
         }
         else if (temp > sequence.pivot)
         {
-            bufferArray[indexGreater++] = temp;
+            keysBuffer[indexGreater++] = temp;
         }
     }
 
@@ -527,7 +528,7 @@ __global__ void quickSortGlobalKernel(
         // Pivots have to be stored in output array, because they won't be moved anymore
         while (index < end)
         {
-            dataBuffer[index] = pivot;
+            bufferKeys[index] = pivot;
             index += THREADS_PER_SORT_GLOBAL;
         }
     }

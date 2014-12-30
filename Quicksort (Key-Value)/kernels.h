@@ -4,7 +4,8 @@
 
 __global__ void minMaxReductionKernel(data_t *input, data_t *output, uint_t tableLen);
 __global__ void quickSortGlobalKernel(
-    data_t *dataInput, data_t *dataBuffer, d_glob_seq_t *sequences, uint_t *seqIndexes
+    data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, d_glob_seq_t *sequences,
+    uint_t *seqIndexes
 );
 template <order_t sortOrder>
 __global__ void quickSortLocalKernel(data_t *dataInput, data_t *dataBuffer, loc_seq_t *sequences);

@@ -80,8 +80,9 @@ Runs global (multiple thread blocks process one sequence) quicksort and coppies 
 from device.
 */
 void runQuickSortGlobalKernel(
-    data_t *dataTable, data_t *dataBuffer, d_glob_seq_t *h_globalSeqDev, d_glob_seq_t *d_globalSeqDev,
-    uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes, uint_t numSeqGlobal, uint_t threadBlockCounter
+    data_t *d_dataKeys, data_t *d_dataValues, data_t *d_bufferKeys, data_t *d_bufferValues,
+    d_glob_seq_t *h_globalSeqDev, d_glob_seq_t *d_globalSeqDev, uint_t *h_globalSeqIndexes,
+    uint_t *d_globalSeqIndexes, uint_t numSeqGlobal, uint_t threadBlockCounter
 )
 {
     cudaError_t error;
@@ -106,7 +107,7 @@ void runQuickSortGlobalKernel(
     checkCudaError(error);
 
     quickSortGlobalKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
-        dataTable, dataBuffer, d_globalSeqDev, d_globalSeqIndexes
+        d_dataKeys, d_dataValues, d_bufferKeys, d_bufferValues, d_globalSeqDev, d_globalSeqIndexes
     );
 
     error = cudaMemcpy(
@@ -210,8 +211,8 @@ void quickSort(
         }
 
         runQuickSortGlobalKernel(
-            d_dataKeys, d_bufferKeys, h_globalSeqDev, d_globalSeqDev, h_globalSeqIndexes,
-            d_globalSeqIndexes, numSeqGlobal, threadBlockCounter
+            d_dataKeys, d_dataValues, d_bufferKeys, d_bufferValues, h_globalSeqDev, d_globalSeqDev,
+            h_globalSeqIndexes, d_globalSeqIndexes, numSeqGlobal, threadBlockCounter
         );
 
         uint_t numSeqGlobalOld = numSeqGlobal;
