@@ -68,6 +68,9 @@ struct DeviceGlobalSequence
     uint_t offsetLower;
     uint_t offsetGreater;
 
+    // TODO comment
+    uint_t offsetPivotValues;
+
 #if USE_REDUCTION_IN_GLOBAL_SORT
     // Holds the maximum value for lower sequence and minimum value for greater sequence. This way newly
     // generated lower/greater sequence can have correct min/max value boundaries. Min value for lower

@@ -66,6 +66,7 @@ void DeviceGlobalSequence::setFromHostSeq(
 
     offsetLower = 0;
     offsetGreater = 0;
+    offsetPivotValues = 0;
 
 #if USE_REDUCTION_IN_GLOBAL_SORT
     greaterSeqMinVal = MAX_VAL;

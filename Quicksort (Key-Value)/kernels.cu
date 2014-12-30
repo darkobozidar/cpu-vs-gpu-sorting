@@ -486,18 +486,22 @@ __global__ void quickSortGlobalKernel(
     __syncthreads();
 
     // Calculates number of elements lower/greater than pivot for all thread blocks processing this sequence
-    __shared__ uint_t globalLower, globalGreater;
+    __shared__ uint_t globalLower, globalGreater, globalOffsetPivotValues;
     if (threadIdx.x == (THREADS_PER_SORT_GLOBAL - 1))
     {
         globalLower = atomicAdd(&sequences[seqIdx].offsetLower, scanLower);
         globalGreater = atomicAdd(&sequences[seqIdx].offsetGreater, scanGreater);
+        globalOffsetPivotValues = atomicAdd(
+            &sequences[seqIdx].offsetPivotValues, elemsPerBlock - scanLower - scanGreater
+        );
     }
     __syncthreads();
 
     uint_t indexLower = sequence.start + globalLower + scanLower - localLower;
     uint_t indexGreater = sequence.start + sequence.length - globalGreater - scanGreater;
-    uint_t indexPivot = sequence.start + (sequence.length - globalLower - globalGreater);
-    indexPivot += elemsPerBlock - scanLower - scanGreater - localLower - localGreater;
+    uint_t indexPivot = sequence.start + globalOffsetPivotValues + (
+        threadIdx.x * ELEMENTS_PER_THREAD_GLOBAL - (scanLower - localLower) - (scanGreater - localGreater)
+    );
 
     // Scatters elements to newly generated left/right subsequences
     for (uint_t tx = threadIdx.x; tx < localLength; tx += THREADS_PER_SORT_GLOBAL)
@@ -534,12 +538,10 @@ __global__ void quickSortGlobalKernel(
     if (sequence.threadBlockCounter == 0)
     {
         data_t pivot = sequence.pivot;
-        uint_t globalOffsetLower = sequences[seqIdx].offsetLower;
-        uint_t globalOffsetGreater = sequences[seqIdx].offsetGreater;
 
-        uint_t indexOutput = sequence.start + globalOffsetLower + threadIdx.x;
-        uint_t endOutput = sequence.start + sequence.length - globalOffsetGreater;
-        uint_t indexPivot = sequence.start;
+        uint_t indexOutput = sequence.start + sequences[seqIdx].offsetLower + threadIdx.x;
+        uint_t endOutput = sequence.start + sequence.length - sequences[seqIdx].offsetGreater;
+        uint_t indexPivot = sequence.start + threadIdx.x;
 
         // Pivots have to be stored in output array, because they won't be moved anymore
         while (indexOutput < endOutput)
