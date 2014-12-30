@@ -89,8 +89,6 @@ struct LocalSequence
 {
     uint_t start;
     uint_t length;
-    data_t minVal;
-    data_t maxVal;
     TransferDirection direction;
 
     void setInitSeq(uint_t tableLen);

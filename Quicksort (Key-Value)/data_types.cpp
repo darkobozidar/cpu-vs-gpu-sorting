@@ -88,12 +88,6 @@ void LocalSequence::setLowerSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalS
 {
     start = globalSeqHost.oldStart;
     length = globalSeqDev.offsetLower;
-    minVal = globalSeqHost.minVal;
-#if USE_REDUCTION_IN_GLOBAL_SORT
-    maxVal = globalSeqDev.lowerSeqMaxVal;
-#else
-    maxVal = globalSeqDev.pivot;
-#endif
     direction = (direct_t)!globalSeqHost.direction;
 }
 
@@ -101,11 +95,5 @@ void LocalSequence::setGreaterSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globa
 {
     start = globalSeqHost.oldStart + globalSeqHost.length - globalSeqDev.offsetGreater;
     length = globalSeqDev.offsetGreater;
-#if USE_REDUCTION_IN_GLOBAL_SORT
-    minVal = globalSeqDev.greaterSeqMinVal;
-#else
-    minVal = globalSeqDev.pivot;
-#endif
-    maxVal = globalSeqHost.maxVal;
     direction = (direct_t)!globalSeqHost.direction;
 }
