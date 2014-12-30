@@ -564,7 +564,8 @@ TODO try alignment with 32 for coalasced reading
 */
 template <order_t sortOrder>
 __global__ void quickSortLocalKernel(
-    data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, loc_seq_t *sequences
+    data_t *dataKeysGlobal, data_t *dataValuesGlobal, data_t *bufferKeysGlobal, data_t *bufferValuesGlobal,
+    loc_seq_t *sequences
 )
 {
     // Explicit stack (instead of recursion), which holds sequences, which need to be processed.
@@ -590,26 +591,30 @@ __global__ void quickSortLocalKernel(
         if (sequence.length <= THRESHOLD_BITONIC_SORT_LOCAL)
         {
             // Bitonic sort is executed in-place and sorted data has to be writter to output.
-            data_t *inputTemp = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataKeys : bufferKeys;
-            normalizedBitonicSort<sortOrder>(inputTemp, bufferKeys, sequence);
+            data_t *keysPrimary = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataKeysGlobal : bufferKeysGlobal;
+            data_t *valuesPrimary = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataKeysGlobal : bufferKeysGlobal;
+            normalizedBitonicSort<sortOrder>(keysPrimary, bufferKeysGlobal, sequence);
 
             continue;
         }
 
-        data_t *keysPrimary = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataKeys : bufferKeys;
-        data_t *valuesPrimary = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataValues : bufferValues;
-        data_t *keysBuffer = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataKeys : bufferKeys;
-        data_t *valuesBuffer = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataValues : bufferValues;
+        data_t *keysPrimary = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataKeysGlobal : bufferKeysGlobal;
+        data_t *valuesPrimary = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataValuesGlobal : bufferValuesGlobal;
+        data_t *keysBuffer = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataKeysGlobal : bufferKeysGlobal;
+        data_t *valuesBuffer = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataValuesGlobal : bufferValuesGlobal;
 
         // Counters for number of elements lower/greater than pivot
         uint_t localLower = 0, localGreater = 0;
 
         // Every thread counts the number of elements lower/greater than pivot
+        uint_t lastReadElement = 0;
         for (uint_t tx = threadIdx.x; tx < sequence.length; tx += THREADS_PER_SORT_LOCAL)
         {
             data_t temp = keysPrimary[sequence.start + tx];
             localLower += temp < pivot;
             localGreater += temp > pivot;
+
+            lastReadElement = tx;
         }
 
         // Calculates global offsets for each thread with inclusive scan
@@ -618,21 +623,43 @@ __global__ void quickSortLocalKernel(
         uint_t globalGreater = intraBlockScan<THREADS_PER_SORT_LOCAL>(localGreater);
         __syncthreads();
 
+        __shared__ uint_t globalPivotOffset;
+        if (threadIdx.x == (THREADS_PER_SORT_LOCAL - 1))
+        {
+            globalPivotOffset = sequence.start + globalLower;
+        }
+        __syncthreads();
+
         uint_t indexLower = sequence.start + globalLower - localLower;
         uint_t indexGreater = sequence.start + sequence.length - globalGreater;
+        uint_t pivotIndex = globalPivotOffset + (lastReadElement / THREADS_PER_SORT_LOCAL + 1) -
+            (globalLower - localLower) - (globalGreater - localGreater);
 
         // Scatters elements to newly generated left/right subsequences
         for (uint_t tx = threadIdx.x; tx < sequence.length; tx += THREADS_PER_SORT_LOCAL)
         {
-            data_t temp = keysPrimary[sequence.start + tx];
+            data_t key = keysPrimary[sequence.start + tx];
+            data_t value = valuesPrimary[sequence.start + tx];
 
-            if (temp < pivot)
+            if (key < pivot)
             {
-                keysBuffer[indexLower++] = temp;
+                keysBuffer[indexLower] = key;
+                valuesBuffer[indexLower] = value;
+                indexLower++;
             }
-            else if (temp > pivot)
+            else if (key > pivot)
             {
-                keysBuffer[indexGreater++] = temp;
+                keysBuffer[indexGreater] = key;
+                valuesBuffer[indexGreater] = value;
+                indexGreater++;
+            }
+            else
+            {
+                // Scatters the pivots to output array. Pivots have to be stored in output array, because they
+                // won't be moved anymore
+                bufferKeysGlobal[pivotIndex] = key;
+                bufferValuesGlobal[pivotIndex] = value;
+                pivotIndex++;
             }
         }
 
@@ -644,24 +671,14 @@ __global__ void quickSortLocalKernel(
             pivotLowerOffset = globalLower;
             pivotGreaterOffset = globalGreater;
         }
-        __syncthreads();
-
-        // Scatters the pivots to output array. Pivots have to be stored in output array, because they
-        // won't be moved anymore
-        uint_t index = sequence.start + pivotLowerOffset + threadIdx.x;
-        uint_t end = sequence.start + sequence.length - pivotGreaterOffset;
-
-        while (index < end)
-        {
-            bufferKeys[index] = pivot;
-            index += THREADS_PER_SORT_LOCAL;
-        }
     }
 }
 
 template __global__ void quickSortLocalKernel<ORDER_ASC>(
-    data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, loc_seq_t *sequences
+    data_t *dataKeysGlobal, data_t *dataValuesGlobal, data_t *bufferKeysGlobal, data_t *bufferValuesGlobal,
+    loc_seq_t *sequences
 );
 template __global__ void quickSortLocalKernel<ORDER_DESC>(
-    data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, loc_seq_t *sequences
+    data_t *dataKeysGlobal, data_t *dataValuesGlobal, data_t *bufferKeysGlobal, data_t *bufferValuesGlobal,
+    loc_seq_t *sequences
 );

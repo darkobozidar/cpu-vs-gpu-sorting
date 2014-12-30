@@ -9,7 +9,8 @@ __global__ void quickSortGlobalKernel(
 );
 template <order_t sortOrder>
 __global__ void quickSortLocalKernel(
-    data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, loc_seq_t *sequences
+    data_t *dataKeysGlobal, data_t *dataValuesGlobal, data_t *bufferKeysGlobal, data_t *bufferValuesGlobal,
+    loc_seq_t *sequences
 );
 
 #endif
