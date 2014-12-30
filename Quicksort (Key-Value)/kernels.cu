@@ -431,7 +431,6 @@ __global__ void quickSortGlobalKernel(
     data_t *minValues = globalSortTile;
     data_t *maxValues = globalSortTile + THREADS_PER_SORT_GLOBAL;
 
-    uint_t elemsPerBlock = THREADS_PER_SORT_GLOBAL * ELEMENTS_PER_THREAD_GLOBAL;
     // Index of sequence, which this thread block is partitioning
     __shared__ uint_t seqIdx;
     // Start and length of the data assigned to this thread block
@@ -443,6 +442,7 @@ __global__ void quickSortGlobalKernel(
         seqIdx = seqIndexes[blockIdx.x];
         sequence = sequences[seqIdx];
         uint_t localBlockIdx = blockIdx.x - sequence.startThreadBlockIdx;
+        uint_t elemsPerBlock = THREADS_PER_SORT_GLOBAL * ELEMENTS_PER_THREAD_GLOBAL;
 
         // Params.threadBlockCounter cannot be used, because it can get modified by other blocks.
         uint_t offset = localBlockIdx * elemsPerBlock;
@@ -509,7 +509,7 @@ __global__ void quickSortGlobalKernel(
         globalLower = atomicAdd(&sequences[seqIdx].offsetLower, scanLower);
         globalGreater = atomicAdd(&sequences[seqIdx].offsetGreater, scanGreater);
         globalOffsetPivotValues = atomicAdd(
-            &sequences[seqIdx].offsetPivotValues, elemsPerBlock - scanLower - scanGreater
+            &sequences[seqIdx].offsetPivotValues, localLength - scanLower - scanGreater
         );
     }
     __syncthreads();
