@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 
 #include "data_types_common.h"
@@ -134,6 +135,32 @@ double getSpeedup(double **timers, sort_type_t sortType1, sort_type_t sortType2,
 }
 
 /*
+Checks if sorted values are unique.
+Not so trivial in some sorts - for example quicksort.
+*/
+void checkValuesUniqueness(data_t *values, uint_t tableLen)
+{
+    uint_t *uniquenessTable = (uint_t*)malloc(tableLen * sizeof(*uniquenessTable));
+
+    for (uint_t i = 0; i < tableLen; i++)
+    {
+        uniquenessTable[i] = 0;
+    }
+
+    for (uint_t i = 0; i < tableLen; i++)
+    {
+        if (++uniquenessTable[values[i]] > 1)
+        {
+            printf("Duplicate value: %d\n", values[i]);
+            getchar();
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    free(uniquenessTable);
+}
+
+/*
 Determines if array is sorted in stable manner.
 */
 bool isSortStable(data_t *keys, data_t *values, uint_t tableLen)
@@ -142,6 +169,8 @@ bool isSortStable(data_t *keys, data_t *values, uint_t tableLen)
     {
         return true;
     }
+
+    checkValuesUniqueness(values, tableLen);
 
     for (uint_t i = 1; i < tableLen; i++)
     {

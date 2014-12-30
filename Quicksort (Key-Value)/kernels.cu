@@ -554,8 +554,6 @@ __global__ void quickSortGlobalKernel(
     // Last block assigned to current sub-sequence stores pivots
     if (sequence.threadBlockCounter == 0)
     {
-        data_t pivot = sequence.pivot;
-
         uint_t indexOutput = sequence.start + sequences[seqIdx].offsetLower + threadIdx.x;
         uint_t endOutput = sequence.start + sequence.length - sequences[seqIdx].offsetGreater;
         uint_t indexPivot = sequence.start + threadIdx.x;
@@ -563,7 +561,7 @@ __global__ void quickSortGlobalKernel(
         // Pivots have to be stored in output array, because they won't be moved anymore
         while (indexOutput < endOutput)
         {
-            bufferKeys[indexOutput] = pivot;
+            bufferKeys[indexOutput] = sequence.pivot;
             bufferValues[indexOutput] = pivotValues[indexPivot];
 
             indexOutput += THREADS_PER_SORT_GLOBAL;
