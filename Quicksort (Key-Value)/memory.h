@@ -20,12 +20,12 @@ void freeHostMemory(
 );
 
 void allocDeviceMemory(
-    data_t **dataKeys, data_t **dataValues, data_t **bufferKeys, data_t **bufferValues,
+    data_t **dataKeys, data_t **dataValues, data_t **bufferKeys, data_t **bufferValues, data_t **bufferPivots,
     d_glob_seq_t **globalSeqDev, uint_t **globalSeqIndexes, loc_seq_t **localSeq, uint_t tableLen
 );
 void freeDeviceMemory(
-    data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, d_glob_seq_t *globalSeqDev,
-    uint_t *globalSeqIndexes, loc_seq_t *localSeq
+    data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, data_t *bufferPivots,
+    d_glob_seq_t *globalSeqDev, uint_t *globalSeqIndexes, loc_seq_t *localSeq
 );
 
 #endif

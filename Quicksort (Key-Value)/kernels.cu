@@ -406,11 +406,12 @@ sequence stores the pivots.
 TODO try alignment with 32 for coalasced reading
 */
 __global__ void quickSortGlobalKernel(
-    data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, d_glob_seq_t *sequences,
-    uint_t *seqIndexes
+    data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, data_t *bufferPivots,
+    d_glob_seq_t *sequences, uint_t *seqIndexes
 )
 {
     extern __shared__ data_t globalSortTile[];
+    __shared__ data_t warpPivotCounters[THREADS_PER_SORT_GLOBAL / WARP_SIZE];
     data_t *minValues = globalSortTile;
     data_t *maxValues = globalSortTile + THREADS_PER_SORT_GLOBAL;
 

@@ -123,7 +123,7 @@ void freeHostMemory(
 Allocates device memory.
 */
 void allocDeviceMemory(
-    data_t **dataKeys, data_t **dataValues, data_t **bufferKeys, data_t **bufferValues,
+    data_t **dataKeys, data_t **dataValues, data_t **bufferKeys, data_t **bufferValues, data_t **bufferPivots,
     d_glob_seq_t **globalSeqDev, uint_t **globalSeqIndexes, loc_seq_t **localSeq, uint_t tableLen
 )
 {
@@ -143,6 +143,8 @@ void allocDeviceMemory(
     checkCudaError(error);
     error = cudaMalloc(bufferValues, tableLen * sizeof(**bufferValues));
     checkCudaError(error);
+    error = cudaMalloc(bufferPivots, tableLen * sizeof(**bufferPivots));
+    checkCudaError(error);
 
     // Sequence metadata memory allocation
     error = cudaMalloc(globalSeqDev, maxNumSequences * sizeof(**globalSeqDev));
@@ -157,8 +159,8 @@ void allocDeviceMemory(
 Frees device memory.
 */
 void freeDeviceMemory(
-    data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, d_glob_seq_t *globalSeqDev,
-    uint_t *globalSeqIndexes, loc_seq_t *localSeq
+    data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, data_t *bufferPivots,
+    d_glob_seq_t *globalSeqDev, uint_t *globalSeqIndexes, loc_seq_t *localSeq
 )
 {
     cudaError_t error;
@@ -170,6 +172,8 @@ void freeDeviceMemory(
     error = cudaFree(bufferKeys);
     checkCudaError(error);
     error = cudaFree(bufferValues);
+    checkCudaError(error);
+    error = cudaFree(bufferPivots);
     checkCudaError(error);
 
     error = cudaFree(globalSeqDev);

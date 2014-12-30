@@ -26,6 +26,8 @@ int main(int argc, char **argv)
     data_t *h_outputSequentialKeys, *h_outputSequentialValues;
     data_t *h_outputCorrect;
     data_t *d_dataKeys, *d_dataValues, *d_bufferKeys, *d_bufferValues;
+    // TODO comment
+    data_t *d_bufferPivots;
     // When initial min/max parallel reduction reduces data to threashold, min/max values are coppied to host
     // and reduction is finnished on host. Multiplier "2" is used because of min and max values.
     data_t *h_minMaxValues;
@@ -43,7 +45,7 @@ int main(int argc, char **argv)
     uint_t tableLen = (1 << 20);
     uint_t interval = (1 << 31);
     uint_t testRepetitions = 10;    // How many times are sorts ran
-    order_t sortOrder = ORDER_ASC;  // Values: ORDER_ASC, ORDER_DESC
+    order_t sortOrder = ORDER_ASC;  // Values: ORDER_ASC, ORDER_DESC (TODO implement for DESC sort order)
     data_dist_t distribution = DISTRIBUTION_UNIFORM;
     bool printMeaurements = true;
 
@@ -60,8 +62,8 @@ int main(int argc, char **argv)
         &h_globalSeqDev, &h_globalSeqIndexes, &h_localSeq, &timers, tableLen, testRepetitions
     );
     allocDeviceMemory(
-        &d_dataKeys, &d_dataValues, &d_bufferKeys, &d_bufferValues, &d_globalSeqDev, &d_globalSeqIndexes,
-        &d_localSeq, tableLen
+        &d_dataKeys, &d_dataValues, &d_bufferKeys, &d_bufferValues, &d_bufferPivots, &d_globalSeqDev,
+        &d_globalSeqIndexes, &d_localSeq, tableLen
     );
 
     printf(">>> QUICKSORT (Key-Value) <<<\n\n\n");
@@ -90,7 +92,7 @@ int main(int argc, char **argv)
         checkCudaError(error);
         timers[SORT_PARALLEL][i] = sortParallel(
             h_inputKeys, h_outputParallelKeys, h_outputParallelValues, d_dataKeys, d_dataValues, d_bufferKeys,
-            d_bufferValues, h_minMaxValues, h_globalSeqHost, h_globalSeqHostBuffer, h_globalSeqDev,
+            d_bufferValues, d_bufferPivots, h_minMaxValues, h_globalSeqHost, h_globalSeqHostBuffer, h_globalSeqDev,
             d_globalSeqDev, h_globalSeqIndexes, d_globalSeqIndexes, h_localSeq, d_localSeq, tableLen, sortOrder
         );
 
@@ -157,7 +159,8 @@ int main(int argc, char **argv)
         h_globalSeqDev, h_globalSeqIndexes, h_localSeq, timers
     );
     freeDeviceMemory(
-        d_dataKeys, d_dataValues, d_bufferKeys, d_bufferValues, d_globalSeqDev, d_globalSeqIndexes, d_localSeq
+        d_dataKeys, d_dataValues, d_bufferKeys, d_bufferValues, d_bufferPivots, d_globalSeqDev,
+        d_globalSeqIndexes, d_localSeq
     );
 
     getchar();
