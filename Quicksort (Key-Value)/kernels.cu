@@ -210,13 +210,17 @@ __device__ void warpMaxReduce(volatile data_t *maxValues) {
 Compares 2 elements and exchanges them according to sortOrder.
 */
 template <order_t sortOrder>
-__device__ void compareExchange(data_t *elem1, data_t *elem2)
+__device__ void compareExchange(data_t *key1, data_t *key2, data_t *val1, data_t *val2)
 {
-    if ((*elem1 > *elem2) ^ sortOrder)
+    if ((*key1 > *key2) ^ sortOrder)
     {
-        data_t temp = *elem1;
-        *elem1 = *elem2;
-        *elem2 = temp;
+        data_t temp = *key1;
+        *key1 = *key2;
+        *key2 = temp;
+
+        temp = *val1;
+        *val1 = *val2;
+        *val2 = temp;
     }
 }
 
@@ -225,14 +229,19 @@ Sorts input data with NORMALIZED bitonic sort (all comparisons are made in same 
 easy to implement for input sequences of arbitrary size) and outputs them to output array.
 */
 template <order_t sortOrder>
-__device__ void normalizedBitonicSort(data_t *input, data_t *output, loc_seq_t localParams)
+__device__ void normalizedBitonicSort(
+    data_t *keysInput, data_t *valuesInput, data_t *keysOutput, data_t *valuesOutput, loc_seq_t localParams
+)
 {
     extern __shared__ data_t bitonicSortTile[];
+    data_t *keysTile = bitonicSortTile;
+    data_t *valuesTile = bitonicSortTile + THRESHOLD_BITONIC_SORT_LOCAL;
 
     // Read data from global to shared memory.
     for (uint_t tx = threadIdx.x; tx < localParams.length; tx += THREADS_PER_SORT_LOCAL)
     {
-        bitonicSortTile[tx] = input[localParams.start + tx];
+        keysTile[tx] = keysInput[localParams.start + tx];
+        valuesTile[tx] = valuesInput[localParams.start + tx];
     }
     __syncthreads();
 
@@ -264,7 +273,9 @@ __device__ void normalizedBitonicSort(data_t *input, data_t *output, loc_seq_t l
                     break;
                 }
 
-                compareExchange<sortOrder>(&bitonicSortTile[index], &bitonicSortTile[index + offset]);
+                compareExchange<sortOrder>(
+                    &keysTile[index], &keysTile[index + offset], &valuesTile[index], &valuesTile[index + offset]
+                );
             }
 
             __syncthreads();
@@ -274,7 +285,8 @@ __device__ void normalizedBitonicSort(data_t *input, data_t *output, loc_seq_t l
     // Store data from shared to global memory
     for (uint_t tx = threadIdx.x; tx < localParams.length; tx += THREADS_PER_SORT_LOCAL)
     {
-        output[localParams.start + tx] = bitonicSortTile[tx];
+        keysOutput[localParams.start + tx] = keysTile[tx];
+        valuesOutput[localParams.start + tx] = valuesTile[tx];
     }
 }
 
@@ -596,9 +608,9 @@ __global__ void quickSortLocalKernel(
         if (sequence.length <= THRESHOLD_BITONIC_SORT_LOCAL)
         {
             // Bitonic sort is executed in-place and sorted data has to be writter to output.
-            data_t *keysPrimary = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataKeysGlobal : bufferKeysGlobal;
-            data_t *valuesPrimary = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataKeysGlobal : bufferKeysGlobal;
-            normalizedBitonicSort<sortOrder>(keysPrimary, bufferKeysGlobal, sequence);
+            data_t *keysInput = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataKeysGlobal : bufferKeysGlobal;
+            data_t *valuesInput = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataValuesGlobal : bufferValuesGlobal;
+            normalizedBitonicSort<sortOrder>(keysInput, valuesInput, bufferKeysGlobal, bufferValuesGlobal, sequence);
 
             continue;
         }
@@ -682,6 +694,7 @@ __global__ void quickSortLocalKernel(
             pivotLowerOffset = globalLower;
             pivotGreaterOffset = globalGreater;
         }
+        __syncthreads();
     }
 }
 

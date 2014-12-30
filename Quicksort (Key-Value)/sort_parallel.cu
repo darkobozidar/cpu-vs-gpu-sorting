@@ -128,9 +128,9 @@ void runQuickSortLocalKernel(
     cudaError_t error;
 
     // The same shared memory array is used for counting elements greater/lower than pivot and for bitonic sort.
-    // max(intra-block scan array size, array size for bitonic sort)
+    // max(intra-block scan array size, array size for bitonic sort ("2 *" because of key-value pairs))
     uint_t sharedMemSize = max(
-        2 * THREADS_PER_SORT_LOCAL * sizeof(uint_t), THRESHOLD_BITONIC_SORT_LOCAL * sizeof(*dataKeys)
+        2 * THREADS_PER_SORT_LOCAL * sizeof(uint_t), 2 * THRESHOLD_BITONIC_SORT_LOCAL * sizeof(*dataKeys)
     );
     dim3 dimGrid(numThreadBlocks, 1, 1);
     dim3 dimBlock(THREADS_PER_SORT_LOCAL, 1, 1);
