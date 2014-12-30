@@ -121,8 +121,8 @@ void runQuickSortGlobalKernel(
 Finishes quicksort with local (one thread block processes one block) quicksort.
 */
 void runQuickSortLocalKernel(
-    data_t *dataTable, data_t *dataBuffer, loc_seq_t *h_localSeq, loc_seq_t *d_localSeq,
-    uint_t numThreadBlocks, order_t sortOrder
+    data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, loc_seq_t *h_localSeq,
+    loc_seq_t *d_localSeq, uint_t numThreadBlocks, order_t sortOrder
 )
 {
     cudaError_t error;
@@ -130,7 +130,7 @@ void runQuickSortLocalKernel(
     // The same shared memory array is used for counting elements greater/lower than pivot and for bitonic sort.
     // max(intra-block scan array size, array size for bitonic sort)
     uint_t sharedMemSize = max(
-        2 * THREADS_PER_SORT_LOCAL * sizeof(uint_t), THRESHOLD_BITONIC_SORT_LOCAL * sizeof(*dataTable)
+        2 * THREADS_PER_SORT_LOCAL * sizeof(uint_t), THRESHOLD_BITONIC_SORT_LOCAL * sizeof(*dataKeys)
     );
     dim3 dimGrid(numThreadBlocks, 1, 1);
     dim3 dimBlock(THREADS_PER_SORT_LOCAL, 1, 1);
@@ -141,13 +141,13 @@ void runQuickSortLocalKernel(
     if (sortOrder == ORDER_ASC)
     {
         quickSortLocalKernel<ORDER_ASC><<<dimGrid, dimBlock, sharedMemSize>>>(
-            dataTable, dataBuffer, d_localSeq
+            dataKeys, dataValues, bufferKeys, bufferValues, d_localSeq
         );
     }
     else
     {
         quickSortLocalKernel<ORDER_DESC><<<dimGrid, dimBlock, sharedMemSize>>>(
-            dataTable, dataBuffer, d_localSeq
+            dataKeys, dataValues, bufferKeys, bufferValues, d_localSeq
         );
     }
 }
@@ -263,7 +263,7 @@ void quickSort(
     }
 
     runQuickSortLocalKernel(
-        d_dataKeys, d_bufferKeys, h_localSeq, d_localSeq, numSeqLocal, sortOrder
+        d_dataKeys, d_dataValues, d_bufferKeys, d_bufferValues, h_localSeq, d_localSeq, numSeqLocal, sortOrder
     );
 }
 

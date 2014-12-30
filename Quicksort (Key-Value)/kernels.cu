@@ -563,7 +563,9 @@ Workstack is used - shortest sequence is always processed.
 TODO try alignment with 32 for coalasced reading
 */
 template <order_t sortOrder>
-__global__ void quickSortLocalKernel(data_t *dataInput, data_t *dataBuffer, loc_seq_t *sequences)
+__global__ void quickSortLocalKernel(
+    data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, loc_seq_t *sequences
+)
 {
     // Explicit stack (instead of recursion), which holds sequences, which need to be processed.
     __shared__ loc_seq_t workstack[32];
@@ -588,14 +590,16 @@ __global__ void quickSortLocalKernel(data_t *dataInput, data_t *dataBuffer, loc_
         if (sequence.length <= THRESHOLD_BITONIC_SORT_LOCAL)
         {
             // Bitonic sort is executed in-place and sorted data has to be writter to output.
-            data_t *inputTemp = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataInput : dataBuffer;
-            normalizedBitonicSort<sortOrder>(inputTemp, dataBuffer, sequence);
+            data_t *inputTemp = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataKeys : bufferKeys;
+            normalizedBitonicSort<sortOrder>(inputTemp, bufferKeys, sequence);
 
             continue;
         }
 
-        data_t *primaryArray = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataInput : dataBuffer;
-        data_t *bufferArray = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataInput : dataBuffer;
+        data_t *keysPrimary = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataKeys : bufferKeys;
+        data_t *valuesPrimary = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataValues : bufferValues;
+        data_t *keysBuffer = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataKeys : bufferKeys;
+        data_t *valuesBuffer = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataValues : bufferValues;
 
         // Counters for number of elements lower/greater than pivot
         uint_t localLower = 0, localGreater = 0;
@@ -603,7 +607,7 @@ __global__ void quickSortLocalKernel(data_t *dataInput, data_t *dataBuffer, loc_
         // Every thread counts the number of elements lower/greater than pivot
         for (uint_t tx = threadIdx.x; tx < sequence.length; tx += THREADS_PER_SORT_LOCAL)
         {
-            data_t temp = primaryArray[sequence.start + tx];
+            data_t temp = keysPrimary[sequence.start + tx];
             localLower += temp < pivot;
             localGreater += temp > pivot;
         }
@@ -617,18 +621,18 @@ __global__ void quickSortLocalKernel(data_t *dataInput, data_t *dataBuffer, loc_
         uint_t indexLower = sequence.start + globalLower - localLower;
         uint_t indexGreater = sequence.start + sequence.length - globalGreater;
 
-        // Scatter elements to newly generated left/right subsequences
+        // Scatters elements to newly generated left/right subsequences
         for (uint_t tx = threadIdx.x; tx < sequence.length; tx += THREADS_PER_SORT_LOCAL)
         {
-            data_t temp = primaryArray[sequence.start + tx];
+            data_t temp = keysPrimary[sequence.start + tx];
 
             if (temp < pivot)
             {
-                bufferArray[indexLower++] = temp;
+                keysBuffer[indexLower++] = temp;
             }
             else if (temp > pivot)
             {
-                bufferArray[indexGreater++] = temp;
+                keysBuffer[indexGreater++] = temp;
             }
         }
 
@@ -649,15 +653,15 @@ __global__ void quickSortLocalKernel(data_t *dataInput, data_t *dataBuffer, loc_
 
         while (index < end)
         {
-            dataBuffer[index] = pivot;
+            bufferKeys[index] = pivot;
             index += THREADS_PER_SORT_LOCAL;
         }
     }
 }
 
 template __global__ void quickSortLocalKernel<ORDER_ASC>(
-    data_t *dataInput, data_t *dataBuffer, loc_seq_t *sequences
+    data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, loc_seq_t *sequences
 );
 template __global__ void quickSortLocalKernel<ORDER_DESC>(
-    data_t *dataInput, data_t *dataBuffer, loc_seq_t *sequences
+    data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, loc_seq_t *sequences
 );

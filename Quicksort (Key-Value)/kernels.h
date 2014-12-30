@@ -8,6 +8,8 @@ __global__ void quickSortGlobalKernel(
     d_glob_seq_t *sequences, uint_t *seqIndexes
 );
 template <order_t sortOrder>
-__global__ void quickSortLocalKernel(data_t *dataInput, data_t *dataBuffer, loc_seq_t *sequences);
+__global__ void quickSortLocalKernel(
+    data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, loc_seq_t *sequences
+);
 
 #endif
