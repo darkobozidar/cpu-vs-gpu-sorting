@@ -154,7 +154,7 @@ void runQuickSortLocalKernel(
 Executes parallel quicksort.
 */
 data_t* quickSort(
-    data_t *h_dataInput, data_t *&d_dataInput, data_t *&d_dataBuffer, data_t *h_minMaxValues,
+    data_t *h_dataInput, data_t *d_dataInput, data_t *d_dataBuffer, data_t *h_minMaxValues,
     h_glob_seq_t *h_globalSeqHost, h_glob_seq_t *h_globalSeqHostBuffer, d_glob_seq_t *h_globalSeqDev,
     d_glob_seq_t *d_globalSeqDev, uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes,
     loc_seq_t *h_localSeq, loc_seq_t *d_localSeq, uint_t tableLen, order_t sortOrder

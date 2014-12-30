@@ -289,7 +289,8 @@ __device__ loc_seq_t popWorkstack(loc_seq_t *workstack, int_t &workstackCounter)
 From provided sequence generates 2 new sequences and pushes them on stack of sequences.
 */
 __device__ int_t pushWorkstack(
-    loc_seq_t *workstack, int_t &workstackCounter, loc_seq_t sequence, data_t pivot, uint_t lowerCounter, uint_t greaterCounter
+    loc_seq_t *workstack, int_t &workstackCounter, loc_seq_t sequence, data_t pivot, uint_t lowerCounter,
+    uint_t greaterCounter
 )
 {
     loc_seq_t newSequence1, newSequence2;

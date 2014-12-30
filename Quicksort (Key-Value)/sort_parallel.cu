@@ -153,11 +153,12 @@ void runQuickSortLocalKernel(
 /*
 Executes parallel quicksort.
 */
-data_t* quickSort(
-    data_t *h_dataInput, data_t *&d_dataInput, data_t *&d_dataBuffer, data_t *h_minMaxValues,
-    h_glob_seq_t *h_globalSeqHost, h_glob_seq_t *h_globalSeqHostBuffer, d_glob_seq_t *h_globalSeqDev,
-    d_glob_seq_t *d_globalSeqDev, uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes,
-    loc_seq_t *h_localSeq, loc_seq_t *d_localSeq, uint_t tableLen, order_t sortOrder
+void quickSort(
+    data_t *h_dataInput, data_t *&d_dataKeys, data_t *&d_dataValues, data_t *&d_bufferKeys,
+    data_t *&d_bufferValues, data_t *h_minMaxValues, h_glob_seq_t *h_globalSeqHost,
+    h_glob_seq_t *h_globalSeqHostBuffer, d_glob_seq_t *h_globalSeqDev, d_glob_seq_t *d_globalSeqDev,
+    uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes, loc_seq_t *h_localSeq, loc_seq_t *d_localSeq,
+    uint_t tableLen, order_t sortOrder
 )
 {
     // Because a lot of empty sequences can be generated, this counter is used to keep track of all
@@ -174,12 +175,19 @@ data_t* quickSort(
 
     // Searches for min and max value in input array
     minMaxReduction(
-        h_dataInput, d_dataInput, (data_t*)d_dataBuffer, h_minMaxValues, tableLen, minVal, maxVal
+        h_dataInput, d_dataKeys, (data_t*)d_bufferKeys, h_minMaxValues, tableLen, minVal, maxVal
     );
     // Null/zero distribution
     if (minVal == maxVal)
     {
-        return d_dataInput;
+        data_t *temp = d_dataKeys;
+        d_dataKeys = d_bufferKeys;
+        d_bufferKeys = temp;
+
+        temp = d_dataValues;
+        d_dataValues = d_bufferValues;
+        d_bufferValues = temp;
+        return;
     }
     h_globalSeqHost[0].setInitSeq(tableLen, minVal, maxVal);
 
@@ -202,7 +210,7 @@ data_t* quickSort(
         }
 
         runQuickSortGlobalKernel(
-            d_dataInput, d_dataBuffer, h_globalSeqDev, d_globalSeqDev, h_globalSeqIndexes,
+            d_dataKeys, d_bufferKeys, h_globalSeqDev, d_globalSeqDev, h_globalSeqIndexes,
             d_globalSeqIndexes, numSeqGlobal, threadBlockCounter
         );
 
@@ -253,17 +261,16 @@ data_t* quickSort(
     }
 
     runQuickSortLocalKernel(
-        d_dataInput, d_dataBuffer, h_localSeq, d_localSeq, numSeqLocal, sortOrder
+        d_dataKeys, d_bufferKeys, h_localSeq, d_localSeq, numSeqLocal, sortOrder
     );
-
-    return d_dataBuffer;
 }
 
 /*
 Sorts data wit parallel quicksort.
 */
 double sortParallel(
-    data_t *h_dataInput, data_t *h_dataOutput, data_t *d_dataTable, data_t *d_dataBuffer, data_t *h_minMaxValues,
+    data_t *h_dataKeysInput, data_t *h_dataKeysOutput, data_t *h_dataValuesOutput, data_t *d_dataKeys,
+    data_t *d_dataValues, data_t *d_bufferKeys, data_t *d_bufferValues, data_t *h_minMaxValues,
     h_glob_seq_t *h_globalSeqHost, h_glob_seq_t *h_globalSeqHostBuffer, d_glob_seq_t *h_globalSeqDev,
     d_glob_seq_t *d_globalSeqDev, uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes,
     loc_seq_t *h_localSeq, loc_seq_t *d_localSeq, uint_t tableLen, order_t sortOrder
@@ -273,17 +280,23 @@ double sortParallel(
     cudaError_t error;
 
     startStopwatch(&timer);
-    data_t* d_dataResult = quickSort(
-        h_dataInput, d_dataTable, d_dataBuffer, h_minMaxValues, h_globalSeqHost, h_globalSeqHostBuffer,
-        h_globalSeqDev, d_globalSeqDev, h_globalSeqIndexes, d_globalSeqIndexes, h_localSeq, d_localSeq,
-        tableLen, sortOrder
+    quickSort(
+        h_dataKeysInput, d_dataKeys, d_dataValues, d_bufferKeys, d_bufferValues, h_minMaxValues,
+        h_globalSeqHost, h_globalSeqHostBuffer, h_globalSeqDev, d_globalSeqDev, h_globalSeqIndexes,
+        d_globalSeqIndexes, h_localSeq, d_localSeq, tableLen, sortOrder
     );
 
     error = cudaDeviceSynchronize();
     checkCudaError(error);
     double time = endStopwatch(timer);
 
-    error = cudaMemcpy(h_dataOutput, d_dataResult, tableLen * sizeof(*h_dataOutput), cudaMemcpyDeviceToHost);
+    error = cudaMemcpy(
+        h_dataKeysOutput, d_bufferKeys, tableLen * sizeof(*h_dataKeysOutput), cudaMemcpyDeviceToHost
+    );
+    checkCudaError(error);
+    error = cudaMemcpy(
+        h_dataValuesOutput, d_bufferValues, tableLen * sizeof(*h_dataValuesOutput), cudaMemcpyDeviceToHost
+    );
     checkCudaError(error);
 
     return time;
