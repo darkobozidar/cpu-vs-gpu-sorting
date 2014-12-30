@@ -411,10 +411,10 @@ __global__ void quickSortGlobalKernel(
 )
 {
     extern __shared__ data_t globalSortTile[];
-    __shared__ data_t warpPivotCounters[THREADS_PER_SORT_GLOBAL / WARP_SIZE];
     data_t *minValues = globalSortTile;
     data_t *maxValues = globalSortTile + THREADS_PER_SORT_GLOBAL;
 
+    uint_t elemsPerBlock = THREADS_PER_SORT_GLOBAL * ELEMENTS_PER_THREAD_GLOBAL;
     // Index of sequence, which this thread block is partitioning
     __shared__ uint_t seqIdx;
     // Start and length of the data assigned to this thread block
@@ -425,7 +425,6 @@ __global__ void quickSortGlobalKernel(
     {
         seqIdx = seqIndexes[blockIdx.x];
         sequence = sequences[seqIdx];
-        uint_t elemsPerBlock = THREADS_PER_SORT_GLOBAL * ELEMENTS_PER_THREAD_GLOBAL;
         uint_t localBlockIdx = blockIdx.x - sequence.startThreadBlockIdx;
 
         // Params.threadBlockCounter cannot be used, because it can get modified by other blocks.
@@ -497,6 +496,8 @@ __global__ void quickSortGlobalKernel(
 
     uint_t indexLower = sequence.start + globalLower + scanLower - localLower;
     uint_t indexGreater = sequence.start + sequence.length - globalGreater - scanGreater;
+    uint_t indexPivot = sequence.start + (sequence.length - globalLower - globalGreater);
+    indexPivot += elemsPerBlock - scanLower - scanGreater - localLower - localGreater;
 
     // Scatters elements to newly generated left/right subsequences
     for (uint_t tx = threadIdx.x; tx < localLength; tx += THREADS_PER_SORT_GLOBAL)
@@ -518,7 +519,7 @@ __global__ void quickSortGlobalKernel(
         }
         else
         {
-            // TODO implement pivot scattering
+            pivotValues[indexPivot++] = value;
         }
     }
 
@@ -533,15 +534,21 @@ __global__ void quickSortGlobalKernel(
     if (sequence.threadBlockCounter == 0)
     {
         data_t pivot = sequence.pivot;
+        uint_t globalOffsetLower = sequences[seqIdx].offsetLower;
+        uint_t globalOffsetGreater = sequences[seqIdx].offsetGreater;
 
-        uint_t index = sequence.start + sequences[seqIdx].offsetLower + threadIdx.x;
-        uint_t end = sequence.start + sequence.length - sequences[seqIdx].offsetGreater;
+        uint_t indexOutput = sequence.start + globalOffsetLower + threadIdx.x;
+        uint_t endOutput = sequence.start + sequence.length - globalOffsetGreater;
+        uint_t indexPivot = sequence.start;
 
         // Pivots have to be stored in output array, because they won't be moved anymore
-        while (index < end)
+        while (indexOutput < endOutput)
         {
-            bufferKeys[index] = pivot;
-            index += THREADS_PER_SORT_GLOBAL;
+            bufferKeys[indexOutput] = pivot;
+            bufferValues[indexOutput] = pivotValues[indexPivot];
+
+            indexOutput += THREADS_PER_SORT_GLOBAL;
+            indexPivot += THREADS_PER_SORT_GLOBAL;
         }
     }
 }
