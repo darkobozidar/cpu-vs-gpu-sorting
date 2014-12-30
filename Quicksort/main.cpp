@@ -59,7 +59,7 @@ int main(int argc, char **argv)
     );
     allocDeviceMemory(&d_dataTable, &d_dataBuffer, &d_globalSeqDev, &d_globalSeqIndexes, &d_localSeq, tableLen);
 
-    printf(">>> BITONIC SORT <<<\n\n\n");
+    printf(">>> QUICKSORT <<<\n\n\n");
     printDataDistribution(distribution);
     printf("> Array length: %d\n", tableLen);
     if (printMeaurements)
