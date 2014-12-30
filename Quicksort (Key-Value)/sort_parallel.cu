@@ -121,8 +121,8 @@ void runQuickSortGlobalKernel(
 Finishes quicksort with local (one thread block processes one block) quicksort.
 */
 void runQuickSortLocalKernel(
-    data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, loc_seq_t *h_localSeq,
-    loc_seq_t *d_localSeq, uint_t numThreadBlocks, order_t sortOrder
+    data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, data_t *pivotValues,
+    loc_seq_t *h_localSeq, loc_seq_t *d_localSeq, uint_t numThreadBlocks, order_t sortOrder
 )
 {
     cudaError_t error;
@@ -141,13 +141,13 @@ void runQuickSortLocalKernel(
     if (sortOrder == ORDER_ASC)
     {
         quickSortLocalKernel<ORDER_ASC><<<dimGrid, dimBlock, sharedMemSize>>>(
-            dataKeys, dataValues, bufferKeys, bufferValues, d_localSeq
+            dataKeys, dataValues, bufferKeys, bufferValues, pivotValues, d_localSeq
         );
     }
     else
     {
         quickSortLocalKernel<ORDER_DESC><<<dimGrid, dimBlock, sharedMemSize>>>(
-            dataKeys, dataValues, bufferKeys, bufferValues, d_localSeq
+            dataKeys, dataValues, bufferKeys, bufferValues, pivotValues, d_localSeq
         );
     }
 }
@@ -263,7 +263,8 @@ void quickSort(
     }
 
     runQuickSortLocalKernel(
-        d_dataKeys, d_dataValues, d_bufferKeys, d_bufferValues, h_localSeq, d_localSeq, numSeqLocal, sortOrder
+        d_dataKeys, d_dataValues, d_bufferKeys, d_bufferValues, d_pivotValues, h_localSeq, d_localSeq,
+        numSeqLocal, sortOrder
     );
 }
 

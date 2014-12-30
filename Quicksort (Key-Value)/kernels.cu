@@ -580,7 +580,7 @@ TODO try alignment with 32 for coalasced reading
 template <order_t sortOrder>
 __global__ void quickSortLocalKernel(
     data_t *dataKeysGlobal, data_t *dataValuesGlobal, data_t *bufferKeysGlobal, data_t *bufferValuesGlobal,
-    loc_seq_t *sequences
+    data_t *pivotValues, loc_seq_t *sequences
 )
 {
     // Explicit stack (instead of recursion), which holds sequences, which need to be processed.
@@ -676,11 +676,7 @@ __global__ void quickSortLocalKernel(
             }
             else
             {
-                // Scatters the pivots to output array. Pivots have to be stored in output array, because they
-                // won't be moved anymore
-                bufferKeysGlobal[pivotIndex] = key;
-                bufferValuesGlobal[pivotIndex] = value;
-                pivotIndex++;
+                pivotValues[pivotIndex++] = value;
             }
         }
 
@@ -693,14 +689,26 @@ __global__ void quickSortLocalKernel(
             pivotGreaterOffset = globalGreater;
         }
         __syncthreads();
+
+        // Scatters the pivots to output array. Pivots have to be stored in output array, because they
+        // won't be moved anymore
+        uint_t index = sequence.start + pivotLowerOffset + threadIdx.x;
+        uint_t end = sequence.start + sequence.length - pivotGreaterOffset;
+
+        while (index < end)
+        {
+            bufferKeysGlobal[index] = pivot;
+            bufferValuesGlobal[index] = pivotValues[index];
+            index += THREADS_PER_SORT_LOCAL;
+        }
     }
 }
 
 template __global__ void quickSortLocalKernel<ORDER_ASC>(
     data_t *dataKeysGlobal, data_t *dataValuesGlobal, data_t *bufferKeysGlobal, data_t *bufferValuesGlobal,
-    loc_seq_t *sequences
+    data_t *pivotValues, loc_seq_t *sequences
 );
 template __global__ void quickSortLocalKernel<ORDER_DESC>(
     data_t *dataKeysGlobal, data_t *dataValuesGlobal, data_t *bufferKeysGlobal, data_t *bufferValuesGlobal,
-    loc_seq_t *sequences
+    data_t *pivotValues, loc_seq_t *sequences
 );
