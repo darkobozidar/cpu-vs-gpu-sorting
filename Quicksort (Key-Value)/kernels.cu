@@ -406,7 +406,7 @@ sequence stores the pivots.
 TODO try alignment with 32 for coalasced reading
 */
 __global__ void quickSortGlobalKernel(
-    data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, data_t *bufferPivots,
+    data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, data_t *pivotValues,
     d_glob_seq_t *sequences, uint_t *seqIndexes
 )
 {
@@ -437,7 +437,9 @@ __global__ void quickSortGlobalKernel(
     __syncthreads();
 
     data_t *keysPrimary = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataKeys : bufferKeys;
+    data_t *valuesPrimary = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataValues : bufferValues;
     data_t *keysBuffer = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataKeys : bufferKeys;
+    data_t *valuesBuffer = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataValues : bufferValues;
 
 #if USE_REDUCTION_IN_GLOBAL_SORT
     // Initializes min/max values.
@@ -499,15 +501,24 @@ __global__ void quickSortGlobalKernel(
     // Scatters elements to newly generated left/right subsequences
     for (uint_t tx = threadIdx.x; tx < localLength; tx += THREADS_PER_SORT_GLOBAL)
     {
-        data_t temp = keysPrimary[localStart + tx];
+        data_t key = keysPrimary[localStart + tx];
+        data_t value = valuesPrimary[localStart + tx];
 
-        if (temp < sequence.pivot)
+        if (key < sequence.pivot)
         {
-            keysBuffer[indexLower++] = temp;
+            keysBuffer[indexLower] = key;
+            valuesBuffer[indexLower] = value;
+            indexLower++;
         }
-        else if (temp > sequence.pivot)
+        else if (key > sequence.pivot)
         {
-            keysBuffer[indexGreater++] = temp;
+            keysBuffer[indexGreater] = key;
+            valuesBuffer[indexGreater] = value;
+            indexGreater++;
+        }
+        else
+        {
+            // TODO implement pivot scattering
         }
     }
 

@@ -81,7 +81,7 @@ from device.
 */
 void runQuickSortGlobalKernel(
     data_t *d_dataKeys, data_t *d_dataValues, data_t *d_bufferKeys, data_t *d_bufferValues,
-    data_t *d_bufferPivots, d_glob_seq_t *h_globalSeqDev, d_glob_seq_t *d_globalSeqDev,
+    data_t *d_pivotValues, d_glob_seq_t *h_globalSeqDev, d_glob_seq_t *d_globalSeqDev,
     uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes, uint_t numSeqGlobal, uint_t threadBlockCounter
 )
 {
@@ -107,7 +107,7 @@ void runQuickSortGlobalKernel(
     checkCudaError(error);
 
     quickSortGlobalKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
-        d_dataKeys, d_dataValues, d_bufferKeys, d_bufferValues, d_bufferPivots, d_globalSeqDev,
+        d_dataKeys, d_dataValues, d_bufferKeys, d_bufferValues, d_pivotValues, d_globalSeqDev,
         d_globalSeqIndexes
     );
 
@@ -157,7 +157,7 @@ Executes parallel quicksort.
 */
 void quickSort(
     data_t *h_dataInput, data_t *&d_dataKeys, data_t *&d_dataValues, data_t *&d_bufferKeys,
-    data_t *&d_bufferValues, data_t *d_bufferPivots, data_t *h_minMaxValues, h_glob_seq_t *h_globalSeqHost,
+    data_t *&d_bufferValues, data_t *d_pivotValues, data_t *h_minMaxValues, h_glob_seq_t *h_globalSeqHost,
     h_glob_seq_t *h_globalSeqHostBuffer, d_glob_seq_t *h_globalSeqDev, d_glob_seq_t *d_globalSeqDev,
     uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes, loc_seq_t *h_localSeq, loc_seq_t *d_localSeq,
     uint_t tableLen, order_t sortOrder
@@ -212,7 +212,7 @@ void quickSort(
         }
 
         runQuickSortGlobalKernel(
-            d_dataKeys, d_dataValues, d_bufferKeys, d_bufferValues, d_bufferPivots, h_globalSeqDev,
+            d_dataKeys, d_dataValues, d_bufferKeys, d_bufferValues, d_pivotValues, h_globalSeqDev,
             d_globalSeqDev, h_globalSeqIndexes, d_globalSeqIndexes, numSeqGlobal, threadBlockCounter
         );
 
@@ -272,7 +272,7 @@ Sorts data wit parallel quicksort.
 */
 double sortParallel(
     data_t *h_dataKeysInput, data_t *h_dataKeysOutput, data_t *h_dataValuesOutput, data_t *d_dataKeys,
-    data_t *d_dataValues, data_t *d_bufferKeys, data_t *d_bufferValues, data_t *d_bufferPivots,
+    data_t *d_dataValues, data_t *d_bufferKeys, data_t *d_bufferValues, data_t *d_pivotValues,
     data_t *h_minMaxValues, h_glob_seq_t *h_globalSeqHost, h_glob_seq_t *h_globalSeqHostBuffer,
     d_glob_seq_t *h_globalSeqDev, d_glob_seq_t *d_globalSeqDev, uint_t *h_globalSeqIndexes,
     uint_t *d_globalSeqIndexes, loc_seq_t *h_localSeq, loc_seq_t *d_localSeq, uint_t tableLen, order_t sortOrder
@@ -283,7 +283,7 @@ double sortParallel(
 
     startStopwatch(&timer);
     quickSort(
-        h_dataKeysInput, d_dataKeys, d_dataValues, d_bufferKeys, d_bufferValues, d_bufferPivots, h_minMaxValues,
+        h_dataKeysInput, d_dataKeys, d_dataValues, d_bufferKeys, d_bufferValues, d_pivotValues, h_minMaxValues,
         h_globalSeqHost, h_globalSeqHostBuffer, h_globalSeqDev, d_globalSeqDev, h_globalSeqIndexes,
         d_globalSeqIndexes, h_localSeq, d_localSeq, tableLen, sortOrder
     );

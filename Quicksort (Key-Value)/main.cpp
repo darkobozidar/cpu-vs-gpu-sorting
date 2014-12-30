@@ -27,7 +27,7 @@ int main(int argc, char **argv)
     data_t *h_outputCorrect;
     data_t *d_dataKeys, *d_dataValues, *d_bufferKeys, *d_bufferValues;
     // TODO comment
-    data_t *d_bufferPivots;
+    data_t *d_pivotValues;
     // When initial min/max parallel reduction reduces data to threashold, min/max values are coppied to host
     // and reduction is finnished on host. Multiplier "2" is used because of min and max values.
     data_t *h_minMaxValues;
@@ -62,7 +62,7 @@ int main(int argc, char **argv)
         &h_globalSeqDev, &h_globalSeqIndexes, &h_localSeq, &timers, tableLen, testRepetitions
     );
     allocDeviceMemory(
-        &d_dataKeys, &d_dataValues, &d_bufferKeys, &d_bufferValues, &d_bufferPivots, &d_globalSeqDev,
+        &d_dataKeys, &d_dataValues, &d_bufferKeys, &d_bufferValues, &d_pivotValues, &d_globalSeqDev,
         &d_globalSeqIndexes, &d_localSeq, tableLen
     );
 
@@ -92,7 +92,7 @@ int main(int argc, char **argv)
         checkCudaError(error);
         timers[SORT_PARALLEL][i] = sortParallel(
             h_inputKeys, h_outputParallelKeys, h_outputParallelValues, d_dataKeys, d_dataValues, d_bufferKeys,
-            d_bufferValues, d_bufferPivots, h_minMaxValues, h_globalSeqHost, h_globalSeqHostBuffer, h_globalSeqDev,
+            d_bufferValues, d_pivotValues, h_minMaxValues, h_globalSeqHost, h_globalSeqHostBuffer, h_globalSeqDev,
             d_globalSeqDev, h_globalSeqIndexes, d_globalSeqIndexes, h_localSeq, d_localSeq, tableLen, sortOrder
         );
 
@@ -159,7 +159,7 @@ int main(int argc, char **argv)
         h_globalSeqDev, h_globalSeqIndexes, h_localSeq, timers
     );
     freeDeviceMemory(
-        d_dataKeys, d_dataValues, d_bufferKeys, d_bufferValues, d_bufferPivots, d_globalSeqDev,
+        d_dataKeys, d_dataValues, d_bufferKeys, d_bufferValues, d_pivotValues, d_globalSeqDev,
         d_globalSeqIndexes, d_localSeq
     );
 
