@@ -463,7 +463,7 @@ __global__ void quickSortGlobalKernel(
 #endif
 
     // Number of elements lower/greater than pivot (local for thread)
-    uint_t localLower = 0, localGreater = 0;
+    uint_t localLower = 0, localGreater = 0, pivotsCounter = 0;
 
     // Counts the number of elements lower/greater than pivot and finds min/max
     for (uint_t tx = threadIdx.x; tx < localLength; tx += THREADS_PER_SORT_GLOBAL)
@@ -471,6 +471,7 @@ __global__ void quickSortGlobalKernel(
         data_t temp = keysPrimary[localStart + tx];
         localLower += temp < sequence.pivot;
         localGreater += temp > sequence.pivot;
+        pivotsCounter += temp == sequence.pivot;
 
 #if USE_REDUCTION_IN_GLOBAL_SORT
         // Max value is calculated for "lower" sequence and min value is calculated for "greater" sequence.
@@ -501,6 +502,8 @@ __global__ void quickSortGlobalKernel(
     __syncthreads();
     uint_t scanGreater = intraBlockScan<THREADS_PER_SORT_GLOBAL>(localGreater);
     __syncthreads();
+    uint_t scanPivots = intraBlockScan<THREADS_PER_SORT_GLOBAL>(pivotsCounter);
+    __syncthreads();
 
     // Calculates number of elements lower/greater than pivot for all thread blocks processing this sequence
     __shared__ uint_t globalLower, globalGreater, globalOffsetPivotValues;
@@ -509,16 +512,14 @@ __global__ void quickSortGlobalKernel(
         globalLower = atomicAdd(&sequences[seqIdx].offsetLower, scanLower);
         globalGreater = atomicAdd(&sequences[seqIdx].offsetGreater, scanGreater);
         globalOffsetPivotValues = atomicAdd(
-            &sequences[seqIdx].offsetPivotValues, localLength - scanLower - scanGreater
+            &sequences[seqIdx].offsetPivotValues, scanPivots
         );
     }
     __syncthreads();
 
     uint_t indexLower = sequence.start + globalLower + scanLower - localLower;
     uint_t indexGreater = sequence.start + sequence.length - globalGreater - scanGreater;
-    uint_t indexPivot = sequence.start + globalOffsetPivotValues + (
-        threadIdx.x * ELEMENTS_PER_THREAD_GLOBAL - (scanLower - localLower) - (scanGreater - localGreater)
-    );
+    uint_t indexPivot = sequence.start + globalOffsetPivotValues + scanPivots - pivotsCounter;
 
     // Scatters elements to newly generated left/right subsequences
     for (uint_t tx = threadIdx.x; tx < localLength; tx += THREADS_PER_SORT_GLOBAL)
@@ -628,7 +629,7 @@ __global__ void quickSortLocalKernel(
         __syncthreads();
 
         // Counters for number of elements lower/greater than pivot
-        uint_t localLower = 0, localGreater = 0;
+        uint_t localLower = 0, localGreater = 0, pivotsCounter = 0;
 
         // Every thread counts the number of elements lower/greater than pivot
         for (uint_t tx = threadIdx.x; tx < sequence.length; tx += THREADS_PER_SORT_LOCAL)
@@ -636,6 +637,7 @@ __global__ void quickSortLocalKernel(
             data_t temp = keysPrimary[sequence.start + tx];
             localLower += temp < pivot;
             localGreater += temp > pivot;
+            pivotsCounter += temp == pivot;
         }
 
         // Calculates global offsets for each thread with inclusive scan
@@ -643,18 +645,12 @@ __global__ void quickSortLocalKernel(
         __syncthreads();
         uint_t globalGreater = intraBlockScan<THREADS_PER_SORT_LOCAL>(localGreater);
         __syncthreads();
-
-        __shared__ uint_t globalPivotOffset;
-        if (threadIdx.x == (THREADS_PER_SORT_LOCAL - 1))
-        {
-            globalPivotOffset = sequence.start + globalLower;
-        }
+        uint_t scanPivots = intraBlockScan<THREADS_PER_SORT_LOCAL>(pivotsCounter);
         __syncthreads();
 
         uint_t indexLower = sequence.start + globalLower - localLower;
         uint_t indexGreater = sequence.start + sequence.length - globalGreater;
-        uint_t pivotIndex = globalPivotOffset + threadIdx.x * ((sequence.length - 1) / THREADS_PER_SORT_LOCAL + 1) -
-            (globalLower - localLower) - (globalGreater - localGreater);
+        uint_t pivotIndex = sequence.start + scanPivots - pivotsCounter;
 
         // Scatters elements to newly generated left/right subsequences
         for (uint_t tx = threadIdx.x; tx < sequence.length; tx += THREADS_PER_SORT_LOCAL)
@@ -694,11 +690,14 @@ __global__ void quickSortLocalKernel(
         // won't be moved anymore
         uint_t index = sequence.start + pivotLowerOffset + threadIdx.x;
         uint_t end = sequence.start + sequence.length - pivotGreaterOffset;
+        uint_t indexPivot = sequence.start + threadIdx.x;
 
         while (index < end)
         {
             bufferKeysGlobal[index] = pivot;
-            bufferValuesGlobal[index] = pivotValues[index];
+            bufferValuesGlobal[index] = pivotValues[indexPivot];
+
+            indexPivot += THREADS_PER_SORT_LOCAL;
             index += THREADS_PER_SORT_LOCAL;
         }
     }
