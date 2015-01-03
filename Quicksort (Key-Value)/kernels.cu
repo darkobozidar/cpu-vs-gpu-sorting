@@ -517,11 +517,13 @@ __global__ void quickSortGlobalKernel(
     uint_t indexLower = sequence.start + globalLower + scanLower - localLower;
     uint_t indexGreater = sequence.start + sequence.length - globalGreater - scanGreater;
 
+    // Last thread that processed "(localLength / THREADS_PER_SORT_GLOBAL) + 1" elements
     uint_t lastThread = localLength % THREADS_PER_SORT_GLOBAL;
-    uint_t numElemsPerThread = threadIdx.x * (localLength / THREADS_PER_SORT_GLOBAL) + (
+    // Number of elements processed by previous threads
+    uint_t numElemsPreviousThreads = threadIdx.x * (localLength / THREADS_PER_SORT_GLOBAL) + (
         threadIdx.x < lastThread ? threadIdx.x : lastThread
     );
-    uint_t indexPivot = sequence.start + globalOffsetPivotValues + numElemsPerThread - (
+    uint_t indexPivot = sequence.start + globalOffsetPivotValues + numElemsPreviousThreads - (
         (scanLower - localLower) + (scanGreater - localGreater)
     );
 
@@ -633,7 +635,7 @@ __global__ void quickSortLocalKernel(
         __syncthreads();
 
         // Counters for number of elements lower/greater than pivot
-        uint_t localLower = 0, localGreater = 0, pivotsCounter = 0;
+        uint_t localLower = 0, localGreater = 0;
 
         // Every thread counts the number of elements lower/greater than pivot
         for (uint_t tx = threadIdx.x; tx < sequence.length; tx += THREADS_PER_SORT_LOCAL)
@@ -641,7 +643,6 @@ __global__ void quickSortLocalKernel(
             data_t temp = keysPrimary[sequence.start + tx];
             localLower += temp < pivot;
             localGreater += temp > pivot;
-            pivotsCounter += temp == pivot;
         }
 
         // Calculates global offsets for each thread with inclusive scan
@@ -649,12 +650,19 @@ __global__ void quickSortLocalKernel(
         __syncthreads();
         uint_t globalGreater = intraBlockScan<THREADS_PER_SORT_LOCAL>(localGreater);
         __syncthreads();
-        uint_t scanPivots = intraBlockScan<THREADS_PER_SORT_LOCAL>(pivotsCounter);
-        __syncthreads();
 
         uint_t indexLower = sequence.start + globalLower - localLower;
         uint_t indexGreater = sequence.start + sequence.length - globalGreater;
-        uint_t pivotIndex = sequence.start + scanPivots - pivotsCounter;
+
+        // Last thread that processed "(localLength / THREADS_PER_SORT_LOCAL) + 1" elements
+        uint_t lastThread = sequence.length % THREADS_PER_SORT_LOCAL;
+        // Number of elements processed by previous threads
+        uint_t numElemsPreviousThreads = threadIdx.x * (sequence.length / THREADS_PER_SORT_LOCAL) + (
+            threadIdx.x < lastThread ? threadIdx.x : lastThread
+        );
+        uint_t indexPivot = sequence.start + numElemsPreviousThreads - (
+            (globalLower - localLower) + (globalGreater - localGreater)
+        );
 
         // Scatters elements to newly generated left/right subsequences
         for (uint_t tx = threadIdx.x; tx < sequence.length; tx += THREADS_PER_SORT_LOCAL)
@@ -676,7 +684,7 @@ __global__ void quickSortLocalKernel(
             }
             else
             {
-                pivotValues[pivotIndex++] = value;
+                pivotValues[indexPivot++] = value;
             }
         }
 
@@ -694,7 +702,7 @@ __global__ void quickSortLocalKernel(
         // won't be moved anymore
         uint_t index = sequence.start + pivotLowerOffset + threadIdx.x;
         uint_t end = sequence.start + sequence.length - pivotGreaterOffset;
-        uint_t indexPivot = sequence.start + threadIdx.x;
+        indexPivot = sequence.start + threadIdx.x;
 
         while (index < end)
         {
