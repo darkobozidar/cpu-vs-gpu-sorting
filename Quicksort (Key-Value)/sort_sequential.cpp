@@ -62,24 +62,27 @@ uint_t getPivotIndex(data_t *dataTable, uint_t length)
 Partitions array into 2 partitions - elemens lower and elements greater than pivot.
 */
 template <order_t sortOrder>
-uint_t partitionArray(data_t *dataTable, uint_t length)
+uint_t partitionArray(data_t *dataKeys, data_t *dataValues, uint_t length)
 {
-    uint_t pivotIndex = getPivotIndex(dataTable, length);
-    data_t pivotValue = dataTable[pivotIndex];
+    uint_t pivotIndex = getPivotIndex(dataKeys, length);
+    data_t pivotValue = dataKeys[pivotIndex];
 
-    exchangeElemens(&dataTable[pivotIndex], &dataTable[length - 1]);
+    exchangeElemens(&dataKeys[pivotIndex], &dataKeys[length - 1]);
+    exchangeElemens(&dataValues[pivotIndex], &dataValues[length - 1]);
     uint_t storeIndex = 0;
 
     for (uint_t i = 0; i < length - 1; i++)
     {
-        if (sortOrder ^ (dataTable[i] < pivotValue))
+        if (sortOrder ^ (dataKeys[i] < pivotValue))
         {
-            exchangeElemens(&dataTable[i], &dataTable[storeIndex]);
+            exchangeElemens(&dataKeys[i], &dataKeys[storeIndex]);
+            exchangeElemens(&dataValues[i], &dataValues[storeIndex]);
             storeIndex++;
         }
     }
 
-    exchangeElemens(&dataTable[storeIndex], &dataTable[length - 1]);
+    exchangeElemens(&dataKeys[storeIndex], &dataKeys[length - 1]);
+    exchangeElemens(&dataValues[storeIndex], &dataValues[length - 1]);
     return storeIndex;
 }
 
@@ -87,7 +90,7 @@ uint_t partitionArray(data_t *dataTable, uint_t length)
 Sorts the array with quicksort.
 */
 template <order_t sortOrder>
-void quickSort(data_t *dataTable, uint_t length)
+void quickSort(data_t *dataKeys, data_t *dataValues, uint_t length)
 {
     if (length <= 1)
     {
@@ -95,34 +98,35 @@ void quickSort(data_t *dataTable, uint_t length)
     }
     else if (length == 2)
     {
-        if (sortOrder ^ (dataTable[0] > dataTable[1]))
+        if (sortOrder ^ (dataKeys[0] > dataKeys[1]))
         {
-            exchangeElemens(&dataTable[0], &dataTable[1]);
+            exchangeElemens(&dataKeys[0], &dataKeys[1]);
+            exchangeElemens(&dataValues[0], &dataValues[1]);
         }
         return;
     }
 
-    uint_t partition = partitionArray<sortOrder>(dataTable, length);
-    quickSort<sortOrder>(dataTable, partition);
-    quickSort<sortOrder>(dataTable + partition + 1, length - partition - 1);
+    uint_t partition = partitionArray<sortOrder>(dataKeys, dataValues, length);
+    quickSort<sortOrder>(dataKeys, dataValues, partition);
+    quickSort<sortOrder>(dataKeys + partition + 1, dataValues + partition + 1, length - partition - 1);
 }
 
 
 /*
 Sorts data sequentially with NORMALIZED bitonic sort.
 */
-double sortSequential(data_t* dataTable, uint_t tableLen, order_t sortOrder)
+double sortSequential(data_t* dataKeys, data_t *dataValues, uint_t tableLen, order_t sortOrder)
 {
     LARGE_INTEGER timer;
     startStopwatch(&timer);
 
     if (sortOrder == ORDER_ASC)
     {
-        quickSort<ORDER_ASC>(dataTable, tableLen);
+        quickSort<ORDER_ASC>(dataKeys, dataValues, tableLen);
     }
     else
     {
-        quickSort<ORDER_DESC>(dataTable, tableLen);
+        quickSort<ORDER_DESC>(dataKeys, dataValues, tableLen);
     }
 
     return endStopwatch(timer);

@@ -101,9 +101,9 @@ int main(int argc, char **argv)
         // Sort sequential
         std::copy(h_inputKeys, h_inputKeys + tableLen, h_outputSequentialKeys);
         std::copy(h_inputValues, h_inputValues + tableLen, h_outputSequentialValues);
-        timers[SORT_SEQUENTIAL][i] = 999;  /*sortSequential(
+        timers[SORT_SEQUENTIAL][i] = sortSequential(
             h_outputSequentialKeys, h_outputSequentialValues, tableLen, sortOrder
-        );*/
+        );
 
         // Sort correct
         std::copy(h_inputKeys, h_inputKeys + tableLen, h_outputCorrect);

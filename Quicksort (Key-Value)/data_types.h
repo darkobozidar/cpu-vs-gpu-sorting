@@ -67,8 +67,9 @@ struct DeviceGlobalSequence
     // block knows, on which offset it has to scatter it's corresponding data.
     uint_t offsetLower;
     uint_t offsetGreater;
-
-    // TODO comment
+    // Each thread block processing this sequence increases this counter - number of pivots processed by
+    // thread block. This way every thread block knows, on which offset it has to scatter it's pivots
+    // in buffer pivot array.
     uint_t offsetPivotValues;
 
 #if USE_REDUCTION_IN_GLOBAL_SORT
