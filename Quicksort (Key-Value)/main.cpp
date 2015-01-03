@@ -26,7 +26,9 @@ int main(int argc, char **argv)
     data_t *h_outputSequentialKeys, *h_outputSequentialValues;
     data_t *h_outputCorrect;
     data_t *d_dataKeys, *d_dataValues, *d_bufferKeys, *d_bufferValues;
-    // TODO comment
+    // When pivots are scattered in global and local quicksort, they have to be considered as unique elements
+    // because of array of values (alongside keys). Because array can contain duplicate keys, values have to
+    // be stored in buffer, because end position of pivots isn't known until last thread block processes sequence.
     data_t *d_pivotValues;
     // When initial min/max parallel reduction reduces data to threashold, min/max values are coppied to host
     // and reduction is finnished on host. Multiplier "2" is used because of min and max values.

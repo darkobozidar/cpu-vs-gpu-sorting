@@ -149,7 +149,13 @@ void checkValuesUniqueness(data_t *values, uint_t tableLen)
 
     for (uint_t i = 0; i < tableLen; i++)
     {
-        if (++uniquenessTable[values[i]] > 1)
+        if (values[i] < 0 || values[i] > tableLen - 1)
+        {
+            printf("Value out of range: %d\n", values[i]);
+            getchar();
+            exit(EXIT_FAILURE);
+        }
+        else if (++uniquenessTable[values[i]] > 1)
         {
             printf("Duplicate value: %d\n", values[i]);
             getchar();

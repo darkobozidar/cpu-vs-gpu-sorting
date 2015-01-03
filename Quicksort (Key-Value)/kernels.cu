@@ -684,6 +684,9 @@ __global__ void quickSortLocalKernel(
             }
             else
             {
+                // Pivots cannot be stored here, because one thread could write same elements which other thread
+                // tries to read. Pivots have to be stored in global buffer array (they won't be moved anymore),
+                // which can be primary local array (50/50 chance).
                 pivotValues[indexPivot++] = value;
             }
         }
@@ -699,7 +702,7 @@ __global__ void quickSortLocalKernel(
         __syncthreads();
 
         // Scatters the pivots to output array. Pivots have to be stored in output array, because they
-        // won't be moved anymore
+        // won't be moved anymore.
         uint_t index = sequence.start + pivotLowerOffset + threadIdx.x;
         uint_t end = sequence.start + sequence.length - pivotGreaterOffset;
         indexPivot = sequence.start + threadIdx.x;
