@@ -65,39 +65,37 @@ void runRadixSortLocalKernel(data_t *dataTable, uint_t tableLen, uint_t bitOffse
     }
 }
 
-//void runGenerateBucketsKernel(el_t *table, uint_t *blockOffsets, uint_t *blockSizes, uint_t tableLen,
-//                              uint_t bitOffset) {
-//    cudaError_t error;
-//    LARGE_INTEGER timer;
-//
-//    uint_t threadBlockSize = min(tableLen / 2, THREADS_PER_LOCAL_SORT);
-//    uint_t sharedMemSize = 2 * threadBlockSize * sizeof(uint_t) + 2 * RADIX * sizeof(uint_t);
-//    dim3 dimGrid(tableLen / (2 * threadBlockSize), 1, 1);
-//    dim3 dimBlock(threadBlockSize, 1, 1);
-//
-//    generateBucketsKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
-//        table, blockOffsets, blockSizes, bitOffset
-//    );
-//}
-//
-//void runRadixSortGlobalKernel(el_t *input,  el_t *output, uint_t *offsetsLocal, uint_t *offsetsGlobal,
-//                              uint_t tableLen, uint_t bitOffset, bool orderAsc) {
-//    cudaError_t error;
-//    LARGE_INTEGER timer;
-//
-//    uint_t threadBlockSize = min(tableLen / 2, THREADS_PER_GLOBAL_SORT);
-//    dim3 dimGrid(tableLen / (2 * threadBlockSize), 1, 1);
-//    dim3 dimBlock(threadBlockSize, 1, 1);
-//
-//    startStopwatch(&timer);
-//    radixSortGlobalKernel<<<dimGrid, dimBlock, 2 * threadBlockSize * sizeof(*input)>>>(
-//        input, output, offsetsLocal, offsetsGlobal, bitOffset
-//    );
-//    /*error = cudaDeviceSynchronize();
-//    checkCudaError(error);
-//    endStopwatch(timer, "Executing global parallel radix sort.");*/
-//}
-//
+void runGenerateBucketsKernel(
+    data_t *dataTable, uint_t *blockOffsets, uint_t *blockSizes, uint_t tableLen, uint_t bitOffset
+)
+{
+    uint_t threadBlockSize = min(tableLen / 2, THREADS_PER_LOCAL_SORT);
+    uint_t sharedMemSize = 2 * threadBlockSize * sizeof(uint_t) + 2 * RADIX * sizeof(uint_t);
+
+    dim3 dimGrid(tableLen / (2 * threadBlockSize), 1, 1);
+    dim3 dimBlock(threadBlockSize, 1, 1);
+
+    generateBucketsKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
+        dataTable, blockOffsets, blockSizes, bitOffset
+    );
+}
+
+void runRadixSortGlobalKernel(
+    data_t *dataTable,  data_t *dataBuffer, uint_t *offsetsLocal, uint_t *offsetsGlobal, uint_t tableLen,
+    uint_t bitOffset, order_t sortOrder
+)
+{
+    uint_t threadBlockSize = min(tableLen / 2, THREADS_PER_GLOBAL_SORT);
+    uint_t sharedMemSIze = 2 * threadBlockSize * sizeof(*dataTable);
+
+    dim3 dimGrid((tableLen - 1) / (2 * threadBlockSize) + 1, 1, 1);
+    dim3 dimBlock(threadBlockSize, 1, 1);
+
+    radixSortGlobalKernel<<<dimGrid, dimBlock, sharedMemSIze>>>(
+        dataTable, dataBuffer, offsetsLocal, offsetsGlobal, bitOffset
+    );
+}
+
 //void runPrintTableKernel(uint_t *table, uint_t tableLen) {
 //    printTableKernel<<<1, 1>>>(table, tableLen);
 //    cudaError_t error = cudaDeviceSynchronize();
@@ -120,33 +118,34 @@ double sortParallel(
     cudppInitScan(&scanPlan, bucketsLen);
     runRadixSortLocalKernel(d_dataTable, tableLen, 0, sortOrder);
 
-    //for (uint_t bitOffset = 0; bitOffset < sizeof(uint_t) * 8; bitOffset += BIT_COUNT) {
-    //    runRadixSortLocalKernel(d_table, tableLen, bitOffset, orderAsc);
-    //    runGenerateBucketsKernel(d_table, d_bucketOffsetsLocal, d_bucketSizes, tableLen, bitOffset);
+    for (uint_t bitOffset = 0; bitOffset < sizeof(uint_t) * 8; bitOffset += BIT_COUNT)
+    {
+        runRadixSortLocalKernel(d_dataTable, tableLen, bitOffset, sortOrder);
+        runGenerateBucketsKernel(d_dataTable, d_bucketOffsetsLocal, d_bucketSizes, tableLen, bitOffset);
 
-    //    CUDPPResult result = cudppScan(scanPlan, d_bucketOffsetsGlobal, d_bucketSizes, bucketsLen);
-    //    if (result != CUDPP_SUCCESS) {
-    //        printf("Error in cudppScan()\n");
-    //        getchar();
-    //        exit(-1);
-    //    }
+        CUDPPResult result = cudppScan(scanPlan, d_bucketOffsetsGlobal, d_bucketSizes, bucketsLen);
+        if (result != CUDPP_SUCCESS)
+        {
+            printf("Error in cudppScan()\n");
+            getchar();
+            exit(-1);
+        }
 
-    //    runRadixSortGlobalKernel(
-    //        d_table, d_bufffer, d_bucketOffsetsLocal, d_bucketOffsetsGlobal, tableLen, bitOffset, orderAsc
-    //    );
+        runRadixSortGlobalKernel(
+            d_dataTable, d_dataBuffer, d_bucketOffsetsLocal, d_bucketOffsetsGlobal, tableLen, bitOffset, sortOrder
+        );
 
-    //    el_t *temp = d_table;
-    //    d_table = d_bufffer;
-    //    d_bufffer = temp;
-    //}
+        data_t *temp = d_dataTable;
+        d_dataTable = d_dataBuffer;
+        d_dataBuffer = temp;
+    }
 
-    //error = cudaDeviceSynchronize();
-    //checkCudaError(error);
-    //double time = endStopwatch(timer, "Executing parallel radix sort.");
-    //printf("Operations (pair swaps): %.2f M/s\n", tableLen / 500.0 / time);
+    error = cudaDeviceSynchronize();
+    checkCudaError(error);
+    double time = endStopwatch(timer);
 
-    //error = cudaMemcpy(h_output, d_table, tableLen * sizeof(*h_output), cudaMemcpyDeviceToHost);
-    //checkCudaError(error);
+    error = cudaMemcpy(h_output, d_dataTable, tableLen * sizeof(*h_output), cudaMemcpyDeviceToHost);
+    checkCudaError(error);
 
-    return 9999;
+    return time;
 }
