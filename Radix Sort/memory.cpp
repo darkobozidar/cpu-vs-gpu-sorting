@@ -15,8 +15,8 @@
 Allocates host memory.
 */
 void allocHostMemory(
-    data_t **input, data_t **outputParallel, data_t **outputSequential, data_t **outputCorrect,
-    uint_t **countersSequential, double ***timers, uint_t tableLen, uint_t testRepetitions
+    data_t **input, data_t **outputParallel, data_t **h_inputSequential, data_t **outputSequential,
+    data_t **outputCorrect, uint_t **countersSequential, double ***timers, uint_t tableLen, uint_t testRepetitions
 )
 {
     // Data input
@@ -26,13 +26,15 @@ void allocHostMemory(
     // Data output
     *outputParallel = (data_t*)malloc(tableLen * sizeof(**outputParallel));
     checkMallocError(*outputParallel);
+    *h_inputSequential = (data_t*)malloc(tableLen * sizeof(**h_inputSequential));
+    checkMallocError(*h_inputSequential);
     *outputSequential = (data_t*)malloc(tableLen * sizeof(**outputSequential));
     checkMallocError(*outputSequential);
     *outputCorrect = (data_t*)malloc(tableLen * sizeof(**outputCorrect));
     checkMallocError(*outputCorrect);
 
     // Counters of element occurances - needed for sequential radix sort
-    *countersSequential = (data_t*)malloc((MAX_VAL + 1) * sizeof(**countersSequential));
+    *countersSequential = (data_t*)malloc(RADIX_SEQUENTIAL * sizeof(**countersSequential));
     checkMallocError(*countersSequential);
 
     // Stopwatch times for PARALLEL, SEQUENTIAL and CORREECT
@@ -49,14 +51,16 @@ void allocHostMemory(
 Frees host memory.
 */
 void freeHostMemory(
-    data_t *input, data_t *outputParallel, data_t *outputSequential, data_t *outputCorrect,
+    data_t *input, data_t *outputParallel, data_t *h_inputSequential, data_t *outputSequential, data_t *outputCorrect,
     uint_t *countersSequential, double **timers
 )
 {
     free(input);
     free(outputParallel);
+    free(h_inputSequential);
     free(outputSequential);
     free(outputCorrect);
+    free(countersSequential);
 
     for (uint_t i = 0; i < NUM_STOPWATCHES; ++i)
     {

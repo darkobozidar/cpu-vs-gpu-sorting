@@ -7,4 +7,8 @@
 #define BIT_COUNT 4
 #define RADIX (1 << BIT_COUNT)
 
+#define BIT_COUNT_SEQUENTIAL 8
+#define RADIX_SEQUENTIAL (1 << BIT_COUNT_SEQUENTIAL)
+#define RADIX_MASK ((1 << BIT_COUNT_SEQUENTIAL) - 1)
+
 #endif

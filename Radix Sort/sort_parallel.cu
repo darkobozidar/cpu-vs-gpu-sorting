@@ -118,7 +118,7 @@ double sortParallel(
     cudppInitScan(&scanPlan, bucketsLen);
     runRadixSortLocalKernel(d_dataTable, tableLen, 0, sortOrder);
 
-    for (uint_t bitOffset = 0; bitOffset < sizeof(uint_t) * 8; bitOffset += BIT_COUNT)
+    for (uint_t bitOffset = 0; bitOffset < sizeof(data_t) * 8; bitOffset += BIT_COUNT)
     {
         runRadixSortLocalKernel(d_dataTable, tableLen, bitOffset, sortOrder);
         runGenerateBucketsKernel(d_dataTable, d_bucketOffsetsLocal, d_bucketSizes, tableLen, bitOffset);

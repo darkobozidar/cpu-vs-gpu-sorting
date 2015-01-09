@@ -5,11 +5,11 @@
 
 
 void allocHostMemory(
-    data_t **input, data_t **outputParallel, data_t **outputSequential, data_t **outputCorrect,
-    uint_t **countersSequential, double ***timers, uint_t tableLen, uint_t testRepetitions
+    data_t **input, data_t **outputParallel, data_t **h_inputSequential, data_t **outputSequential,
+    data_t **outputCorrect, uint_t **countersSequential, double ***timers, uint_t tableLen, uint_t testRepetitions
 );
 void freeHostMemory(
-    data_t *input, data_t *outputParallel, data_t *outputSequential, data_t *outputCorrect,
+    data_t *input, data_t *outputParallel, data_t *h_inputSequential, data_t *outputSequential, data_t *outputCorrect,
     uint_t *countersSequential, double **timers
 );
 
