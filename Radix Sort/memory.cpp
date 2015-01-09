@@ -64,21 +64,47 @@ void freeHostMemory(
 /*
 Allocates device memory.
 */
-void allocDeviceMemory(data_t **dataTable, uint_t tableLen)
+void allocDeviceMemory(
+    data_t **dataTable, data_t **dataBuffer, uint_t **bucketOffsetsLocal, uint_t **bucketOffsetsGlobal,
+    uint_t **bucketSizes, uint_t tableLen
+)
 {
+    uint_t threadsPerSort = min(tableLen / 2, THREADS_PER_LOCAL_SORT);
+    uint_t bucketsLen = RADIX * ((tableLen - 1) / (2 * threadsPerSort) + 1);
     cudaError_t error;
 
     error = cudaMalloc(dataTable, tableLen * sizeof(**dataTable));
+    checkCudaError(error);
+    error = cudaMalloc(dataBuffer, tableLen * sizeof(**dataBuffer));
+    checkCudaError(error);
+
+    error = cudaMalloc(bucketOffsetsLocal, bucketsLen * sizeof(**bucketOffsetsLocal));
+    checkCudaError(error);
+    error = cudaMalloc(bucketOffsetsGlobal, bucketsLen * sizeof(**bucketOffsetsGlobal));
+    checkCudaError(error);
+    error = cudaMalloc(bucketSizes, bucketsLen * sizeof(**bucketSizes));
     checkCudaError(error);
 }
 
 /*
 Frees device memory.
 */
-void freeDeviceMemory(data_t *dataTable)
+void freeDeviceMemory(
+    data_t *dataTable, data_t *dataBuffer, uint_t *bucketOffsetsLocal, uint_t *bucketOffsetsGlobal,
+    uint_t *bucketSizes
+)
 {
     cudaError_t error;
 
     error = cudaFree(dataTable);
+    checkCudaError(error);
+    error = cudaFree(dataBuffer);
+    checkCudaError(error);
+
+    error = cudaFree(bucketOffsetsLocal);
+    checkCudaError(error);
+    error = cudaFree(bucketOffsetsGlobal);
+    checkCudaError(error);
+    error = cudaFree(bucketSizes);
     checkCudaError(error);
 }

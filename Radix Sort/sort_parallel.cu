@@ -5,6 +5,7 @@
 #include <cuda.h>
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
+#include <cudpp.h>
 
 #include "../Utils/data_types_common.h"
 #include "../Utils/cuda.h"
@@ -13,28 +14,6 @@
 #include "kernels.h"
 
 
-///*
-//Initializes memory needed for paralel sort implementation.
-//*/
-//void memoryInit(el_t *h_table, el_t **d_table, el_t **d_bufffer, uint_t **d_bucketOffsetsGlobal,
-//                uint_t **bucketOffsetsLocal, uint_t **d_bucketSizes, uint_t tableLen, uint_t bucketsLen) {
-//    cudaError_t error;
-//
-//    error = cudaMalloc(d_table, tableLen * sizeof(**d_table));
-//    checkCudaError(error);
-//    error = cudaMalloc(d_bufffer, tableLen * sizeof(**d_bufffer));
-//    checkCudaError(error);
-//    error = cudaMalloc(d_bucketOffsetsGlobal, bucketsLen * sizeof(**bucketOffsetsLocal));
-//    checkCudaError(error);
-//    error = cudaMalloc(bucketOffsetsLocal, bucketsLen * sizeof(**bucketOffsetsLocal));
-//    checkCudaError(error);
-//    error = cudaMalloc(d_bucketSizes, bucketsLen * sizeof(**d_bucketSizes));
-//    checkCudaError(error);
-//
-//    error = cudaMemcpy(*d_table, h_table, tableLen * sizeof(**d_table), cudaMemcpyHostToDevice);
-//    checkCudaError(error);
-//}
-//
 ///*
 //Initializes library CUDPP, which implements scan() function
 //*/
@@ -118,13 +97,14 @@
 //    checkCudaError(error);
 //}
 
-double sortParallel(data_t *h_input, data_t *h_output, uint_t tableLen, order_t sortOrder)
+double sortParallel(
+    data_t *h_output, data_t *d_dataTable, data_t *d_dataBuffer, uint_t *d_bucketOffsetsLocal,
+    uint_t *d_bucketOffsetsGlobal, uint_t *d_bucketSizes, uint_t tableLen, order_t sortOrder
+)
 {
-    //el_t *d_table, *d_bufffer;
-    //uint_t *d_bucketOffsetsLocal, *d_bucketOffsetsGlobal, *d_bucketSizes;
-    //uint_t threadsPerSort = min(tableLen / 2, THREADS_PER_LOCAL_SORT);
-    //uint_t bucketsLen = RADIX * (tableLen / (2 * threadsPerSort));
-    //CUDPPHandle scanPlan;
+    uint_t threadsPerSort = min(tableLen / 2, THREADS_PER_LOCAL_SORT);
+    uint_t bucketsLen = RADIX * (tableLen / (2 * threadsPerSort));
+    CUDPPHandle scanPlan;
 
     //LARGE_INTEGER timer;
     //cudaError_t error;
@@ -166,9 +146,6 @@ double sortParallel(data_t *h_input, data_t *h_output, uint_t tableLen, order_t 
 
     //error = cudaMemcpy(h_output, d_table, tableLen * sizeof(*h_output), cudaMemcpyDeviceToHost);
     //checkCudaError(error);
-
-    //cudaFree(d_table);
-    //cudaFree(d_bufffer);
 
     return 9999;
 }

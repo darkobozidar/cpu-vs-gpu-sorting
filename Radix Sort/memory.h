@@ -13,7 +13,13 @@ void freeHostMemory(
     double **timers
 );
 
-void allocDeviceMemory(data_t **dataTable, uint_t tableLen);
-void freeDeviceMemory(data_t *dataTable);
+void allocDeviceMemory(
+    data_t **dataTable, data_t **dataBuffer, uint_t **bucketOffsetsLocal, uint_t **bucketOffsetsGlobal,
+    uint_t **d_bucketSizes, uint_t tableLen
+);
+void freeDeviceMemory(
+    data_t *dataTable, data_t *dataBuffer, uint_t *bucketOffsetsLocal, uint_t *bucketOffsetsGlobal,
+    uint_t *bucketSizes
+);
 
 #endif

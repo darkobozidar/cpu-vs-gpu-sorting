@@ -22,7 +22,10 @@
 int main(int argc, char **argv)
 {
     data_t *h_input;
-    data_t *h_outputParallel, *h_outputSequential, *h_outputCorrect, *d_dataTable;
+    data_t *h_outputParallel, *h_outputSequential, *h_outputCorrect;
+    data_t *d_dataTable, *d_dataBuffer;
+    // TODO comment
+    uint_t *d_bucketOffsetsLocal, *d_bucketOffsetsGlobal, *d_bucketSizes;
     double **timers;
 
     uint_t tableLen = (1 << 20);
@@ -40,7 +43,9 @@ int main(int argc, char **argv)
     allocHostMemory(
         &h_input, &h_outputParallel, &h_outputSequential, &h_outputCorrect, &timers, tableLen, testRepetitions
     );
-    allocDeviceMemory(&d_dataTable, tableLen);
+    allocDeviceMemory(
+        &d_dataTable, &d_dataBuffer, &d_bucketOffsetsLocal, &d_bucketOffsetsGlobal, &d_bucketSizes, tableLen
+    );
 
     printf(">>> RADIX SORT <<<\n\n\n");
     printDataDistribution(distribution);
@@ -60,7 +65,10 @@ int main(int argc, char **argv)
         checkCudaError(error);
         error = cudaDeviceSynchronize();
         checkCudaError(error);
-        timers[SORT_PARALLEL][i] = sortParallel(h_outputParallel, d_dataTable, tableLen, sortOrder);
+        timers[SORT_PARALLEL][i] = sortParallel(
+            h_outputParallel, d_dataTable, d_dataBuffer, d_bucketOffsetsLocal, d_bucketOffsetsGlobal,
+            d_bucketSizes, tableLen, sortOrder
+        );
 
         // Sort sequential
         std::copy(h_input, h_input + tableLen, h_outputSequential);
@@ -106,7 +114,7 @@ int main(int argc, char **argv)
 
     // Memory free
     freeHostMemory(h_input, h_outputParallel, h_outputSequential, h_outputCorrect, timers);
-    freeDeviceMemory(d_dataTable);
+    freeDeviceMemory(d_dataTable, d_dataBuffer, d_bucketOffsetsLocal, d_bucketOffsetsGlobal, d_bucketSizes);
 
     getchar();
     return 0;
