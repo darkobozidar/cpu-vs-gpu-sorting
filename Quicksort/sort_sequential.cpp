@@ -109,7 +109,7 @@ void quickSort(data_t *dataTable, uint_t length)
 
 
 /*
-Sorts data sequentially with NORMALIZED bitonic sort.
+Sorts data sequentially with quicksort.
 */
 double sortSequential(data_t* dataTable, uint_t tableLen, order_t sortOrder)
 {
