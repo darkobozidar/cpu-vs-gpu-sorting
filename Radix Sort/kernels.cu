@@ -1,163 +1,193 @@
-//#include <stdio.h>
-//#include <stdint.h>
-//#include <math.h>
-//#include <climits>
-//
-//#include <cuda.h>
-//#include "cuda_runtime.h"
-//#include "device_launch_parameters.h"
-//#include "math_functions.h"
-//
-//#include "data_types.h"
-//#include "constants.h"
-//
-//
+#include <stdio.h>
+#include <stdint.h>
+#include <math.h>
+#include <climits>
+
+#include <cuda.h>
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
+#include "math_functions.h"
+
+#include "../Utils/data_types_common.h"
+#include "data_types.h"
+#include "constants.h"
+
+
 ///*---------------------------------------------------------
 //-------------------------- UTILS --------------------------
 //-----------------------------------------------------------*/
-//
-//__global__ void printTableKernel(uint_t *table, uint_t tableLen) {
-//    for (uint_t i = 0; i < tableLen; i++) {
-//        printf("%2d ", table[i]);
-//    }
-//    printf("\n\n");
-//}
-//
-//__device__ uint_t laneMask() {
-//    uint_t mask;
-//    asm("mov.u32 %0, %lanemask_lt;" : "=r"(mask));
-//    return mask;
-//}
-//
-//__device__ uint_t binaryWarpScan(bool pred) {
-//    uint_t mask = laneMask();
-//    uint_t ballot = __ballot(pred);
-//    return __popc(ballot & mask);
-//}
-//
-///*
-//Performs scan and computes, how many elements have 'true' predicate before current element.
-//*/
-//__device__ uint_t intraWarpScan(volatile uint_t *scanTile, uint_t val, uint_t stride) {
-//    // The same kind of indexing as for bitonic sort
-//    uint_t index = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
-//
-//    scanTile[index] = 0;
-//    index += stride;
-//    scanTile[index] = val;
-//
-//    if (stride > 1) {
-//        scanTile[index] += scanTile[index - 1];
-//    }
-//    if (stride > 2) {
-//        scanTile[index] += scanTile[index - 2];
-//    }
-//    if (stride > 4) {
-//        scanTile[index] += scanTile[index - 4];
-//    }
-//    if (stride > 8) {
-//        scanTile[index] += scanTile[index - 8];
-//    }
-//    if (stride > 16) {
-//        scanTile[index] += scanTile[index - 16];
-//    }
-//
-//    // Converts inclusive scan to exclusive
-//    return scanTile[index] - val;
-//}
-//
-//__device__ uint2 intraBlockScan(bool pred0, bool pred1) {
-//    extern __shared__ uint_t scanTile[];
-//    uint_t warpIdx = threadIdx.x / warpSize;
-//    uint_t laneIdx = threadIdx.x & (warpSize - 1);
-//    uint_t predSum = pred0 + pred1;
-//    uint2 trueBefore;
-//
-//    uint_t warpResult = binaryWarpScan(pred0);
-//    warpResult += binaryWarpScan(pred1);
-//    __syncthreads();
-//
-//    if (laneIdx == warpSize - 1) {
-//        scanTile[warpIdx] = warpResult + predSum;
-//    }
-//    __syncthreads();
-//
-//    // Maximum number of elements for scan is warpSize ^ 2
-//    if (threadIdx.x < blockDim.x / warpSize) {
-//        scanTile[threadIdx.x] = intraWarpScan(scanTile, scanTile[threadIdx.x], blockDim.x / warpSize);
-//    }
-//    __syncthreads();
-//
-//    trueBefore.x = warpResult + scanTile[warpIdx];
-//    trueBefore.y = trueBefore.x + pred0;
-//
-//    return trueBefore;
-//}
-//
-///*
-//Computes the rank of the current element in shared memory block.
-//*/
-//__device__ uint2 split(bool pred0, bool pred1) {
-//    __shared__ uint_t falseTotal;
-//    uint2 trueBefore = intraBlockScan(pred0, pred1);
-//    uint2 rank;
-//
-//    // Last thread computes the total number of elements, which have 'false' predicate value.
-//    if (threadIdx.x == blockDim.x - 1) {
-//        falseTotal = 2 * blockDim.x - (trueBefore.y + pred1);
-//    }
-//    __syncthreads();
-//
-//    // Computes the rank for the first element (in first half of shared memory)
-//    if (pred0) {
-//        rank.x = trueBefore.x + falseTotal;
-//    } else {
-//        rank.x = 2 * threadIdx.x - trueBefore.x;
-//    }
-//
-//    // Computes the rank for the second element (in second half of shared memory)
-//    if (pred1) {
-//        rank.y = trueBefore.y + falseTotal;
-//    } else {
-//        rank.y = (2 * threadIdx.x + 1) - trueBefore.y;
-//    }
-//
-//    return rank;
-//}
-//
-///*---------------------------------------------------------
-//------------------------- KERNELS -------------------------
-//-----------------------------------------------------------*/
-//
-///*
-//Sorts blocks in shared memory according to current radix diggit.
-//*/
-//// TODO read process more than two elements
-//__global__ void radixSortLocalKernel(el_t *table, uint_t bitOffset, bool orderAsc) {
-//    extern __shared__ el_t sortTile[];
-//    uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
-//
-//    sortTile[threadIdx.x] = table[index];
-//    sortTile[threadIdx.x + blockDim.x] = table[index + blockDim.x];
-//    __syncthreads();
-//
-//    for (uint_t shift = bitOffset; shift < bitOffset + BIT_COUNT; shift++) {
-//        el_t el0 = sortTile[2 * threadIdx.x];
-//        el_t el1 = sortTile[2 * threadIdx.x + 1];
-//        __syncthreads();
-//
-//        // Extracts the current bit (predicate) to calculate ranks
-//        uint2 rank = split((el0.key >> shift) & 1, (el1.key >> shift) & 1);
-//
-//        sortTile[rank.x] = el0;
-//        sortTile[rank.y] = el1;
-//        __syncthreads();
-//    }
-//
-//    table[index] = sortTile[threadIdx.x];
-//    table[index + blockDim.x] = sortTile[threadIdx.x + blockDim.x];
-//}
-//
+
+// TODO remove
+__global__ void printTableKernel(data_t *dataTable, uint_t tableLen) {
+    for (uint_t i = 0; i < tableLen; i++)
+    {
+        printf("%2d ", dataTable[i]);
+    }
+    printf("\n\n");
+}
+
+__device__ uint_t laneMask()
+{
+    uint_t mask;
+    asm("mov.u32 %0, %lanemask_lt;" : "=r"(mask));
+    return mask;
+}
+
+__device__ uint_t binaryWarpScan(bool pred)
+{
+    uint_t mask = laneMask();
+    uint_t ballot = __ballot(pred);
+    return __popc(ballot & mask);
+}
+
+/*
+Performs scan and computes, how many elements have 'true' predicate before current element.
+*/
+__device__ uint_t intraWarpScan(volatile uint_t *scanTile, uint_t val, uint_t stride)
+{
+    // The same kind of indexing as for bitonic sort
+    uint_t index = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
+
+    scanTile[index] = 0;
+    index += stride;
+    scanTile[index] = val;
+
+    if (stride > 1)
+    {
+        scanTile[index] += scanTile[index - 1];
+    }
+    if (stride > 2)
+    {
+        scanTile[index] += scanTile[index - 2];
+    }
+    if (stride > 4)
+    {
+        scanTile[index] += scanTile[index - 4];
+    }
+    if (stride > 8)
+    {
+        scanTile[index] += scanTile[index - 8];
+    }
+    if (stride > 16)
+    {
+        scanTile[index] += scanTile[index - 16];
+    }
+
+    // Converts inclusive scan to exclusive
+    return scanTile[index] - val;
+}
+
+__device__ uint2 intraBlockScan(bool pred0, bool pred1)
+{
+    extern __shared__ uint_t scanTile[];
+    uint_t warpIdx = threadIdx.x / warpSize;
+    uint_t laneIdx = threadIdx.x & (warpSize - 1);
+    uint_t predSum = pred0 + pred1;
+    uint2 trueBefore;
+
+    uint_t warpResult = binaryWarpScan(pred0);
+    warpResult += binaryWarpScan(pred1);
+    __syncthreads();
+
+    if (laneIdx == warpSize - 1)
+    {
+        scanTile[warpIdx] = warpResult + predSum;
+    }
+    __syncthreads();
+
+    // Maximum number of elements for scan is warpSize ^ 2
+    if (threadIdx.x < blockDim.x / warpSize)
+    {
+        scanTile[threadIdx.x] = intraWarpScan(scanTile, scanTile[threadIdx.x], blockDim.x / warpSize);
+    }
+    __syncthreads();
+
+    trueBefore.x = warpResult + scanTile[warpIdx];
+    trueBefore.y = trueBefore.x + pred0;
+
+    return trueBefore;
+}
+
+/*
+Computes the rank of the current element in shared memory block.
+*/
+__device__ uint2 split(bool pred0, bool pred1)
+{
+    __shared__ uint_t falseTotal;
+    uint2 trueBefore = intraBlockScan(pred0, pred1);
+    uint2 rank;
+
+    // Last thread computes the total number of elements, which have 'false' predicate value.
+    if (threadIdx.x == blockDim.x - 1)
+    {
+        falseTotal = 2 * blockDim.x - (trueBefore.y + pred1);
+    }
+    __syncthreads();
+
+    // Computes the rank for the first element (in first half of shared memory)
+    if (pred0)
+    {
+        rank.x = trueBefore.x + falseTotal;
+    }
+    else
+    {
+        rank.x = 2 * threadIdx.x - trueBefore.x;
+    }
+
+    // Computes the rank for the second element (in second half of shared memory)
+    if (pred1)
+    {
+        rank.y = trueBefore.y + falseTotal;
+    }
+    else
+    {
+        rank.y = (2 * threadIdx.x + 1) - trueBefore.y;
+    }
+
+    return rank;
+}
+
+/*---------------------------------------------------------
+------------------------- KERNELS -------------------------
+-----------------------------------------------------------*/
+
+/*
+Sorts blocks in shared memory according to current radix diggit.
+*/
+// TODO read process more than two elements
+// TODO use sort order
+template <order_t sortOrder>
+__global__ void radixSortLocalKernel(data_t *dataTable, uint_t bitOffset)
+{
+    extern __shared__ data_t sortTile[];
+    uint_t index = blockIdx.x * 2 * blockDim.x + threadIdx.x;
+
+    sortTile[threadIdx.x] = dataTable[index];
+    sortTile[threadIdx.x + blockDim.x] = dataTable[index + blockDim.x];
+    __syncthreads();
+
+    for (uint_t shift = bitOffset; shift < bitOffset + BIT_COUNT; shift++)
+    {
+        data_t el0 = sortTile[2 * threadIdx.x];
+        data_t el1 = sortTile[2 * threadIdx.x + 1];
+        __syncthreads();
+
+        // Extracts the current bit (predicate) to calculate ranks
+        uint2 rank = split((el0 >> shift) & 1, (el1 >> shift) & 1);
+
+        sortTile[rank.x] = el0;
+        sortTile[rank.y] = el1;
+        __syncthreads();
+    }
+
+    dataTable[index] = sortTile[threadIdx.x];
+    dataTable[index + blockDim.x] = sortTile[threadIdx.x + blockDim.x];
+}
+
+template __global__ void radixSortLocalKernel<ORDER_ASC>(data_t *dataTable, uint_t bitOffset);
+template __global__ void radixSortLocalKernel<ORDER_DESC>(data_t *dataTable, uint_t bitOffset);
+
+
 ///*
 //Generates buckets offsets and sizes for every sorted data block, which was sorted with local radix sort.
 //*/
