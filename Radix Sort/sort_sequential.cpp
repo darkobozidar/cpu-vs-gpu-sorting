@@ -23,7 +23,7 @@ void countingSort(
     // Counts number of element occurances
     for (uint_t i = 0; i < tableLen; i++)
     {
-        dataCounters[(dataInput[i] >> bitOffset) & RADIX_MASK]++;
+        dataCounters[(dataInput[i] >> bitOffset) & RADIX_MASK_SEQUENTIAL]++;
     }
 
     // Performs scan on counters
@@ -35,7 +35,7 @@ void countingSort(
     // Scatters elements to their output position
     for (int_t i = tableLen - 1; i >= 0; i--)
     {
-        dataOutput[--dataCounters[(dataInput[i] >> bitOffset) & RADIX_MASK]] = dataInput[i];
+        dataOutput[--dataCounters[(dataInput[i] >> bitOffset) & RADIX_MASK_SEQUENTIAL]] = dataInput[i];
     }
 }
 
