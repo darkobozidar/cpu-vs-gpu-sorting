@@ -45,10 +45,10 @@ Runs kernel, which sorts data blocks in shared memory with radix sort.
 */
 void runRadixSortLocalKernel(data_t *dataTable, uint_t tableLen, uint_t bitOffset, order_t sortOrder)
 {
-    uint_t threadBlockSize = min(tableLen / 2, THREADS_PER_LOCAL_SORT);
-    uint_t sharedMemSize = 2 * threadBlockSize * sizeof(*dataTable);
+    uint_t threadBlockSize = min((tableLen - 1) / ELEMS_PER_THREAD_LOCAL + 1, THREADS_PER_LOCAL_SORT);
+    uint_t sharedMemSize = ELEMS_PER_THREAD_LOCAL * threadBlockSize * sizeof(*dataTable);
 
-    dim3 dimGrid((tableLen - 1) / (2 * threadBlockSize) + 1, 1, 1);
+    dim3 dimGrid((tableLen - 1) / (ELEMS_PER_THREAD_LOCAL * threadBlockSize) + 1, 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
 
     if (sortOrder == ORDER_ASC)
@@ -69,10 +69,10 @@ void runGenerateBucketsKernel(
     data_t *dataTable, uint_t *blockOffsets, uint_t *blockSizes, uint_t tableLen, uint_t bitOffset
 )
 {
-    uint_t threadBlockSize = min(tableLen / 2, THREADS_PER_LOCAL_SORT);
+    uint_t threadBlockSize = min((tableLen - 1) / 2 + 1, THREADS_PER_LOCAL_SORT);
     uint_t sharedMemSize = 2 * threadBlockSize * sizeof(uint_t) + 2 * RADIX_PARALLEL * sizeof(uint_t);
 
-    dim3 dimGrid(tableLen / (2 * threadBlockSize), 1, 1);
+    dim3 dimGrid((tableLen - 1) / (2 * threadBlockSize) + 1, 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
 
     generateBucketsKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
