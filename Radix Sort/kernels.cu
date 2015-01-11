@@ -17,15 +17,6 @@
 //-------------------------- UTILS --------------------------
 //-----------------------------------------------------------*/
 
-// TODO remove
-__global__ void printTableKernel(data_t *dataTable, uint_t tableLen) {
-    for (uint_t i = 0; i < tableLen; i++)
-    {
-        printf("%2d ", dataTable[i]);
-    }
-    printf("\n\n");
-}
-
 __device__ uint_t laneMask()
 {
     uint_t mask;
@@ -195,11 +186,19 @@ __global__ void addPaddingKernel(data_t *dataTable, data_t *dataBuffer, uint_t s
     }
 }
 
+template __global__ void addPaddingKernel<MIN_VAL>(
+    data_t *dataTable, data_t *dataBuffer, uint_t start, uint_t length
+);
+template __global__ void addPaddingKernel<MAX_VAL>(
+    data_t *dataTable, data_t *dataBuffer, uint_t start, uint_t length
+);
+
+
 /*
-Sorts blocks in shared memory according to current radix diggit.
+Sorts blocks in shared memory according to current radix diggit. Sort is done for every separatelly for every
+bit of diggit.
+- TODO use sort order
 */
-// TODO read process more than two elements
-// TODO use sort order
 template <order_t sortOrder>
 __global__ void radixSortLocalKernel(data_t *dataTable, uint_t bitOffset)
 {
@@ -207,14 +206,17 @@ __global__ void radixSortLocalKernel(data_t *dataTable, uint_t bitOffset)
     uint_t offset = blockIdx.x * ELEMS_PER_THREAD_LOCAL * blockDim.x;
     uint_t elemsPerThreadBlock = THREADS_PER_LOCAL_SORT * ELEMS_PER_THREAD_LOCAL;
 
+    // Every thread reads it's corresponding elements
     for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_LOCAL_SORT)
     {
         sortTile[tx] = dataTable[offset + tx];
     }
     __syncthreads();
 
+    // Every thread processes ELEMS_PER_THREAD_LOCAL elements
     for (uint_t shift = bitOffset; shift < bitOffset + BIT_COUNT_PARALLEL; shift++)
     {
+        // Every thread reads it's corresponding elements into registers
         data_t el0 = sortTile[ELEMS_PER_THREAD_LOCAL * threadIdx.x];
         data_t el1 = sortTile[ELEMS_PER_THREAD_LOCAL * threadIdx.x + 1];
         data_t el2 = sortTile[ELEMS_PER_THREAD_LOCAL * threadIdx.x + 2];
@@ -233,6 +235,7 @@ __global__ void radixSortLocalKernel(data_t *dataTable, uint_t bitOffset)
         __syncthreads();
     }
 
+    // Every thread stores it's corresponding elements
     for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_LOCAL_SORT)
     {
         dataTable[offset + tx] = sortTile[tx];
@@ -248,7 +251,7 @@ Generates buckets offsets and sizes for every sorted data block, which was sorte
 */
 __global__ void generateBucketsKernel(
     data_t *dataTable, uint_t *bucketOffsets, uint_t *bucketSizes, uint_t bitOffset
-    )
+)
 {
     extern __shared__ uint_t tile[];
 
@@ -256,23 +259,21 @@ __global__ void generateBucketsKernel(
     uint_t *offsetsTile = tile;
     uint_t *sizesTile = tile + RADIX_PARALLEL;
     uint_t *radixTile = tile + 2 * RADIX_PARALLEL;
-    uint_t index = blockIdx.x * ELEMS_PER_THREAD_LOCAL * blockDim.x + threadIdx.x;
 
-    uint_t offset = blockIdx.x * ELEMS_PER_THREAD_LOCAL * blockDim.x;
-    uint_t elemsPerThreadBlock = THREADS_PER_LOCAL_SORT * ELEMS_PER_THREAD_LOCAL;
+    uint_t elemsPerLocalSort = THREADS_PER_LOCAL_SORT * ELEMS_PER_THREAD_LOCAL;
+    uint_t offset = blockIdx.x * elemsPerLocalSort;
 
     // Reads current radixes of elements
-    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_LOCAL_SORT)
+    for (uint_t tx = threadIdx.x; tx < elemsPerLocalSort; tx += THREADS_PER_GEN_BUCKETS)
     {
         radixTile[tx] = (dataTable[offset + tx] >> bitOffset) & RADIX_MASK_PARALLEL;
     }
     __syncthreads();
 
     // Initializes block sizes and offsets
-    // TODO blockDim.x < 2 * radix
-    if (blockDim.x < RADIX_PARALLEL)
+    if (THREADS_PER_GEN_BUCKETS < RADIX_PARALLEL)
     {
-        for (int i = 0; i < RADIX_PARALLEL; i += blockDim.x)
+        for (int i = 0; i < RADIX_PARALLEL; i += THREADS_PER_GEN_BUCKETS)
         {
             offsetsTile[threadIdx.x + i] = 0;
             sizesTile[threadIdx.x + i] = 0;
@@ -286,7 +287,7 @@ __global__ void generateBucketsKernel(
     __syncthreads();
 
     // Search for bucket offsets (where 2 consecutive elements differ)
-    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_LOCAL_SORT)
+    for (uint_t tx = threadIdx.x; tx < elemsPerLocalSort; tx += THREADS_PER_GEN_BUCKETS)
     {
         if (tx > 0 && radixTile[tx - 1] != radixTile[tx])
         {
@@ -296,7 +297,7 @@ __global__ void generateBucketsKernel(
     __syncthreads();
 
     // Generate bucket sizes from previously generated bucket offsets
-    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_LOCAL_SORT)
+    for (uint_t tx = threadIdx.x; tx < elemsPerLocalSort; tx += THREADS_PER_GEN_BUCKETS)
     {
         if (tx > 0 && radixTile[tx - 1] != radixTile[tx])
         {
@@ -305,19 +306,18 @@ __global__ void generateBucketsKernel(
         }
     }
     // Size for last bucket
-    if (threadIdx.x == blockDim.x - 1)
+    if (threadIdx.x == THREADS_PER_GEN_BUCKETS - 1)
     {
-        uint_t radix = radixTile[ELEMS_PER_THREAD_LOCAL * blockDim.x - 1];
-        sizesTile[radix] = ELEMS_PER_THREAD_LOCAL * blockDim.x - offsetsTile[radix];
+        uint_t radix = radixTile[elemsPerLocalSort - 1];
+        sizesTile[radix] = elemsPerLocalSort - offsetsTile[radix];
     }
     __syncthreads();
 
-    // Write block offsets and sizes to global memory
-    // Block sizes are not writtec consecutively way, so that scan can be performed on this table
-    // TODO blockDim.x < 2 * radix, TODO verify
-    if (blockDim.x < RADIX_PARALLEL)
+    // Stores block offsets and sizes to global memory
+    // Block sizes are NOT written in consecutively way, so that global scan can be performed
+    if (THREADS_PER_GEN_BUCKETS < RADIX_PARALLEL)
     {
-        for (int i = 0; i < RADIX_PARALLEL; i += blockDim.x)
+        for (int i = 0; i < RADIX_PARALLEL; i += THREADS_PER_GEN_BUCKETS)
         {
             bucketOffsets[blockIdx.x * RADIX_PARALLEL + threadIdx.x + i] = offsetsTile[threadIdx.x + i];
             bucketSizes[(threadIdx.x + i) * gridDim.x + blockIdx.x] = sizesTile[threadIdx.x + i];
@@ -330,6 +330,10 @@ __global__ void generateBucketsKernel(
     }
 }
 
+/*
+From provided offsets scatters elements to their corresponding buckets (according to radix diggit) from
+primary to buffer array.
+*/
 __global__ void radixSortGlobalKernel(
     data_t *dataInput, data_t *dataOutput, uint_t *offsetsLocal, uint_t *offsetsGlobal, uint_t bitOffset
 )
@@ -339,14 +343,16 @@ __global__ void radixSortGlobalKernel(
     __shared__ uint_t offsetsGlobalTile[RADIX_PARALLEL];
     uint_t radix, indexOutput;
 
-    uint_t offset = blockIdx.x * ELEMS_PER_THREAD_LOCAL * blockDim.x;
-    uint_t elemsPerThreadBlock = THREADS_PER_GLOBAL_SORT * ELEMS_PER_THREAD_LOCAL;
+    uint_t elemsPerLocalSort = THREADS_PER_LOCAL_SORT * ELEMS_PER_THREAD_LOCAL;
+    uint_t offset = blockIdx.x * elemsPerLocalSort;
 
-    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_GLOBAL_SORT)
+    // Every thread reads multiple elements
+    for (uint_t tx = threadIdx.x; tx < elemsPerLocalSort; tx += THREADS_PER_GLOBAL_SORT)
     {
         sortGlobalTile[tx] = dataInput[offset + tx];
     }
 
+    // Reads local and global offsets
     if (blockDim.x < RADIX_PARALLEL)
     {
         for (int i = 0; i < RADIX_PARALLEL; i += blockDim.x)
@@ -362,7 +368,8 @@ __global__ void radixSortGlobalKernel(
     }
     __syncthreads();
 
-    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_GLOBAL_SORT)
+    // Every thread stores multiple elements
+    for (uint_t tx = threadIdx.x; tx < elemsPerLocalSort; tx += THREADS_PER_GLOBAL_SORT)
     {
         radix = (sortGlobalTile[tx] >> bitOffset) & RADIX_MASK_PARALLEL;
         indexOutput = offsetsGlobalTile[radix] + tx - offsetsLocalTile[radix];

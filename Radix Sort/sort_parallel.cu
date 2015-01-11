@@ -80,23 +80,19 @@ which is specified with "bitOffset".
 */
 void runRadixSortLocalKernel(data_t *dataTable, uint_t tableLen, uint_t bitOffset, order_t sortOrder)
 {
-    uint_t threadBlockSize = min((tableLen - 1) / ELEMS_PER_THREAD_LOCAL + 1, THREADS_PER_LOCAL_SORT);
-    uint_t sharedMemSize = threadBlockSize * ELEMS_PER_THREAD_LOCAL * sizeof(*dataTable);
+    uint_t elemsPerThreadBlock = THREADS_PER_LOCAL_SORT * ELEMS_PER_THREAD_LOCAL;
+    uint_t sharedMemSize = elemsPerThreadBlock * sizeof(*dataTable);
 
-    dim3 dimGrid((tableLen - 1) / (ELEMS_PER_THREAD_LOCAL * threadBlockSize) + 1, 1, 1);
-    dim3 dimBlock(threadBlockSize, 1, 1);
+    dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
+    dim3 dimBlock(THREADS_PER_LOCAL_SORT, 1, 1);
 
     if (sortOrder == ORDER_ASC)
     {
-        radixSortLocalKernel<ORDER_ASC><<<dimGrid, dimBlock, sharedMemSize>>>(
-            dataTable, bitOffset
-        );
+        radixSortLocalKernel<ORDER_ASC><<<dimGrid, dimBlock, sharedMemSize>>>(dataTable, bitOffset);
     }
     else
     {
-        radixSortLocalKernel<ORDER_DESC><<<dimGrid, dimBlock, sharedMemSize>>>(
-            dataTable, bitOffset
-        );
+        radixSortLocalKernel<ORDER_DESC><<<dimGrid, dimBlock, sharedMemSize>>>(dataTable, bitOffset);
     }
 }
 
@@ -104,46 +100,50 @@ void runGenerateBucketsKernel(
     data_t *dataTable, uint_t *blockOffsets, uint_t *blockSizes, uint_t tableLen, uint_t bitOffset
 )
 {
-    uint_t threadBlockSize = min((tableLen - 1) / ELEMS_PER_THREAD_LOCAL + 1, THREADS_PER_LOCAL_SORT);
-    uint_t sharedMemSize = ELEMS_PER_THREAD_LOCAL * threadBlockSize * sizeof(uint_t) + 2 * RADIX_PARALLEL * sizeof(uint_t);
+    uint_t elemsPerLocalSort = THREADS_PER_LOCAL_SORT * ELEMS_PER_THREAD_LOCAL;
+    // Shared memory size:
+    // - "elemsPerLocalSort"  -> container for elements read from global memory into shared memory
+    // - "2 * RADIX_PARALLEL" -> bucket local sizes + bucket local offsets
+    uint_t sharedMemSize = elemsPerLocalSort * sizeof(uint_t) + 2 * RADIX_PARALLEL * sizeof(uint_t);
 
-    dim3 dimGrid((tableLen - 1) / (ELEMS_PER_THREAD_LOCAL * threadBlockSize) + 1, 1, 1);
-    dim3 dimBlock(threadBlockSize, 1, 1);
+    dim3 dimGrid((tableLen - 1) / elemsPerLocalSort + 1, 1, 1);
+    dim3 dimBlock(THREADS_PER_GEN_BUCKETS, 1, 1);
 
     generateBucketsKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
         dataTable, blockOffsets, blockSizes, bitOffset
     );
 }
 
+/*
+Scatters elements to their corresponding buckets according to current radix diggit, which is specified
+with "bitOffset".
+*/
 void runRadixSortGlobalKernel(
     data_t *dataTable,  data_t *dataBuffer, uint_t *offsetsLocal, uint_t *offsetsGlobal, uint_t tableLen,
     uint_t bitOffset, order_t sortOrder
 )
 {
-    uint_t threadBlockSize = min((tableLen - 1) / ELEMS_PER_THREAD_LOCAL, THREADS_PER_GLOBAL_SORT);
-    uint_t sharedMemSIze = ELEMS_PER_THREAD_LOCAL * threadBlockSize * sizeof(*dataTable);
+    uint_t elemsPerLocalSort = THREADS_PER_LOCAL_SORT * ELEMS_PER_THREAD_LOCAL;
+    uint_t sharedMemSIze = elemsPerLocalSort * sizeof(*dataTable);
 
-    dim3 dimGrid((tableLen - 1) / (ELEMS_PER_THREAD_LOCAL * threadBlockSize) + 1, 1, 1);
-    dim3 dimBlock(threadBlockSize, 1, 1);
+    dim3 dimGrid((tableLen - 1) / elemsPerLocalSort + 1, 1, 1);
+    dim3 dimBlock(THREADS_PER_GLOBAL_SORT, 1, 1);
 
     radixSortGlobalKernel<<<dimGrid, dimBlock, sharedMemSIze>>>(
         dataTable, dataBuffer, offsetsLocal, offsetsGlobal, bitOffset
     );
 }
 
-//void runPrintTableKernel(uint_t *table, uint_t tableLen) {
-//    printTableKernel<<<1, 1>>>(table, tableLen);
-//    cudaError_t error = cudaDeviceSynchronize();
-//    checkCudaError(error);
-//}
-
+/*
+Sorts data with parallel radix sort.
+*/
 double sortParallel(
     data_t *h_output, data_t *d_dataTable, data_t *d_dataBuffer, uint_t *d_bucketOffsetsLocal,
     uint_t *d_bucketOffsetsGlobal, uint_t *d_bucketSizes, uint_t tableLen, order_t sortOrder
 )
 {
-    uint_t threadsPerSortLocal = min((tableLen - 1) / ELEMS_PER_THREAD_LOCAL + 1, THREADS_PER_LOCAL_SORT);
-    uint_t bucketsLen = RADIX_PARALLEL * (tableLen / (threadsPerSortLocal * ELEMS_PER_THREAD_LOCAL));
+    uint_t elemsPerLocalSort = THREADS_PER_LOCAL_SORT * ELEMS_PER_THREAD_LOCAL;
+    uint_t bucketsLen = RADIX_PARALLEL * ((tableLen - 1) / elemsPerLocalSort + 1);
     CUDPPHandle scanPlan;
     LARGE_INTEGER timer;
     cudaError_t error;
@@ -157,6 +157,7 @@ double sortParallel(
         runRadixSortLocalKernel(d_dataTable, tableLen, bitOffset, sortOrder);
         runGenerateBucketsKernel(d_dataTable, d_bucketOffsetsLocal, d_bucketSizes, tableLen, bitOffset);
 
+        // Performs global scan in order to calculate global bucket offsets from local bucket sizes
         CUDPPResult result = cudppScan(scanPlan, d_bucketOffsetsGlobal, d_bucketSizes, bucketsLen);
         if (result != CUDPP_SUCCESS)
         {
