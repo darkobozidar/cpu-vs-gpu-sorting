@@ -1,13 +1,17 @@
 #ifndef KERNELS_H
 #define KERNELS_H
 
-//__global__ void printTableKernel(data_t *table, uint_t tableLen);
-//
+
+template <data_t value>
+__global__ void addPaddingKernel(data_t *dataTable, data_t *dataBuffer, uint_t start, uint_t length);
+
 template <order_t sortOrder>
 __global__ void radixSortLocalKernel(data_t *dataTable, uint_t bitOffset);
+
 __global__ void generateBucketsKernel(
     data_t *dataTable, uint_t *bucketOffsets, uint_t *bucketSizes, uint_t bitOffset
 );
+
 __global__ void radixSortGlobalKernel(
     data_t *input, data_t *output, uint_t *offsetsLocal, uint_t *offsetsGlobal, uint_t bitOffset
 );

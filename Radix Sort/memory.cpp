@@ -79,11 +79,14 @@ void allocDeviceMemory(
 {
     uint_t threadsPerSortLocal = min((tableLen - 1) / ELEMS_PER_THREAD_LOCAL + 1, THREADS_PER_LOCAL_SORT);
     uint_t bucketsLen = RADIX_PARALLEL * ((tableLen - 1) / (ELEMS_PER_THREAD_LOCAL * threadsPerSortLocal) + 1);
+    // In case table length is not power of 2, data table is padded to the next multiple of number of elements
+    // per local radix sort.
+    uint_t tableLenRoundedUp = roundUp(tableLen, threadsPerSortLocal);
     cudaError_t error;
 
-    error = cudaMalloc(dataTable, tableLen * sizeof(**dataTable));
+    error = cudaMalloc(dataTable, tableLenRoundedUp * sizeof(**dataTable));
     checkCudaError(error);
-    error = cudaMalloc(dataBuffer, tableLen * sizeof(**dataBuffer));
+    error = cudaMalloc(dataBuffer, tableLenRoundedUp * sizeof(**dataBuffer));
     checkCudaError(error);
 
     error = cudaMalloc(bucketOffsetsLocal, bucketsLen * sizeof(**bucketOffsetsLocal));

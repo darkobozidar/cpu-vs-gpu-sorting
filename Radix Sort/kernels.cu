@@ -176,6 +176,26 @@ __device__ uint4 split(bool pred0, bool pred1, bool pred2, bool pred3)
 -----------------------------------------------------------*/
 
 /*
+Adds the padding to table from start index (original table length) to the end of the extended array (divisable
+with number of elements processed by one thread block in local radix sort).
+*/
+template <data_t value>
+__global__ void addPaddingKernel(data_t *dataTable, data_t *dataBuffer, uint_t start, uint_t length)
+{
+    uint_t elemsPerThreadBlock = THREADS_PER_PADDING * ELEMS_PER_THREAD_PADDING;
+    uint_t offset = blockIdx.x * elemsPerThreadBlock;
+    uint_t dataBlockLength = offset + elemsPerThreadBlock <= length ? elemsPerThreadBlock : length - offset;
+    offset += start;
+
+    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_PADDING)
+    {
+        uint_t index = offset + tx;
+        dataTable[index] = value;
+        dataBuffer[index] = value;
+    }
+}
+
+/*
 Sorts blocks in shared memory according to current radix diggit.
 */
 // TODO read process more than two elements
