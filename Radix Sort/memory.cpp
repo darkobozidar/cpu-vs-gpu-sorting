@@ -77,8 +77,8 @@ void allocDeviceMemory(
     uint_t **bucketSizes, uint_t tableLen
 )
 {
-    uint_t threadsPerSort = min(tableLen / 2, THREADS_PER_LOCAL_SORT);
-    uint_t bucketsLen = RADIX_PARALLEL * ((tableLen - 1) / (2 * threadsPerSort) + 1);
+    uint_t threadsPerSortLocal = min((tableLen - 1) / ELEMS_PER_THREAD_LOCAL + 1, THREADS_PER_LOCAL_SORT);
+    uint_t bucketsLen = RADIX_PARALLEL * ((tableLen - 1) / (ELEMS_PER_THREAD_LOCAL * threadsPerSortLocal) + 1);
     cudaError_t error;
 
     error = cudaMalloc(dataTable, tableLen * sizeof(**dataTable));

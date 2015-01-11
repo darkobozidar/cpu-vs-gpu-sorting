@@ -69,10 +69,10 @@ void runGenerateBucketsKernel(
     data_t *dataTable, uint_t *blockOffsets, uint_t *blockSizes, uint_t tableLen, uint_t bitOffset
 )
 {
-    uint_t threadBlockSize = min((tableLen - 1) / 2 + 1, THREADS_PER_LOCAL_SORT);
-    uint_t sharedMemSize = 2 * threadBlockSize * sizeof(uint_t) + 2 * RADIX_PARALLEL * sizeof(uint_t);
+    uint_t threadBlockSize = min((tableLen - 1) / ELEMS_PER_THREAD_LOCAL + 1, THREADS_PER_LOCAL_SORT);
+    uint_t sharedMemSize = ELEMS_PER_THREAD_LOCAL * threadBlockSize * sizeof(uint_t) + 2 * RADIX_PARALLEL * sizeof(uint_t);
 
-    dim3 dimGrid((tableLen - 1) / (2 * threadBlockSize) + 1, 1, 1);
+    dim3 dimGrid((tableLen - 1) / (ELEMS_PER_THREAD_LOCAL * threadBlockSize) + 1, 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
 
     generateBucketsKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
@@ -85,10 +85,10 @@ void runRadixSortGlobalKernel(
     uint_t bitOffset, order_t sortOrder
 )
 {
-    uint_t threadBlockSize = min(tableLen / 2, THREADS_PER_GLOBAL_SORT);
-    uint_t sharedMemSIze = 2 * threadBlockSize * sizeof(*dataTable);
+    uint_t threadBlockSize = min((tableLen - 1) / ELEMS_PER_THREAD_LOCAL, THREADS_PER_GLOBAL_SORT);
+    uint_t sharedMemSIze = ELEMS_PER_THREAD_LOCAL * threadBlockSize * sizeof(*dataTable);
 
-    dim3 dimGrid((tableLen - 1) / (2 * threadBlockSize) + 1, 1, 1);
+    dim3 dimGrid((tableLen - 1) / (ELEMS_PER_THREAD_LOCAL * threadBlockSize) + 1, 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
 
     radixSortGlobalKernel<<<dimGrid, dimBlock, sharedMemSIze>>>(
@@ -107,16 +107,14 @@ double sortParallel(
     uint_t *d_bucketOffsetsGlobal, uint_t *d_bucketSizes, uint_t tableLen, order_t sortOrder
 )
 {
-    uint_t threadsPerSort = min(tableLen / 2, THREADS_PER_LOCAL_SORT);
-    uint_t bucketsLen = RADIX_PARALLEL * (tableLen / (2 * threadsPerSort));
+    uint_t threadsPerSortLocal = min((tableLen - 1) / ELEMS_PER_THREAD_LOCAL + 1, THREADS_PER_LOCAL_SORT);
+    uint_t bucketsLen = RADIX_PARALLEL * (tableLen / (threadsPerSortLocal * ELEMS_PER_THREAD_LOCAL));
     CUDPPHandle scanPlan;
     LARGE_INTEGER timer;
     cudaError_t error;
 
     startStopwatch(&timer);
-
     cudppInitScan(&scanPlan, bucketsLen);
-    runRadixSortLocalKernel(d_dataTable, tableLen, 0, sortOrder);
 
     for (uint_t bitOffset = 0; bitOffset < sizeof(data_t) * 8; bitOffset += BIT_COUNT_PARALLEL)
     {
