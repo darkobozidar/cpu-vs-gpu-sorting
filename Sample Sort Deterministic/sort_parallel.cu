@@ -1,21 +1,18 @@
-//#include <stdio.h>
-//#include <climits>
-//#include <math.h>
-//#include <Windows.h>
-//
-//#include <cuda.h>
-//#include "cuda_runtime.h"
-//#include "device_launch_parameters.h"
-//
-//#include <cudpp.h>
-//
-//#include "data_types.h"
-//#include "constants.h"
-//#include "utils_cuda.h"
-//#include "utils_host.h"
-//#include "kernels.h"
-//
-//
+#include <stdio.h>
+#include <math.h>
+#include <Windows.h>
+
+#include <cuda.h>
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
+
+#include "../Utils/data_types_common.h"
+#include "../Utils/cuda.h"
+#include "../Utils/host.h"
+#include "constants.h"
+#include "kernels.h"
+
+
 ///*
 //Initializes DEVICE memory needed for paralel sort implementation.
 //*/
@@ -306,45 +303,39 @@
 //
 //    return dataBuffer;
 //}
-//
-//void sortParallel(el_t *h_dataInput, el_t *h_dataOutput, uint_t tableLen, order_t sortOrder) {
-//    el_t *d_dataInput, *d_dataBuffer, *d_dataResult;
-//    // First it holds LOCAL and than GLOBAL samples
-//    data_t *d_samples;
-//    // Sizes and offsets of local (per every tile) buckets (gained after scan on bucket sizes)
-//    uint_t *d_localBucketSizes, *d_localBucketOffsets;
-//    // Offsets of entire (whole, global) buckets, not just parts of buckets for every tile (local)
-//    uint_t h_globalBucketOffsets[NUM_SAMPLES + 1], *d_globalBucketOffsets;
-//
-//    uint_t elemsPerInitBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
-//    uint_t localSamplesDistance = (THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT) / NUM_SAMPLES;
-//    uint_t localSamplesLen = (tableLen - 1) / localSamplesDistance + 1;
-//    // (number of all data blocks (tiles)) * (number buckets generated from NUM_SAMPLES)
-//    uint_t localBucketsLen = ((tableLen - 1) / elemsPerInitBitonicSort + 1) * (NUM_SAMPLES + 1);
-//
-//    LARGE_INTEGER timer;
-//    cudaError_t error;
-//
-//    memoryInit(
-//        h_dataInput, &d_dataInput, &d_dataBuffer, &d_samples, &d_globalBucketOffsets, &d_localBucketSizes,
-//        &d_localBucketOffsets, tableLen, localSamplesLen, localBucketsLen
-//    );
-//
-//    startStopwatch(&timer);
-//    d_dataResult = sampleSort(
-//        d_dataInput, d_dataBuffer, d_samples, h_globalBucketOffsets, d_globalBucketOffsets, d_localBucketSizes,
-//        d_localBucketOffsets, tableLen, localSamplesLen, localBucketsLen, sortOrder
-//    );
-//
-//    error = cudaDeviceSynchronize();
-//    checkCudaError(error);
-//    double time = endStopwatch(timer, "Executing parallel sample sort.");
-//    printf("Operations (pair swaps): %.2f M/s\n", tableLen / 500.0 / time);
-//
-//    error = cudaMemcpy(h_dataOutput, d_dataResult, tableLen * sizeof(*h_dataOutput), cudaMemcpyDeviceToHost);
-//    checkCudaError(error);
-//
-//    cudaFree(d_dataInput);
-//    cudaFree(d_dataBuffer);
-//    cudaFree(d_samples);
-//}
+
+double sortParallel(
+    data_t *h_output, data_t *d_dataTable, data_t *d_dataBuffer, data_t *d_samples, uint_t *d_localBucketSizes,
+    uint_t *d_localBucketOffsets, uint_t *h_globalBucketOffsets, uint_t *d_globalBucketOffsets, uint_t tableLen,
+    order_t sortOrder
+)
+{
+    //uint_t elemsPerInitBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+    //uint_t localSamplesDistance = (THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT) / NUM_SAMPLES;
+    //uint_t localSamplesLen = (tableLen - 1) / localSamplesDistance + 1;
+    //// (number of all data blocks (tiles)) * (number buckets generated from NUM_SAMPLES)
+    //uint_t localBucketsLen = ((tableLen - 1) / elemsPerInitBitonicSort + 1) * (NUM_SAMPLES + 1);
+
+    LARGE_INTEGER timer;
+    cudaError_t error;
+
+    //memoryInit(
+    //    h_dataInput, &d_dataInput, &d_dataBuffer, &d_samples, &d_globalBucketOffsets, &d_localBucketSizes,
+    //    &d_localBucketOffsets, tableLen, localSamplesLen, localBucketsLen
+    //);
+
+    //startStopwatch(&timer);
+    //d_dataResult = sampleSort(
+    //    d_dataInput, d_dataBuffer, d_samples, h_globalBucketOffsets, d_globalBucketOffsets, d_localBucketSizes,
+    //    d_localBucketOffsets, tableLen, localSamplesLen, localBucketsLen, sortOrder
+    //);
+
+    error = cudaDeviceSynchronize();
+    checkCudaError(error);
+    double time = endStopwatch(timer);
+
+    error = cudaMemcpy(h_output, d_dataTable, tableLen * sizeof(*h_output), cudaMemcpyDeviceToHost);
+    checkCudaError(error);
+
+    return time;
+}

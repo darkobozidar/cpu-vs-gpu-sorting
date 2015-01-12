@@ -22,7 +22,14 @@
 int main(int argc, char **argv)
 {
     data_t *h_input;
-    data_t *h_outputParallel, *h_outputSequential, *h_outputCorrect, *d_dataTable;
+    data_t *h_outputParallel, *h_outputSequential, *h_outputCorrect;
+    data_t *d_dataTable, *d_dataBuffer;
+    // First it holds LOCAL and than GLOBAL samples
+    data_t *d_samples;
+    // Sizes and offsets of local (per every tile - thread block) buckets (gained after scan on bucket sizes)
+    uint_t *d_localBucketSizes, *d_localBucketOffsets;
+    // Offsets of entire (whole, global) buckets, not just parts of buckets for every tile (local)
+    uint_t *h_globalBucketOffsets, *d_globalBucketOffsets;
     double **timers;
 
     uint_t tableLen = (1 << 20);
@@ -38,9 +45,13 @@ int main(int argc, char **argv)
 
     // Memory alloc
     allocHostMemory(
-        &h_input, &h_outputParallel, &h_outputSequential, &h_outputCorrect, &timers, tableLen, testRepetitions
+        &h_input, &h_outputParallel, &h_outputSequential, &h_outputCorrect, &h_globalBucketOffsets, &timers,
+        tableLen, testRepetitions
     );
-    allocDeviceMemory(&d_dataTable, tableLen);
+    allocDeviceMemory(
+        &d_dataTable, &d_dataBuffer, &d_samples, &d_localBucketSizes, &d_localBucketOffsets,
+        &d_globalBucketOffsets, tableLen
+    );
 
     printf(">>> SAMPLE SORT <<<\n\n\n");
     printDataDistribution(distribution);
@@ -60,7 +71,10 @@ int main(int argc, char **argv)
         checkCudaError(error);
         error = cudaDeviceSynchronize();
         checkCudaError(error);
-        timers[SORT_PARALLEL][i] = 999;  /*sortParallel(h_outputParallel, d_dataTable, tableLen, sortOrder);*/
+        timers[SORT_PARALLEL][i] = sortParallel(
+            h_outputParallel, d_dataTable, d_dataBuffer, d_samples, d_localBucketSizes, d_localBucketOffsets,
+            h_globalBucketOffsets, d_globalBucketOffsets, tableLen, sortOrder
+        );
 
         // Sort sequential
         std::copy(h_input, h_input + tableLen, h_outputSequential);
@@ -105,8 +119,10 @@ int main(int argc, char **argv)
     );
 
     // Memory free
-    freeHostMemory(h_input, h_outputParallel, h_outputSequential, h_outputCorrect, timers);
-    freeDeviceMemory(d_dataTable);
+    freeHostMemory(h_input, h_outputParallel, h_outputSequential, h_outputCorrect, h_globalBucketOffsets, timers);
+    freeDeviceMemory(
+        d_dataTable, d_dataBuffer, d_samples, d_localBucketSizes, d_localBucketOffsets, d_globalBucketOffsets
+    );
 
     getchar();
     return 0;
