@@ -1,13 +1,10 @@
-//#ifndef KERNELS_H
-//#define KERNELS_H
-//
-//__global__ void printElemsKernel(el_t *table, uint_t tableLen);
-//__global__ void printDataKernel(uint_t *table, uint_t tableLen);
-//
-//template <typename T>
-//__global__ void bitonicSortCollectSamplesKernel(
-//    T *dataTable, data_t *localSamples, uint_t tableLen, order_t sortOrder
-//);
+#ifndef KERNELS_H
+#define KERNELS_H
+
+
+template <order_t sortOrder>
+__global__ void bitonicSortCollectSamplesKernel(data_t *dataTable, data_t *localSamples, uint_t tableLen);
+
 //template <typename T>
 //__global__ void bitonicSortKernel(T *dataTable, uint_t tableLen, order_t sortOrder);
 //template <typename T>
@@ -27,5 +24,5 @@
 //    el_t *dataTable, el_t *dataBuffer, uint_t *d_globalBucketOffsets, const uint_t* __restrict__ localBucketSizes,
 //    const uint_t* __restrict__ localBucketOffsets, uint_t tableLen
 //);
-//
-//#endif
+
+#endif

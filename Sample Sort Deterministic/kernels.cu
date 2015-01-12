@@ -1,119 +1,125 @@
-//#include <stdio.h>
-//#include <climits>
-//
-//#include <cuda.h>
-//#include "cuda_runtime.h"
-//#include "device_launch_parameters.h"
-//#include "math_functions.h"
-//
-//#include "data_types.h"
-//#include "constants.h"
-//
-//
-//__global__ void printElemsKernel(el_t *table, uint_t tableLen) {
-//    for (uint_t i = 0; i < tableLen; i++) {
-//        printf("%2d ", table[i].key);
-//    }
-//    printf("\n");
-//}
-//
+#include <stdio.h>
+#include <climits>
+
+#include <cuda.h>
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
+#include "math_functions.h"
+
+#include "../Utils/data_types_common.h"
+#include "constants.h"
+
+
 //__global__ void printDataKernel(data_t *table, uint_t tableLen) {
 //    for (uint_t i = 0; i < tableLen; i++) {
 //        printf("%2d ", table[i]);
 //    }
 //    printf("\n");
 //}
-//
-///*
-//Compares 2 elements and exchanges them according to orderAsc.
-//*/
-//__device__ void compareExchange(el_t *elem1, el_t *elem2, order_t sortOrder) {
-//    if (((int_t)(elem1->key - elem2->key) > 0) ^ sortOrder) {
-//        el_t temp = *elem1;
-//        *elem1 = *elem2;
-//        *elem2 = temp;
-//    }
-//}
-//
-//__device__ void compareExchange(data_t *elem1, data_t *elem2, order_t sortOrder) {
-//    if (((int_t)(*elem1 - *elem2) > 0) ^ sortOrder) {
-//        data_t temp = *elem1;
-//        *elem1 = *elem2;
-//        *elem2 = temp;
-//    }
-//}
-//
-//template <typename T>
-//__device__ void bitonicSort(T *dataTable, uint_t tableLen, order_t sortOrder) {
-//    extern __shared__ T bitonicSortTile[];
-//
-//    uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
-//    uint_t offset = blockIdx.x * elemsPerThreadBlock;
-//    uint_t dataBlockLength = offset + elemsPerThreadBlock <= tableLen ? elemsPerThreadBlock : tableLen - offset;
-//
-//    // Read data from global to shared memory.
-//    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_BITONIC_SORT) {
-//        bitonicSortTile[tx] = dataTable[offset + tx];
-//    }
-//    __syncthreads();
-//
-//    // Bitonic sort PHASES
-//    for (uint_t subBlockSize = 1; subBlockSize < dataBlockLength; subBlockSize <<= 1) {
-//        // Bitonic merge STEPS
-//        for (uint_t stride = subBlockSize; stride > 0; stride >>= 1) {
-//            for (uint_t tx = threadIdx.x; tx < dataBlockLength >> 1; tx += THREADS_PER_BITONIC_SORT) {
-//                uint_t indexThread = tx;
-//                uint_t offset = stride;
-//
-//                // In normalized bitonic sort, first STEP of every PHASE uses different offset than all other STEPS.
-//                if (stride == subBlockSize) {
-//                    indexThread = (tx / stride) * stride + ((stride - 1) - (tx % stride));
-//                    offset = ((tx & (stride - 1)) << 1) + 1;
-//                }
-//
-//                uint_t index = (indexThread << 1) - (indexThread & (stride - 1));
-//                if (index + offset >= dataBlockLength) {
-//                    break;
-//                }
-//
-//                compareExchange(&bitonicSortTile[index], &bitonicSortTile[index + offset], sortOrder);
-//            }
-//            __syncthreads();
-//        }
-//    }
-//
-//    // Store data from shared to global memory
-//    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_BITONIC_SORT) {
-//        dataTable[offset + tx] = bitonicSortTile[tx];
-//    }
-//}
-//
-///*
-//Sorts sub-blocks of input data with NORMALIZED bitonic sort and collects samples in array for local samples.
-//*/
-//template <typename T>
-//__global__ void bitonicSortCollectSamplesKernel(T *dataTable, data_t *localSamples, uint_t tableLen,
-//                                                order_t sortOrder) {
-//    extern __shared__ T bitonicSortTile[];
-//
-//    bitonicSort<T>(dataTable, tableLen, sortOrder);
-//
-//    // After sort has been performed, samples are scattered to array of local samples
-//    uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
-//    uint_t offset = blockIdx.x * elemsPerThreadBlock;
-//    uint_t dataBlockLength = offset + elemsPerThreadBlock <= tableLen ? elemsPerThreadBlock : tableLen - offset;
-//
-//    uint_t localSamplesDistance = elemsPerThreadBlock / NUM_SAMPLES;
-//    uint_t samplesPerThreadBlock = (dataBlockLength - 1) / localSamplesDistance + 1;
-//
-//    // Collects samples
-//    for (uint_t tx = threadIdx.x; tx < samplesPerThreadBlock; tx += THREADS_PER_BITONIC_SORT) {
-//        // Collects the samples on offset of "localSampleDistance / 2" in order to be nearer to center
-//        uint_t sample = bitonicSortTile[localSamplesDistance / 2 + tx * localSamplesDistance].key;
-//        localSamples[blockIdx.x * NUM_SAMPLES + tx] = sample;
-//    }
-//}
-//
+
+/*
+Compares 2 elements and exchanges them according to sortOrder.
+*/
+template <order_t sortOrder>
+__device__ void compareExchange(data_t *elem1, data_t *elem2)
+{
+    if ((*elem1 > *elem2) ^ sortOrder)
+    {
+        data_t temp = *elem1;
+        *elem1 = *elem2;
+        *elem2 = temp;
+    }
+}
+
+template <order_t sortOrder>
+__device__ void bitonicSort(data_t *dataTable, uint_t tableLen)
+{
+    extern __shared__ data_t bitonicSortTile[];
+
+    const uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+    const uint_t offset = blockIdx.x * elemsPerThreadBlock;
+    const uint_t dataBlockLength = offset + elemsPerThreadBlock <= tableLen ? elemsPerThreadBlock : tableLen - offset;
+
+    // Read data from global to shared memory.
+    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_BITONIC_SORT)
+    {
+        bitonicSortTile[tx] = dataTable[offset + tx];
+    }
+    __syncthreads();
+
+    // Bitonic sort PHASES
+    for (uint_t subBlockSize = 1; subBlockSize < dataBlockLength; subBlockSize <<= 1)
+    {
+        // Bitonic merge STEPS
+        for (uint_t stride = subBlockSize; stride > 0; stride >>= 1)
+        {
+            for (uint_t tx = threadIdx.x; tx < dataBlockLength >> 1; tx += THREADS_PER_BITONIC_SORT)
+            {
+                uint_t indexThread = tx;
+                uint_t offset = stride;
+
+                // In normalized bitonic sort, first STEP of every PHASE uses different offset than all other STEPS.
+                if (stride == subBlockSize)
+                {
+                    indexThread = (tx / stride) * stride + ((stride - 1) - (tx % stride));
+                    offset = ((tx & (stride - 1)) << 1) + 1;
+                }
+
+                uint_t index = (indexThread << 1) - (indexThread & (stride - 1));
+                if (index + offset >= dataBlockLength)
+                {
+                    break;
+                }
+
+                compareExchange<sortOrder>(&bitonicSortTile[index], &bitonicSortTile[index + offset]);
+            }
+
+            __syncthreads();
+        }
+    }
+
+    // Store data from shared to global memory
+    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_BITONIC_SORT)
+    {
+        dataTable[offset + tx] = bitonicSortTile[tx];
+    }
+}
+
+/*
+Sorts sub-blocks of input data with NORMALIZED bitonic sort and collects samples in array for local samples.
+*/
+template <order_t sortOrder>
+__global__ void bitonicSortCollectSamplesKernel(data_t *dataTable, data_t *localSamples, uint_t tableLen)
+{
+    extern __shared__ data_t bitonicSortTile[];
+
+    bitonicSort<sortOrder>(dataTable, tableLen);
+
+    // After sort has been performed, samples are scattered to array of local samples
+    uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+    uint_t offset = blockIdx.x * elemsPerThreadBlock;
+    uint_t dataBlockLength = offset + elemsPerThreadBlock <= tableLen ? elemsPerThreadBlock : tableLen - offset;
+
+    uint_t localSamplesDistance = elemsPerThreadBlock / NUM_SAMPLES;
+    uint_t samplesPerThreadBlock = (dataBlockLength - 1) / localSamplesDistance + 1;
+
+    // Collects samples
+    for (uint_t tx = threadIdx.x; tx < samplesPerThreadBlock; tx += THREADS_PER_BITONIC_SORT)
+    {
+        // Collects the samples on offset of "localSampleDistance / 2" in order to be nearer to center
+        data_t sample = bitonicSortTile[localSamplesDistance / 2 + tx * localSamplesDistance];
+        localSamples[blockIdx.x * NUM_SAMPLES + tx] = sample;
+    }
+}
+
+template __global__ void bitonicSortCollectSamplesKernel<ORDER_ASC>(
+    data_t *dataTable, data_t *localSamples, uint_t tableLen
+);
+template __global__ void bitonicSortCollectSamplesKernel<ORDER_DESC>(
+    data_t *dataTable, data_t *localSamples, uint_t tableLen
+);
+
+
 //template __global__ void bitonicSortCollectSamplesKernel<el_t>(
 //    el_t *dataTable, data_t *localSamples, uint_t tableLen, order_t sortOrder
 //);
