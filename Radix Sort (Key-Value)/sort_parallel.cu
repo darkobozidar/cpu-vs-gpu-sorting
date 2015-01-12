@@ -78,21 +78,22 @@ void runAddPaddingKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder)
 Runs kernel, which sorts data blocks in shared memory with radix sort according to current radix diggit,
 which is specified with "bitOffset".
 */
-void runRadixSortLocalKernel(data_t *dataTable, uint_t tableLen, uint_t bitOffset, order_t sortOrder)
+void runRadixSortLocalKernel(data_t *keys, data_t *values, uint_t tableLen, uint_t bitOffset, order_t sortOrder)
 {
     uint_t elemsPerThreadBlock = THREADS_PER_LOCAL_SORT * ELEMS_PER_THREAD_LOCAL;
-    uint_t sharedMemSize = elemsPerThreadBlock * sizeof(*dataTable);
+    // "2" because of values, which are sorted alongside keys
+    uint_t sharedMemSize = 2 * elemsPerThreadBlock * sizeof(*keys);
 
     dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
     dim3 dimBlock(THREADS_PER_LOCAL_SORT, 1, 1);
 
     if (sortOrder == ORDER_ASC)
     {
-        radixSortLocalKernel<ORDER_ASC><<<dimGrid, dimBlock, sharedMemSize>>>(dataTable, bitOffset);
+        radixSortLocalKernel<ORDER_ASC><<<dimGrid, dimBlock, sharedMemSize>>>(keys, values, bitOffset);
     }
     else
     {
-        radixSortLocalKernel<ORDER_DESC><<<dimGrid, dimBlock, sharedMemSize>>>(dataTable, bitOffset);
+        radixSortLocalKernel<ORDER_DESC><<<dimGrid, dimBlock, sharedMemSize>>>(keys, values, bitOffset);
     }
 }
 
@@ -158,7 +159,7 @@ double sortParallel(
 
     for (uint_t bitOffset = 0; bitOffset < sizeof(data_t) * 8; bitOffset += BIT_COUNT_PARALLEL)
     {
-        runRadixSortLocalKernel(d_dataKeys, tableLen, bitOffset, sortOrder);
+        runRadixSortLocalKernel(d_dataKeys, d_dataValues, tableLen, bitOffset, sortOrder);
         runGenerateBucketsKernel(d_dataKeys, d_bucketOffsetsLocal, d_bucketSizes, tableLen, bitOffset);
 
         // Performs global scan in order to calculate global bucket offsets from local bucket sizes

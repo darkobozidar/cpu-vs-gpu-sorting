@@ -282,7 +282,7 @@ __global__ void radixSortLocalKernel(data_t *dataTable, uint_t bitOffset)
 #endif
         );
 
-        // Calculates number of all false elements
+        // Calculates number of all elements with false predicate
         if (threadIdx.x == THREADS_PER_LOCAL_SORT - 1)
         {
             falseTotal = elemsPerThreadBlock - (trueBefore + predResult);
