@@ -14,8 +14,9 @@
 
 // How many threads are used per one thread block for local radix sort kernel. Has to be power of 2.
 #define THREADS_PER_LOCAL_SORT 128
-// How many elements are processed by one thread in local radix sort. Min value is 2, Max value is 4.
-#define ELEMS_PER_THREAD_LOCAL 4
+// How many elements are processed by one thread in local radix sort.
+// Has to be divisable by 2. Min value is 1, Max value is 8.
+#define ELEMS_PER_THREAD_LOCAL 6
 
 
 /* ------------------ GENERATE BUCKET ---------------- */

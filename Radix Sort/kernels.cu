@@ -9,7 +9,6 @@
 #include "math_functions.h"
 
 #include "../Utils/data_types_common.h"
-#include "data_types.h"
 #include "constants.h"
 
 
@@ -77,23 +76,77 @@ __device__ uint_t intraWarpScan(volatile uint_t *scanTile, uint_t val, uint_t st
 /*
 Performs scan for provided predicates and returns structure of results for each predicate.
 */
-__device__ uint4 intraBlockScan(bool pred0, bool pred1, bool pred2, bool pred3)
+__device__ uint_t intraBlockScan(
+#if (ELEMS_PER_THREAD_LOCAL >= 1)
+    bool pred0
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 2)
+    ,bool pred1
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 3)
+    ,bool pred2
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 4)
+    ,bool pred3
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 5)
+    ,bool pred4
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 6)
+    ,bool pred5
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 7)
+    ,bool pred6
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 8)
+    ,bool pred7
+#endif
+)
 {
     extern __shared__ uint_t scanTile[];
     uint_t warpIdx = threadIdx.x / warpSize;
     uint_t laneIdx = threadIdx.x & (warpSize - 1);
     uint_t warpResult = 0;
+    uint_t predResult = 0;
     uint4 trueBefore;
 
+#if (ELEMS_PER_THREAD_LOCAL >= 1)
     warpResult += binaryWarpScan(pred0);
+    predResult += pred0;
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 2)
     warpResult += binaryWarpScan(pred1);
+    predResult += pred1;
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 3)
     warpResult += binaryWarpScan(pred2);
+    predResult += pred2;
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 4)
     warpResult += binaryWarpScan(pred3);
+    predResult += pred3;
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 5)
+    warpResult += binaryWarpScan(pred4);
+    predResult += pred4;
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 6)
+    warpResult += binaryWarpScan(pred5);
+    predResult += pred5;
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 7)
+    warpResult += binaryWarpScan(pred6);
+    predResult += pred6;
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 8)
+    warpResult += binaryWarpScan(pred7);
+    predResult += pred7;
+#endif
     __syncthreads();
 
     if (laneIdx == warpSize - 1)
     {
-        scanTile[warpIdx] = warpResult + pred0 + pred1 + pred2 + pred3;
+        scanTile[warpIdx] = warpResult + predResult;
     }
     __syncthreads();
 
@@ -104,37 +157,7 @@ __device__ uint4 intraBlockScan(bool pred0, bool pred1, bool pred2, bool pred3)
     }
     __syncthreads();
 
-    trueBefore.x = warpResult + scanTile[warpIdx];
-    trueBefore.y = trueBefore.x + pred0;
-    trueBefore.z = trueBefore.y + pred1;
-    trueBefore.w = trueBefore.z + pred2;
-
-    return trueBefore;
-}
-
-/*
-Computes the rank of the current element in shared memory block.
-*/
-__device__ uint4 split(bool pred0, bool pred1, bool pred2, bool pred3)
-{
-    __shared__ uint_t falseTotal;
-    uint4 trueBefore = intraBlockScan(pred0, pred1, pred2, pred3);
-    uint4 rank;
-
-    // Last thread computes the total number of elements, which have 'false' predicate value.
-    if (threadIdx.x == blockDim.x - 1)
-    {
-        falseTotal = ELEMS_PER_THREAD_LOCAL * blockDim.x - (trueBefore.w + pred3);
-    }
-    __syncthreads();
-
-    // Computes the ranks
-    rank.x = pred0 ? trueBefore.x + falseTotal : (ELEMS_PER_THREAD_LOCAL * threadIdx.x) - trueBefore.x;
-    rank.y = pred1 ? trueBefore.y + falseTotal : (ELEMS_PER_THREAD_LOCAL * threadIdx.x + 1) - trueBefore.y;
-    rank.z = pred2 ? trueBefore.z + falseTotal : (ELEMS_PER_THREAD_LOCAL * threadIdx.x + 2) - trueBefore.z;
-    rank.w = pred3 ? trueBefore.w + falseTotal : (ELEMS_PER_THREAD_LOCAL * threadIdx.x + 3) - trueBefore.w;
-
-    return rank;
+    return warpResult + scanTile[warpIdx];
 }
 
 /*---------------------------------------------------------
@@ -172,8 +195,9 @@ template <order_t sortOrder>
 __global__ void radixSortLocalKernel(data_t *dataTable, uint_t bitOffset)
 {
     extern __shared__ data_t sortTile[];
-    uint_t offset = blockIdx.x * ELEMS_PER_THREAD_LOCAL * blockDim.x;
-    uint_t elemsPerThreadBlock = THREADS_PER_LOCAL_SORT * ELEMS_PER_THREAD_LOCAL;
+    const uint_t elemsPerThreadBlock = THREADS_PER_LOCAL_SORT * ELEMS_PER_THREAD_LOCAL;
+    const uint_t offset = blockIdx.x * elemsPerThreadBlock;
+    __shared__ uint_t falseTotal;
 
     // Every thread reads it's corresponding elements
     for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_LOCAL_SORT)
@@ -185,26 +209,122 @@ __global__ void radixSortLocalKernel(data_t *dataTable, uint_t bitOffset)
     // Every thread processes ELEMS_PER_THREAD_LOCAL elements
     for (uint_t shift = bitOffset; shift < bitOffset + BIT_COUNT_PARALLEL; shift++)
     {
+        uint_t predResult = 0;
+
         // Every thread reads it's corresponding elements into registers
+#if (ELEMS_PER_THREAD_LOCAL >= 1)
         data_t el0 = sortTile[ELEMS_PER_THREAD_LOCAL * threadIdx.x];
+        bool pred0 = (el0 >> shift) & 1;
+        predResult += pred0;
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 2)
         data_t el1 = sortTile[ELEMS_PER_THREAD_LOCAL * threadIdx.x + 1];
+        bool pred1 = (el1 >> shift) & 1;
+        predResult += pred1;
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 3)
         data_t el2 = sortTile[ELEMS_PER_THREAD_LOCAL * threadIdx.x + 2];
+        bool pred2 = (el2 >> shift) & 1;
+        predResult += pred2;
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 4)
         data_t el3 = sortTile[ELEMS_PER_THREAD_LOCAL * threadIdx.x + 3];
+        bool pred3 = (el3 >> shift) & 1;
+        predResult += pred3;
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 5)
+        data_t el4 = sortTile[ELEMS_PER_THREAD_LOCAL * threadIdx.x + 4];
+        bool pred4 = (el4 >> shift) & 1;
+        predResult += pred4;
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 6)
+        data_t el5 = sortTile[ELEMS_PER_THREAD_LOCAL * threadIdx.x + 5];
+        bool pred5 = (el5 >> shift) & 1;
+        predResult += pred5;
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 7)
+        data_t el6 = sortTile[ELEMS_PER_THREAD_LOCAL * threadIdx.x + 6];
+        bool pred6 = (el6 >> shift) & 1;
+        predResult += pred6;
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 7)
+        data_t el7 = sortTile[ELEMS_PER_THREAD_LOCAL * threadIdx.x + 7];
+        bool pred7 = (el7 >> shift) & 1;
+        predResult += pred7;
+#endif
         __syncthreads();
 
-        // Extracts the current bit (predicate) to calculate ranks
-        uint4 rank = split(
-            (el0 >> shift) & 1, (el1 >> shift) & 1, (el2 >> shift) & 1, (el3 >> shift) & 1
+        // According to provided predicates calculates number of elements with true predicate before this thread.
+        uint_t trueBefore = intraBlockScan(
+#if (ELEMS_PER_THREAD_LOCAL >= 1)
+            pred0
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 2)
+            ,pred1
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 3)
+            ,pred2
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 4)
+            ,pred3
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 5)
+            ,pred4
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 6)
+            ,pred5
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 7)
+            ,pred6
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 8)
+            ,pred7
+#endif
         );
 
-        sortTile[rank.x] = el0;
-        sortTile[rank.y] = el1;
-        sortTile[rank.z] = el2;
-        sortTile[rank.w] = el3;
+        // Calculates number of all false elements
+        if (threadIdx.x == THREADS_PER_LOCAL_SORT - 1)
+        {
+            falseTotal = elemsPerThreadBlock - (trueBefore + predResult);
+        }
+        __syncthreads();
+
+        // Every thread stores it's corresponding elements
+#if (ELEMS_PER_THREAD_LOCAL >= 1)
+        sortTile[pred0 ? trueBefore + falseTotal : (ELEMS_PER_THREAD_LOCAL * threadIdx.x) - trueBefore] = el0;
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 2)
+        trueBefore += pred0;
+        sortTile[pred1 ? trueBefore + falseTotal : (ELEMS_PER_THREAD_LOCAL * threadIdx.x + 1) - trueBefore] = el1;
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 3)
+        trueBefore += pred1;
+        sortTile[pred2 ? trueBefore + falseTotal : (ELEMS_PER_THREAD_LOCAL * threadIdx.x + 2) - trueBefore] = el2;
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 4)
+        trueBefore += pred2;
+        sortTile[pred3 ? trueBefore + falseTotal : (ELEMS_PER_THREAD_LOCAL * threadIdx.x + 3) - trueBefore] = el3;
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 5)
+        trueBefore += pred3;
+        sortTile[pred4 ? trueBefore + falseTotal : (ELEMS_PER_THREAD_LOCAL * threadIdx.x + 4) - trueBefore] = el4;
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 6)
+        trueBefore += pred4;
+        sortTile[pred5 ? trueBefore + falseTotal : (ELEMS_PER_THREAD_LOCAL * threadIdx.x + 5) - trueBefore] = el5;
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 7)
+        trueBefore += pred5;
+        sortTile[pred6 ? trueBefore + falseTotal : (ELEMS_PER_THREAD_LOCAL * threadIdx.x + 6) - trueBefore] = el6;
+#endif
+#if (ELEMS_PER_THREAD_LOCAL >= 8)
+        trueBefore += pred6;
+        sortTile[pred7 ? trueBefore + falseTotal : (ELEMS_PER_THREAD_LOCAL * threadIdx.x + 7) - trueBefore] = el7;
+#endif
         __syncthreads();
     }
 
-    // Every thread stores it's corresponding elements
+    // Every thread stores it's corresponding elements to global memory
     for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_LOCAL_SORT)
     {
         dataTable[offset + tx] = sortTile[tx];
@@ -229,8 +349,8 @@ __global__ void generateBucketsKernel(
     uint_t *sizesTile = tile + RADIX_PARALLEL;
     uint_t *radixTile = tile + 2 * RADIX_PARALLEL;
 
-    uint_t elemsPerLocalSort = THREADS_PER_LOCAL_SORT * ELEMS_PER_THREAD_LOCAL;
-    uint_t offset = blockIdx.x * elemsPerLocalSort;
+    const uint_t elemsPerLocalSort = THREADS_PER_LOCAL_SORT * ELEMS_PER_THREAD_LOCAL;
+    const uint_t offset = blockIdx.x * elemsPerLocalSort;
 
     // Reads current radixes of elements
     for (uint_t tx = threadIdx.x; tx < elemsPerLocalSort; tx += THREADS_PER_GEN_BUCKETS)
@@ -312,8 +432,8 @@ __global__ void radixSortGlobalKernel(
     __shared__ uint_t offsetsGlobalTile[RADIX_PARALLEL];
     uint_t radix, indexOutput;
 
-    uint_t elemsPerLocalSort = THREADS_PER_LOCAL_SORT * ELEMS_PER_THREAD_LOCAL;
-    uint_t offset = blockIdx.x * elemsPerLocalSort;
+    const uint_t elemsPerLocalSort = THREADS_PER_LOCAL_SORT * ELEMS_PER_THREAD_LOCAL;
+    const uint_t offset = blockIdx.x * elemsPerLocalSort;
 
     // Every thread reads multiple elements
     for (uint_t tx = threadIdx.x; tx < elemsPerLocalSort; tx += THREADS_PER_GLOBAL_SORT)

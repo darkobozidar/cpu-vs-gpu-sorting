@@ -96,6 +96,9 @@ void runRadixSortLocalKernel(data_t *dataTable, uint_t tableLen, uint_t bitOffse
     }
 }
 
+/*
+Runs kernel, which generates local bucket offsets and sizes.
+*/
 void runGenerateBucketsKernel(
     data_t *dataTable, uint_t *blockOffsets, uint_t *blockSizes, uint_t tableLen, uint_t bitOffset
 )
