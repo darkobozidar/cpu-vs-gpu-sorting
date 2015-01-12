@@ -3,7 +3,7 @@
 
 
 template <data_t value>
-__global__ void addPaddingKernel(data_t *dataTable, data_t *dataBuffer, uint_t start, uint_t length);
+__global__ void addPaddingKernel(data_t *dataTable, uint_t start, uint_t length);
 
 template <order_t sortOrder>
 __global__ void radixSortLocalKernel(data_t *dataTable, uint_t bitOffset);

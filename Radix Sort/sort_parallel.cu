@@ -46,7 +46,7 @@ needed, if table length is not divisable with number of elements sorted by local
 parallel sort to work, table length has to be divisable with number of elements processed by one thread block
 in local radix sort.
 */
-void runAddPaddingKernel(data_t *dataTable, data_t *dataBuffer, uint_t tableLen, order_t sortOrder)
+void runAddPaddingKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder)
 {
     uint_t elemsPerLocalSort = THREADS_PER_LOCAL_SORT * ELEMS_PER_THREAD_LOCAL;
     uint_t tableLenRoundedUp = roundUp(tableLen, elemsPerLocalSort);
@@ -66,11 +66,11 @@ void runAddPaddingKernel(data_t *dataTable, data_t *dataBuffer, uint_t tableLen,
     // Depending on sort order different value is used for padding.
     if (sortOrder == ORDER_ASC)
     {
-        addPaddingKernel<MAX_VAL><<<dimGrid, dimBlock>>>(dataTable, dataBuffer, tableLen, paddingLength);
+        addPaddingKernel<MAX_VAL><<<dimGrid, dimBlock>>>(dataTable, tableLen, paddingLength);
     }
     else
     {
-        addPaddingKernel<MIN_VAL><<<dimGrid, dimBlock>>>(dataTable, dataBuffer, tableLen, paddingLength);
+        addPaddingKernel<MIN_VAL><<<dimGrid, dimBlock>>>(dataTable, tableLen, paddingLength);
     }
 }
 
@@ -150,7 +150,7 @@ double sortParallel(
 
     startStopwatch(&timer);
     cudppInitScan(&scanPlan, bucketsLen);
-    runAddPaddingKernel(d_dataTable, d_dataBuffer, tableLen, sortOrder);
+    runAddPaddingKernel(d_dataTable, tableLen, sortOrder);
 
     for (uint_t bitOffset = 0; bitOffset < sizeof(data_t) * 8; bitOffset += BIT_COUNT_PARALLEL)
     {
