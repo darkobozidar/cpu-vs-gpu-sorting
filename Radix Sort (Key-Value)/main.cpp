@@ -23,8 +23,11 @@ int main(int argc, char **argv)
 {
     data_t *h_inputKeys, *h_inputValues;
     data_t *h_outputParallelKeys, *h_outputParallelValues;
-    data_t *h_outputSequentialKeys, *h_outputSequentialValues;
+    // Additional input arrays are needed for sequential sort in order not to spoil initial input
+    data_t *h_inputSequentialKeys, *h_inputSequentialValues, *h_outputSequentialKeys, *h_outputSequentialValues;
     data_t *h_outputCorrect;
+    // Counters of element occurances - needed for sequential radix sort
+    uint_t *h_countersSequential;
     data_t *d_dataTableKeys, *d_dataTableValues, *d_dataBufferKeys, *d_dataBufferValues;
     // Every radix diggit has it's own corresponding bucket, where elements are scattered when sorted.
     // These vars hold bucket offsets (local and global) and global bucket sizes
@@ -46,8 +49,9 @@ int main(int argc, char **argv)
 
     // Memory alloc
     allocHostMemory(
-        &h_inputKeys, &h_inputValues, &h_outputParallelKeys, &h_outputParallelValues, &h_outputSequentialKeys,
-        &h_outputSequentialValues, &h_outputCorrect, &timers, tableLen, testRepetitions
+        &h_inputKeys, &h_inputValues, &h_outputParallelKeys, &h_inputSequentialKeys, &h_inputSequentialValues,
+        &h_outputParallelValues, &h_outputSequentialKeys, &h_outputSequentialValues, &h_outputCorrect,
+        &h_countersSequential, &timers, tableLen, testRepetitions
     );
     allocDeviceMemory(
         &d_dataTableKeys, &d_dataTableValues, &d_dataBufferKeys, &d_dataBufferValues, &d_bucketOffsetsLocal,
@@ -84,11 +88,12 @@ int main(int argc, char **argv)
         );
 
         // Sort sequential
-        std::copy(h_inputKeys, h_inputKeys + tableLen, h_outputSequentialKeys);
-        std::copy(h_inputValues, h_inputValues + tableLen, h_outputSequentialValues);
-        timers[SORT_SEQUENTIAL][i] = 999;  /*sortSequential(
-            h_outputSequentialKeys, h_outputSequentialValues, tableLen, sortOrder
-        );*/
+        std::copy(h_inputKeys, h_inputKeys + tableLen, h_inputSequentialKeys);
+        std::copy(h_inputValues, h_inputValues + tableLen, h_inputSequentialValues);
+        timers[SORT_SEQUENTIAL][i] = sortSequential(
+            h_inputSequentialKeys, h_inputSequentialValues, h_outputSequentialKeys, h_outputSequentialValues,
+            h_countersSequential, tableLen, sortOrder
+        );
 
         // Sort correct
         std::copy(h_inputKeys, h_inputKeys + tableLen, h_outputCorrect);
@@ -141,8 +146,9 @@ int main(int argc, char **argv)
 
     // Memory free
     freeHostMemory(
-        h_inputKeys, h_inputValues, h_outputParallelKeys, h_outputParallelValues, h_outputSequentialKeys,
-        h_outputSequentialValues, h_outputCorrect, timers
+        h_inputKeys, h_inputValues, h_outputParallelKeys, h_outputParallelValues, h_inputSequentialKeys,
+        h_inputSequentialValues, h_outputSequentialKeys, h_outputSequentialValues, h_outputCorrect,
+        h_countersSequential, timers
     );
     freeDeviceMemory(
         d_dataTableKeys, d_dataTableValues, d_dataBufferKeys, d_dataBufferValues, d_bucketOffsetsLocal,

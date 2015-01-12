@@ -16,7 +16,8 @@ Allocates host memory.
 */
 void allocHostMemory(
     data_t **inputKeys, data_t **inputValues, data_t **outputParallelKeys, data_t **outputParallelValues,
-    data_t **outputSequentialKeys, data_t **outputSequentialValues, data_t **outputCorrect, double ***timers,
+    data_t **inputSequentialKeys, data_t **inputSequentialValues, data_t **outputSequentialKeys,
+    data_t **outputSequentialValues, data_t **outputCorrect, uint_t **countersSequential, double ***timers,
     uint_t tableLen, uint_t testRepetitions
 )
 {
@@ -31,12 +32,20 @@ void allocHostMemory(
     checkMallocError(*outputParallelKeys);
     *outputParallelValues = (data_t*)malloc(tableLen * sizeof(**outputParallelValues));
     checkMallocError(*outputParallelValues);
+    *inputSequentialKeys = (data_t*)malloc(tableLen * sizeof(**inputSequentialKeys));
+    checkMallocError(*inputSequentialKeys);
+    *inputSequentialValues = (data_t*)malloc(tableLen * sizeof(**inputSequentialValues));
+    checkMallocError(*inputSequentialValues);
     *outputSequentialKeys = (data_t*)malloc(tableLen * sizeof(**outputSequentialKeys));
     checkMallocError(*outputSequentialKeys);
     *outputSequentialValues = (data_t*)malloc(tableLen * sizeof(**outputSequentialValues));
     checkMallocError(*outputSequentialValues);
     *outputCorrect = (data_t*)malloc(tableLen * sizeof(**outputCorrect));
     checkMallocError(*outputCorrect);
+
+    // Counters of element occurances - needed for sequential radix sort
+    *countersSequential = (data_t*)malloc(RADIX_SEQUENTIAL * sizeof(**countersSequential));
+    checkMallocError(*countersSequential);
 
     // Stopwatch times for PARALLEL, SEQUENTIAL and CORREECT
     double** timersTemp = new double*[NUM_STOPWATCHES];
@@ -53,16 +62,20 @@ Frees host memory.
 */
 void freeHostMemory(
     data_t *inputKeys, data_t *inputValues, data_t *outputParallelKeys, data_t *outputParallelValues,
-    data_t *outputSequentialKeys, data_t *outputSequentialValues, data_t *outputCorrect, double **timers
+    data_t *inputSequentialKeys, data_t *inputSequentialValues, data_t *outputSequentialKeys,
+    data_t *outputSequentialValues, data_t *outputCorrect, uint_t *countersSequential, double **timers
 )
 {
     free(inputKeys);
     free(inputValues);
     free(outputParallelKeys);
     free(outputParallelValues);
+    free(inputSequentialKeys);
+    free(inputSequentialValues);
     free(outputSequentialKeys);
     free(outputSequentialValues);
     free(outputCorrect);
+    free(countersSequential);
 
     for (uint_t i = 0; i < NUM_STOPWATCHES; ++i)
     {

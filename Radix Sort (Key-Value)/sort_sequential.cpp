@@ -11,7 +11,8 @@
 Performs sequential couinting sort on provided bit offset for specified number of bits.
 */
 void countingSort(
-    data_t *dataInput, data_t *dataOutput, uint_t *dataCounters, uint_t tableLen, uint_t bitOffset, order_t sortOrder
+    data_t *keysInput, data_t *valuesInput, data_t *keysOutput, data_t *valuesOutput, uint_t *dataCounters,
+    uint_t tableLen, uint_t bitOffset, order_t sortOrder
 )
 {
     // Resets counters
@@ -23,7 +24,7 @@ void countingSort(
     // Counts number of element occurances
     for (uint_t i = 0; i < tableLen; i++)
     {
-        dataCounters[(dataInput[i] >> bitOffset) & RADIX_MASK_SEQUENTIAL]++;
+        dataCounters[(keysInput[i] >> bitOffset) & RADIX_MASK_SEQUENTIAL]++;
     }
 
     // Performs scan on counters
@@ -35,7 +36,9 @@ void countingSort(
     // Scatters elements to their output position
     for (int_t i = tableLen - 1; i >= 0; i--)
     {
-        dataOutput[--dataCounters[(dataInput[i] >> bitOffset) & RADIX_MASK_SEQUENTIAL]] = dataInput[i];
+        uint_t outputIndex = --dataCounters[(keysInput[i] >> bitOffset) & RADIX_MASK_SEQUENTIAL];
+        keysOutput[outputIndex] = keysInput[i];
+        valuesOutput[outputIndex] = valuesInput[i];
     }
 }
 
@@ -43,7 +46,8 @@ void countingSort(
 Sorts data sequentially with radix sort.
 */
 double sortSequential(
-    data_t *&dataInput, data_t *&dataOutput, uint_t *dataCounters, uint_t tableLen, order_t sortOrder
+    data_t *&keysInput, data_t *&valuesInput, data_t *&keysOutput, data_t *&valuesOutput, uint_t *dataCounters,
+    uint_t tableLen, order_t sortOrder
 )
 {
     LARGE_INTEGER timer;
@@ -52,16 +56,18 @@ double sortSequential(
     // Executes couting sort for every digit (every group of BIT_COUNT_SEQUENTIAL bits)
     for (uint_t bitOffset = 0; bitOffset < sizeof(data_t) * 8; bitOffset += BIT_COUNT_SEQUENTIAL)
     {
-        countingSort(dataInput, dataOutput, dataCounters, tableLen, bitOffset, sortOrder);
+        countingSort(
+            keysInput, valuesInput, keysOutput, valuesOutput, dataCounters, tableLen, bitOffset, sortOrder
+        );
 
-        data_t *temp = dataInput;
-        dataInput = dataOutput;
-        dataOutput = temp;
+        data_t *temp = keysInput;
+        keysInput = keysOutput;
+        keysOutput = temp;
     }
 
-    data_t *temp = dataInput;
-    dataInput = dataOutput;
-    dataOutput = temp;
+    data_t *temp = keysInput;
+    keysInput = keysOutput;
+    keysOutput = temp;
 
     return endStopwatch(timer);
 }

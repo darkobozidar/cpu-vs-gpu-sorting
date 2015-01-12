@@ -51,8 +51,8 @@ void allocHostMemory(
 Frees host memory.
 */
 void freeHostMemory(
-    data_t *input, data_t *outputParallel, data_t *h_inputSequential, data_t *outputSequential, data_t *outputCorrect,
-    uint_t *countersSequential, double **timers
+    data_t *input, data_t *outputParallel, data_t *h_inputSequential, data_t *outputSequential,
+    data_t *outputCorrect, uint_t *countersSequential, double **timers
 )
 {
     free(input);
