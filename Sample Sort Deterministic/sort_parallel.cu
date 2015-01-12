@@ -119,45 +119,44 @@ void runBitoicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint_t phase,
     }
 }
 
-///*
-//From all LOCAL samples collects (NUM_SAMPLES) GLOBAL samples.
-//*/
-//void runCollectGlobalSamplesKernel(data_t *samples, uint_t samplesLen) {
-//    LARGE_INTEGER timer;
-//
-//    dim3 dimGrid(1, 1, 1);
-//    dim3 dimBlock(NUM_SAMPLES, 1, 1);
-//
-//    startStopwatch(&timer);
-//    collectGlobalSamplesKernel<<<dimGrid, dimBlock>>>(samples, samplesLen);
-//    /*error = cudaDeviceSynchronize();
-//    checkCudaError(error);
-//    endStopwatch(timer, "Executing kernel for collection of global samples");*/
-//}
-//
-///*
-//For every sample searches, how many elements in tile are lower than it's value.
-//*/
-//void runSampleIndexingKernel(el_t *dataTable, data_t *samples, data_t *bucketSizes, uint_t tableLen,
-//                             uint_t numAllBuckets, order_t sortOrder) {
-//    LARGE_INTEGER timer;
-//
-//    // Number of threads per thread block can be greater than number of samples.
-//    uint_t elemsPerBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
-//    uint_t numBlocks = (tableLen - 1) / elemsPerBitonicSort + 1;
-//    uint_t threadBlockSize = min(numBlocks * NUM_SAMPLES, THREADS_PER_SAMPLE_INDEXING);
-//
-//    // Every thread block creates from NUM_SAMPLES samples (NUM_SAMPLES + 1) buckets
-//    dim3 dimGrid((numAllBuckets - 1) / (threadBlockSize / NUM_SAMPLES * (NUM_SAMPLES + 1)) + 1, 1, 1);
-//    dim3 dimBlock(threadBlockSize, 1, 1);
-//
-//    startStopwatch(&timer);
-//    sampleIndexingKernel<<<dimGrid, dimBlock>>>(dataTable, samples, bucketSizes, tableLen, sortOrder);
-//    /*error = cudaDeviceSynchronize();
-//    checkCudaError(error);
-//    endStopwatch(timer, "Executing kernel sample indexing");*/
-//}
-//
+/*
+From all LOCAL samples collects (NUM_SAMPLES) GLOBAL samples.
+*/
+void runCollectGlobalSamplesKernel(data_t *samples, uint_t samplesLen)
+{
+    dim3 dimGrid(1, 1, 1);
+    dim3 dimBlock(NUM_SAMPLES, 1, 1);
+
+    collectGlobalSamplesKernel<<<dimGrid, dimBlock>>>(samples, samplesLen);
+}
+
+/*
+For every sample searches, how many elements in tile are lower than it's value.
+*/
+void runSampleIndexingKernel(
+    data_t *dataTable, data_t *samples, data_t *bucketSizes, uint_t tableLen, uint_t numAllBuckets,
+    order_t sortOrder
+)
+{
+    // Number of threads per thread block can be greater than number of samples.
+    uint_t elemsPerBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+    uint_t numBlocks = (tableLen - 1) / elemsPerBitonicSort + 1;
+    uint_t threadBlockSize = min(numBlocks * NUM_SAMPLES, THREADS_PER_SAMPLE_INDEXING);
+
+    // Every thread block creates from NUM_SAMPLES samples (NUM_SAMPLES + 1) buckets
+    dim3 dimGrid((numAllBuckets - 1) / (threadBlockSize / NUM_SAMPLES * (NUM_SAMPLES + 1)) + 1, 1, 1);
+    dim3 dimBlock(threadBlockSize, 1, 1);
+
+    if (sortOrder == ORDER_ASC)
+    {
+        sampleIndexingKernel<ORDER_ASC><<<dimGrid, dimBlock>>>(dataTable, samples, bucketSizes, tableLen);
+    }
+    else
+    {
+        sampleIndexingKernel<ORDER_DESC><<<dimGrid, dimBlock>>>(dataTable, samples, bucketSizes, tableLen);
+    }
+}
+
 ///*
 //From local bucket sizes and offsets scatters elements to their global buckets. At the end it coppies
 //global bucket sizes (sizes of whole buckets, not just bucket size per tile (local size)) to host.
@@ -271,9 +270,9 @@ void sampleSort(
     // samples need to be merged.
     bitonicMerge(samples, localSamplesLen, NUM_SAMPLES, sortOrder);
 
-    //// TODO handle case, if all samples are the same
-    //runCollectGlobalSamplesKernel(samples, localSamplesLen);
-    //runSampleIndexingKernel(dataTable, samples, d_localBucketSizes, tableLen, localBucketsLen, sortOrder);
+    // TODO handle case, if all samples are the same
+    runCollectGlobalSamplesKernel(samples, localSamplesLen);
+    runSampleIndexingKernel(dataTable, samples, d_localBucketSizes, tableLen, localBucketsLen, sortOrder);
 
     //CUDPPResult result = cudppScan(scanPlan, d_localBucketOffsets, d_localBucketSizes, localBucketsLen);
     //if (result != CUDPP_SUCCESS) {

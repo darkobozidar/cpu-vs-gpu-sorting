@@ -237,81 +237,97 @@ template __global__ void bitonicMergeLocalKernel<ORDER_DESC>(
 );
 
 
-///*
-//From LOCAL samples extracts GLOBAL samples (every NUM_SAMPLES sample). This is done by one thread block.
-//*/
-//__global__ void collectGlobalSamplesKernel(data_t *samples, uint_t samplesLen) {
-//    // Shared memory is needed, because samples are read and written to the same array (race condition).
-//    __shared__ data_t globalSamplesTile[NUM_SAMPLES];
-//    uint_t samplesDistance = samplesLen / NUM_SAMPLES;
-//
-//    // We also add (samplesDistance / 2) to collect samples as evenly as possible
-//    globalSamplesTile[threadIdx.x] = samples[threadIdx.x * samplesDistance + (samplesDistance / 2)];
-//    __syncthreads();
-//    samples[threadIdx.x] = globalSamplesTile[threadIdx.x];
-//}
-//
-//__device__ int binarySearchInclusive(el_t* dataTable, data_t target, int_t indexStart, int_t indexEnd,
-//                                     order_t sortOrder) {
-//    while (indexStart <= indexEnd) {
-//        // Floor to multiplier of stride - needed for strides > 1
-//        int index = (indexStart + indexEnd) / 2;
-//
-//        if ((target <= dataTable[index].key) ^ (sortOrder)) {
-//            indexEnd = index - 1;
-//        } else {
-//            indexStart = index + 1;
-//        }
-//    }
-//
-//    return indexStart;
-//}
-//
-///*
-//For all previously sorted chunks finds the index of global samples and calculates the number of elements in each
-//of the (NUM_SAMPLES + 1) buckets.
-//
-//TODO check if it is better, to read data chunks into shared memory and have one thread block per one data block
-//*/
-//__global__ void sampleIndexingKernel(el_t *dataTable, const data_t* __restrict__ samples, uint_t * bucketSizes,
-//                                     uint_t tableLen, order_t sortOrder) {
-//    __shared__ uint_t indexingTile[THREADS_PER_SAMPLE_INDEXING];
-//
-//    uint_t sampleIndex = threadIdx.x % NUM_SAMPLES;
-//    data_t sample = samples[sampleIndex];
-//
-//    // One thread block can process multiple data blocks (multiple chunks of data previously sorted by bitonic sort).
-//    uint_t dataBlocksPerThreadBlock = blockDim.x / NUM_SAMPLES;
-//    uint_t dataBlockIndex = threadIdx.x / NUM_SAMPLES;
-//    uint_t elemsPerBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
-//
-//    uint_t indexBlock = (blockIdx.x * dataBlocksPerThreadBlock + dataBlockIndex);
-//    uint_t offset = indexBlock * elemsPerBitonicSort;
-//    uint_t dataBlockLength = offset + elemsPerBitonicSort <= tableLen ? elemsPerBitonicSort : tableLen - offset;
-//
-//    indexingTile[threadIdx.x] = binarySearchInclusive(
-//        dataTable, sample, offset, offset + dataBlockLength - 1, sortOrder
-//    );
-//    __syncthreads();
-//
-//    uint_t prevIndex;
-//    uint_t allDataBlocks = gridDim.x * dataBlocksPerThreadBlock;
-//    uint_t outputSampleIndex = sampleIndex * allDataBlocks + indexBlock;
-//
-//    if (sampleIndex == 0) {
-//        prevIndex = offset;
-//    } else {
-//        prevIndex = indexingTile[threadIdx.x - 1];
-//    }
-//    __syncthreads();
-//
-//    bucketSizes[outputSampleIndex] = indexingTile[threadIdx.x] - prevIndex;
-//    // Because there is NUM_SAMPLES samples, (NUM_SAMPLES + 1) buckets are created.
-//    if (sampleIndex == NUM_SAMPLES - 1) {
-//        bucketSizes[outputSampleIndex + allDataBlocks] = offset + elemsPerBitonicSort - indexingTile[threadIdx.x];
-//    }
-//}
-//
+/*
+From LOCAL samples extracts GLOBAL samples (every NUM_SAMPLES sample). This is done by one thread block.
+*/
+__global__ void collectGlobalSamplesKernel(data_t *samples, uint_t samplesLen)
+{
+    // Shared memory is needed, because samples are read and written to the same array (race condition).
+    __shared__ data_t globalSamplesTile[NUM_SAMPLES];
+    uint_t samplesDistance = samplesLen / NUM_SAMPLES;
+
+    // We also add (samplesDistance / 2) in order to collect samples as evenly as possible
+    globalSamplesTile[threadIdx.x] = samples[threadIdx.x * samplesDistance + (samplesDistance / 2)];
+    __syncthreads();
+    samples[threadIdx.x] = globalSamplesTile[threadIdx.x];
+}
+
+template <order_t sortOrder>
+__device__ int binarySearchInclusive(data_t* dataTable, data_t target, int_t indexStart, int_t indexEnd)
+{
+    while (indexStart <= indexEnd)
+    {
+        int index = (indexStart + indexEnd) / 2;
+
+        if (sortOrder == ORDER_ASC ? (target <= dataTable[index]) : (target >= dataTable[index]))
+        {
+            indexEnd = index - 1;
+        }
+        else
+        {
+            indexStart = index + 1;
+        }
+    }
+
+    return indexStart;
+}
+
+/*
+For all previously sorted chunks finds the index of global samples and calculates the number of elements in each
+of the (NUM_SAMPLES + 1) buckets.
+
+TODO check if it is better, to read data chunks into shared memory and have one thread block per one data block
+*/
+template <order_t sortOrder>
+__global__ void sampleIndexingKernel(
+    data_t *dataTable, const data_t* __restrict__ samples, uint_t * bucketSizes, uint_t tableLen
+)
+{
+    __shared__ uint_t indexingTile[THREADS_PER_SAMPLE_INDEXING];
+
+    uint_t sampleIndex = threadIdx.x % NUM_SAMPLES;
+    data_t sample = samples[sampleIndex];
+
+    // One thread block can process multiple data blocks (multiple chunks of data previously sorted by bitonic sort).
+    uint_t dataBlocksPerThreadBlock = blockDim.x / NUM_SAMPLES;
+    uint_t dataBlockIndex = threadIdx.x / NUM_SAMPLES;
+    uint_t elemsPerBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+
+    uint_t indexBlock = (blockIdx.x * dataBlocksPerThreadBlock + dataBlockIndex);
+    uint_t offset = indexBlock * elemsPerBitonicSort;
+    uint_t dataBlockLength = offset + elemsPerBitonicSort <= tableLen ? elemsPerBitonicSort : tableLen - offset;
+
+    indexingTile[threadIdx.x] = binarySearchInclusive<sortOrder>(
+        dataTable, sample, offset, offset + dataBlockLength - 1
+    );
+    __syncthreads();
+
+    uint_t prevIndex;
+    uint_t allDataBlocks = gridDim.x * dataBlocksPerThreadBlock;
+    uint_t outputSampleIndex = sampleIndex * allDataBlocks + indexBlock;
+
+    if (sampleIndex == 0) {
+        prevIndex = offset;
+    } else {
+        prevIndex = indexingTile[threadIdx.x - 1];
+    }
+    __syncthreads();
+
+    bucketSizes[outputSampleIndex] = indexingTile[threadIdx.x] - prevIndex;
+    // Because there is NUM_SAMPLES samples, (NUM_SAMPLES + 1) buckets are created.
+    if (sampleIndex == NUM_SAMPLES - 1)
+    {
+        bucketSizes[outputSampleIndex + allDataBlocks] = offset + elemsPerBitonicSort - indexingTile[threadIdx.x];
+    }
+}
+
+template __global__ void sampleIndexingKernel<ORDER_ASC>(
+    data_t *dataTable, const data_t* __restrict__ samples, uint_t * bucketSizes, uint_t tableLen
+);
+template __global__ void sampleIndexingKernel<ORDER_DESC>(
+    data_t *dataTable, const data_t* __restrict__ samples, uint_t * bucketSizes, uint_t tableLen
+);
+
 ///*
 //According to local (per one tile) bucket sizes and offsets kernel scatters elements to their global buckets.
 //*/
