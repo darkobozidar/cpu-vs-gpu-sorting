@@ -16,7 +16,7 @@
 #define THREADS_PER_LOCAL_SORT 128
 // How many elements are processed by one thread in local radix sort.
 // Has to be divisable by 2. Min value is 1, Max value is 8.
-#define ELEMS_PER_THREAD_LOCAL 6
+#define ELEMS_PER_THREAD_LOCAL 4
 
 
 /* ------------------ GENERATE BUCKET ---------------- */
@@ -33,7 +33,7 @@
 // Number of elements processed by one thread is implicitly specified with:
 // "(THREADS_PER_LOCAL_SORT * ELEMS_PER_THREAD_LOCAL) / THREADS_PER_GLOBAL_SORT"
 
-#define THREADS_PER_GLOBAL_SORT 128
+#define THREADS_PER_GLOBAL_SORT 256
 
 
 /* ---------- PARALLEL ALGORITHM PARAMETERS ---------- */
