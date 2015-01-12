@@ -157,36 +157,34 @@ void runSampleIndexingKernel(
     }
 }
 
-///*
-//From local bucket sizes and offsets scatters elements to their global buckets. At the end it coppies
-//global bucket sizes (sizes of whole buckets, not just bucket size per tile (local size)) to host.
-//*/
-//void runBucketsRelocationKernel(el_t *dataTable, el_t *dataBuffer, uint_t *h_globalBucketOffsets,
-//                                uint_t *d_globalBucketOffsets, uint_t *localBucketSizes,
-//                                uint_t *localBucketOffsets, uint_t tableLen) {
-//    // For NUM_SAMPLES samples (NUM_SAMPLES + 1) buckets are created
-//    uint_t sharedMemSize = 2 * (NUM_SAMPLES + 1);
-//    uint_t elemsPerBitonicSort = THREADS_PER_GLOBAL_MERGE * ELEMS_PER_THREAD_GLOBAL_MERGE;
-//    LARGE_INTEGER timer;
-//    cudaError_t error;
-//
-//    dim3 dimGrid((tableLen - 1) / elemsPerBitonicSort + 1, 1, 1);
-//    dim3 dimBlock(THREADS_PER_BUCKETS_RELOCATION, 1, 1);
-//    bucketsRelocationKernel<<<dimGrid, dimBlock, sharedMemSize * sizeof(*localBucketSizes)>>>(
-//        dataTable, dataBuffer, d_globalBucketOffsets, localBucketSizes, localBucketOffsets, tableLen
-//    );
-//
-//    /*error = cudaDeviceSynchronize();
-//    checkCudaError(error);
-//    endStopwatch(timer, "Executing kernel for buckets relocation");*/
-//
-//    error = cudaMemcpy(
-//        h_globalBucketOffsets, d_globalBucketOffsets, (NUM_SAMPLES + 1) * sizeof(*h_globalBucketOffsets),
-//        cudaMemcpyDeviceToHost
-//    );
-//    checkCudaError(error);
-//}
-//
+/*
+From local bucket sizes and offsets scatters elements to their global buckets. At the end it coppies
+global bucket sizes (sizes of whole buckets, not just bucket size per tile (local size)) to host.
+*/
+void runBucketsRelocationKernel(
+    data_t *dataTable, data_t *dataBuffer, uint_t *h_globalBucketOffsets, uint_t *d_globalBucketOffsets,
+    uint_t *localBucketSizes, uint_t *localBucketOffsets, uint_t tableLen
+)
+{
+    // For NUM_SAMPLES samples (NUM_SAMPLES + 1) buckets are created
+    uint_t sharedMemSize = 2 * (NUM_SAMPLES + 1) * sizeof(*localBucketSizes);
+    uint_t elemsPerBitonicSort = THREADS_PER_GLOBAL_MERGE * ELEMS_PER_THREAD_GLOBAL_MERGE;
+    cudaError_t error;
+
+    dim3 dimGrid((tableLen - 1) / elemsPerBitonicSort + 1, 1, 1);
+    dim3 dimBlock(THREADS_PER_BUCKETS_RELOCATION, 1, 1);
+
+    bucketsRelocationKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
+        dataTable, dataBuffer, d_globalBucketOffsets, localBucketSizes, localBucketOffsets, tableLen
+    );
+
+    error = cudaMemcpy(
+        h_globalBucketOffsets, d_globalBucketOffsets, (NUM_SAMPLES + 1) * sizeof(*h_globalBucketOffsets),
+        cudaMemcpyDeviceToHost
+    );
+    checkCudaError(error);
+}
+
 //void runPrintElemsKernel(el_t *table, uint_t tableLen) {
 //    printElemsKernel<<<1, 1>>>(table, tableLen);
 //    cudaError_t error = cudaDeviceSynchronize();
@@ -274,17 +272,18 @@ void sampleSort(
     runCollectGlobalSamplesKernel(samples, localSamplesLen);
     runSampleIndexingKernel(dataTable, samples, d_localBucketSizes, tableLen, localBucketsLen, sortOrder);
 
-    //CUDPPResult result = cudppScan(scanPlan, d_localBucketOffsets, d_localBucketSizes, localBucketsLen);
-    //if (result != CUDPP_SUCCESS) {
-    //    printf("Error in cudppScan()\n");
-    //    getchar();
-    //    exit(-1);
-    //}
+    CUDPPResult result = cudppScan(scanPlan, d_localBucketOffsets, d_localBucketSizes, localBucketsLen);
+    if (result != CUDPP_SUCCESS)
+    {
+        printf("Error in cudppScan()\n");
+        getchar();
+        exit(-1);
+    }
 
-    //runBucketsRelocationKernel(
-    //    dataTable, dataBuffer, h_globalBucketOffsets, d_globalBucketOffsets, d_localBucketSizes,
-    //    d_localBucketOffsets, tableLen
-    //);
+    runBucketsRelocationKernel(
+        dataTable, dataBuffer, h_globalBucketOffsets, d_globalBucketOffsets, d_localBucketSizes,
+        d_localBucketOffsets, tableLen
+    );
 
     //// Sorts every bucket with bitonic sort
     //uint_t previousOffset = 0;

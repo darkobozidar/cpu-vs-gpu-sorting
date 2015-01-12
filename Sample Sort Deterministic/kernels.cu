@@ -328,59 +328,67 @@ template __global__ void sampleIndexingKernel<ORDER_DESC>(
     data_t *dataTable, const data_t* __restrict__ samples, uint_t * bucketSizes, uint_t tableLen
 );
 
-///*
-//According to local (per one tile) bucket sizes and offsets kernel scatters elements to their global buckets.
-//*/
-//__global__ void bucketsRelocationKernel(el_t *dataTable, el_t *dataBuffer, uint_t *d_globalBucketOffsets,
-//                                        const uint_t* __restrict__ localBucketSizes,
-//                                        const uint_t* __restrict__ localBucketOffsets, uint_t tableLen) {
-//    extern __shared__ uint_t bucketsTile[];
-//    uint_t *bucketSizes = bucketsTile;
-//    uint_t *bucketOffsets = bucketsTile + NUM_SAMPLES + 1;
-//
-//    // Reads bucket sizes and offsets to shared memory
-//    if (threadIdx.x < NUM_SAMPLES + 1) {
-//        uint_t index = threadIdx.x * gridDim.x + blockIdx.x;
-//        bucketSizes[threadIdx.x] = localBucketSizes[index];
-//        bucketOffsets[threadIdx.x] = localBucketOffsets[index];
-//
-//        // Last block writes size of entire buckets into array of global bucket sizes
-//        if (blockIdx.x == gridDim.x - 1) {
-//            d_globalBucketOffsets[threadIdx.x] = bucketOffsets[threadIdx.x] + bucketSizes[threadIdx.x];
-//        }
-//
-//        // If thread block contains NUM_SAMPLES threads, then last thread reads also (NUM_SAMPLES + 1)th bucket
-//        if (THREADS_PER_BUCKETS_RELOCATION == NUM_SAMPLES && threadIdx.x == NUM_SAMPLES - 1) {
-//            bucketSizes[threadIdx.x + 1] = localBucketSizes[index + gridDim.x];
-//            bucketOffsets[threadIdx.x + 1] = localBucketOffsets[index + gridDim.x];
-//
-//            if (blockIdx.x == gridDim.x - 1) {
-//                d_globalBucketOffsets[threadIdx.x + 1] = bucketOffsets[threadIdx.x + 1] + bucketSizes[threadIdx.x + 1];
-//            }
-//        }
-//    }
-//    __syncthreads();
-//
-//    uint_t elemsPerBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
-//    uint_t offset = blockIdx.x * elemsPerBitonicSort;
-//    uint_t activeThreads = 0;
-//    uint_t activeThreadsPrev = 0;
-//    uint_t dataBlockLength = offset + elemsPerBitonicSort <= tableLen ? elemsPerBitonicSort : tableLen - offset;
-//
-//    uint_t tx = threadIdx.x;
-//    uint_t bucketIndex = 0;
-//
-//    // Every thread reads bucket size and scatters elements to their global buckets
-//    while (tx < dataBlockLength) {
-//        activeThreads += bucketSizes[bucketIndex];
-//
-//        while (tx < activeThreads) {
-//            dataBuffer[bucketOffsets[bucketIndex] + tx - activeThreadsPrev] = dataTable[offset + tx];
-//            tx += THREADS_PER_BUCKETS_RELOCATION;
-//        }
-//
-//        // TODO try with sycnthreads if ti works faster
-//        activeThreadsPrev = activeThreads;
-//        bucketIndex++;
-//    }
-//}
+/*
+According to local (per one tile) bucket sizes and offsets kernel scatters elements to their global buckets.
+*/
+__global__ void bucketsRelocationKernel(
+    data_t*dataTable, data_t *dataBuffer, uint_t *d_globalBucketOffsets, const uint_t* __restrict__ localBucketSizes,
+    const uint_t* __restrict__ localBucketOffsets, uint_t tableLen
+)
+{
+    extern __shared__ uint_t bucketsTile[];
+    uint_t *bucketSizes = bucketsTile;
+    uint_t *bucketOffsets = bucketsTile + NUM_SAMPLES + 1;
+
+    // Reads bucket sizes and offsets to shared memory
+    if (threadIdx.x < NUM_SAMPLES + 1)
+    {
+        uint_t index = threadIdx.x * gridDim.x + blockIdx.x;
+        bucketSizes[threadIdx.x] = localBucketSizes[index];
+        bucketOffsets[threadIdx.x] = localBucketOffsets[index];
+
+        // Last block writes size of entire buckets into array of global bucket sizes
+        if (blockIdx.x == gridDim.x - 1)
+        {
+            d_globalBucketOffsets[threadIdx.x] = bucketOffsets[threadIdx.x] + bucketSizes[threadIdx.x];
+        }
+
+        // If thread block contains NUM_SAMPLES threads, then last thread reads also (NUM_SAMPLES + 1)th bucket
+        if (THREADS_PER_BUCKETS_RELOCATION == NUM_SAMPLES && threadIdx.x == NUM_SAMPLES - 1)
+        {
+            bucketSizes[threadIdx.x + 1] = localBucketSizes[index + gridDim.x];
+            bucketOffsets[threadIdx.x + 1] = localBucketOffsets[index + gridDim.x];
+
+            if (blockIdx.x == gridDim.x - 1)
+            {
+                d_globalBucketOffsets[threadIdx.x + 1] = bucketOffsets[threadIdx.x + 1] + bucketSizes[threadIdx.x + 1];
+            }
+        }
+    }
+    __syncthreads();
+
+    uint_t elemsPerBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+    uint_t offset = blockIdx.x * elemsPerBitonicSort;
+    uint_t activeThreads = 0;
+    uint_t activeThreadsPrev = 0;
+    uint_t dataBlockLength = offset + elemsPerBitonicSort <= tableLen ? elemsPerBitonicSort : tableLen - offset;
+
+    uint_t tx = threadIdx.x;
+    uint_t bucketIndex = 0;
+
+    // Every thread reads bucket size and scatters elements to their global buckets
+    while (tx < dataBlockLength)
+    {
+        activeThreads += bucketSizes[bucketIndex];
+
+        while (tx < activeThreads)
+        {
+            dataBuffer[bucketOffsets[bucketIndex] + tx - activeThreadsPrev] = dataTable[offset + tx];
+            tx += THREADS_PER_BUCKETS_RELOCATION;
+        }
+
+        // TODO try with sycnthreads if it works faster
+        activeThreadsPrev = activeThreads;
+        bucketIndex++;
+    }
+}
