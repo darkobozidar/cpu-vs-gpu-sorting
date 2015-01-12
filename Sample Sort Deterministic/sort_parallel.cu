@@ -64,25 +64,30 @@ void runBitonicSortCollectSamplesKernel(data_t *dataTable, data_t *samples, uint
     }
 }
 
-///*
-//Sorts sub-blocks of input data with bitonic sort.
-//*/
-//void runBitonicSortKernel(el_t *dataTable, uint_t tableLen, order_t sortOrder) {
-//    cudaError_t error;
-//    LARGE_INTEGER timer;
-//
-//    uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
-//    dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
-//    dim3 dimBlock(THREADS_PER_BITONIC_SORT, 1, 1);
-//
-//    startStopwatch(&timer);
-//    bitonicSortKernel<el_t><<<dimGrid, dimBlock, elemsPerThreadBlock * sizeof(*dataTable)>>>(
-//        dataTable, tableLen, sortOrder
-//    );
-//    /*error = cudaDeviceSynchronize();
-//    checkCudaError(error);
-//    endStopwatch(timer, "Executing bitonic sort kernel");*/
-//}
+/*
+Sorts sub-blocks of input data with bitonic sort.
+*/
+void runBitonicSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder)
+{
+    uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+    uint_t sharedMemSize = elemsPerThreadBlock * sizeof(*dataTable);
+
+    dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
+    dim3 dimBlock(THREADS_PER_BITONIC_SORT, 1, 1);
+
+    if (sortOrder == ORDER_ASC)
+    {
+        bitonicSortKernel<ORDER_ASC><<<dimGrid, dimBlock, sharedMemSize>>>(
+            dataTable, tableLen
+        );
+    }
+    else
+    {
+        bitonicSortKernel<ORDER_DESC><<<dimGrid, dimBlock, sharedMemSize>>>(
+            dataTable, tableLen
+        );
+    }
+}
 
 void runBitonicMergeGlobalKernel(
     data_t *dataTable, uint_t tableLen, uint_t phase, uint_t step, order_t sortOrder
@@ -185,12 +190,6 @@ void runBucketsRelocationKernel(
     checkCudaError(error);
 }
 
-//void runPrintElemsKernel(el_t *table, uint_t tableLen) {
-//    printElemsKernel<<<1, 1>>>(table, tableLen);
-//    cudaError_t error = cudaDeviceSynchronize();
-//    checkCudaError(error);
-//}
-//
 //void runPrintDataKernel(data_t *table, uint_t tableLen) {
 //    printDataKernel<<<1, 1>>>(table, tableLen);
 //    cudaError_t error = cudaDeviceSynchronize();
@@ -223,20 +222,18 @@ void bitonicMerge(data_t *dataTable, uint_t tableLen, uint_t elemsPerBlockBitoni
     }
 }
 
-///*
-//Performs bitonic sort.
-//*/
-//template <typename T>
-//void bitonicSort(T *dataTable, uint_t tableLen, order_t sortOrder) {
-//    uint_t tableLenPower2 = nextPowerOf2(tableLen);
-//    uint_t elemsPerBlockBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
-//
-//    uint_t phasesAll = log2((double)tableLenPower2);
-//
-//    runBitonicSortKernel(dataTable, tableLen, sortOrder);
-//
-//    bitonicMerge<T>(dataTable, tableLen, elemsPerBlockBitonicSort, sortOrder);
-//}
+/*
+Performs bitonic sort.
+*/
+void bitonicSort(data_t *dataTable, uint_t tableLen, order_t sortOrder)
+{
+    uint_t tableLenPower2 = nextPowerOf2(tableLen);
+    uint_t elemsPerBlockBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+    uint_t phasesAll = log2((double)tableLenPower2);
+
+    runBitonicSortKernel(dataTable, tableLen, sortOrder);
+    bitonicMerge(dataTable, tableLen, elemsPerBlockBitonicSort, sortOrder);
+}
 
 // TODO figure out what the bottleneck is
 void sampleSort(
@@ -285,14 +282,16 @@ void sampleSort(
         d_localBucketOffsets, tableLen
     );
 
-    //// Sorts every bucket with bitonic sort
-    //uint_t previousOffset = 0;
-    //for (uint_t bucket = 0; bucket < NUM_SAMPLES + 1; bucket++) {
-    //    uint_t currentOffset = h_globalBucketOffsets[bucket];
-    //    uint_t bucketLen = currentOffset - previousOffset;
+    // Sorts every bucket with bitonic sort
+    uint_t previousOffset = 0;
+    for (uint_t bucket = 0; bucket < NUM_SAMPLES + 1; bucket++)
+    {
+        uint_t currentOffset = h_globalBucketOffsets[bucket];
+        uint_t bucketLen = currentOffset - previousOffset;
 
-    //    bitonicSort(dataBuffer, bucketLen, sortOrder);
-    //}
+        bitonicSort(dataBuffer + previousOffset, bucketLen, sortOrder);
+        previousOffset = currentOffset;
+    }
 }
 
 /*

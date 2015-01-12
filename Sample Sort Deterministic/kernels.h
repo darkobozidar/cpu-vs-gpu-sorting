@@ -5,8 +5,8 @@
 // Bitonic sort kernels
 template <order_t sortOrder>
 __global__ void bitonicSortCollectSamplesKernel(data_t *dataTable, data_t *localSamples, uint_t tableLen);
-//template <typename T>
-//__global__ void bitonicSortKernel(T *dataTable, uint_t tableLen, order_t sortOrder);
+template <order_t sortOrder>
+__global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen);
 
 // Bitonic merge kernels
 template <order_t sortOrder>

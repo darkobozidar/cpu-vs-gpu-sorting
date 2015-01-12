@@ -120,15 +120,17 @@ template __global__ void bitonicSortCollectSamplesKernel<ORDER_DESC>(
 );
 
 
-///*
-//Sorts sub-blocks of input data with NORMALIZED bitonic sort.
-//*/
-//template <typename T>
-//__global__ void bitonicSortKernel(T *dataTable, uint_t tableLen, order_t sortOrder) {
-//    bitonicSort(dataTable, tableLen, sortOrder);
-//}
-//
-//template __global__ void bitonicSortKernel<el_t>(el_t *dataTable, uint_t tableLen, order_t sortOrder);
+/*
+Sorts sub-blocks of input data with NORMALIZED bitonic sort.
+*/
+template <order_t sortOrder>
+__global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen)
+{
+    bitonicSort<sortOrder>(dataTable, tableLen);
+}
+
+template __global__ void bitonicSortKernel<ORDER_ASC>(data_t *dataTable, uint_t tableLen);
+template __global__ void bitonicSortKernel<ORDER_DESC>(data_t *dataTable, uint_t tableLen);
 
 
 /*
