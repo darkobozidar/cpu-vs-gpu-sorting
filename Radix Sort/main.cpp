@@ -27,11 +27,12 @@ int main(int argc, char **argv)
     // Counters of element occurances - needed for sequential radix sort
     uint_t *h_countersSequential;
     data_t *d_dataTable, *d_dataBuffer;
-    // TODO comment
+    // Every radix diggit has it's own corresponding bucket, where elements are scattered when sorted.
+    // These vars hold bucket offsets (local and global) and global bucket sizes
     uint_t *d_bucketOffsetsLocal, *d_bucketOffsetsGlobal, *d_bucketSizes;
     double **timers;
 
-    uint_t tableLen = (1 << 20);
+    uint_t tableLen = (1 << 22);
     uint_t interval = (1 << 31);
     uint_t testRepetitions = 10;    // How many times are sorts ran
     order_t sortOrder = ORDER_ASC;  // Values: ORDER_ASC, ORDER_DESC -> TODO

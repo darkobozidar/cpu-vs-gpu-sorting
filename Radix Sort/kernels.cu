@@ -17,6 +17,9 @@
 //-------------------------- UTILS --------------------------
 //-----------------------------------------------------------*/
 
+/*
+Generates lane mask needed to calculate warp scan of predicates.
+*/
 __device__ uint_t laneMask()
 {
     uint_t mask;
@@ -24,6 +27,9 @@ __device__ uint_t laneMask()
     return mask;
 }
 
+/*
+Performs scan for each warp.
+*/
 __device__ uint_t binaryWarpScan(bool pred)
 {
     uint_t mask = laneMask();
@@ -68,6 +74,9 @@ __device__ uint_t intraWarpScan(volatile uint_t *scanTile, uint_t val, uint_t st
     return scanTile[index] - val;
 }
 
+/*
+Performs scan for provided predicates and returns structure of results for each predicate.
+*/
 __device__ uint4 intraBlockScan(bool pred0, bool pred1, bool pred2, bool pred3)
 {
     extern __shared__ uint_t scanTile[];
@@ -119,45 +128,11 @@ __device__ uint4 split(bool pred0, bool pred1, bool pred2, bool pred3)
     }
     __syncthreads();
 
-    // Computes the rank for the first element
-    if (pred0)
-    {
-        rank.x = trueBefore.x + falseTotal;
-    }
-    else
-    {
-        rank.x = ELEMS_PER_THREAD_LOCAL * threadIdx.x - trueBefore.x;
-    }
-
-    // Computes the rank for the second element
-    if (pred1)
-    {
-        rank.y = trueBefore.y + falseTotal;
-    }
-    else
-    {
-        rank.y = (ELEMS_PER_THREAD_LOCAL * threadIdx.x + 1) - trueBefore.y;
-    }
-
-    // Computes the rank for the third element
-    if (pred2)
-    {
-        rank.z = trueBefore.z + falseTotal;
-    }
-    else
-    {
-        rank.z = (ELEMS_PER_THREAD_LOCAL * threadIdx.x + 2) - trueBefore.z;
-    }
-
-    // Computes the rank for the fourth element
-    if (pred3)
-    {
-        rank.w = trueBefore.w + falseTotal;
-    }
-    else
-    {
-        rank.w = (ELEMS_PER_THREAD_LOCAL * threadIdx.x + 3) - trueBefore.w;
-    }
+    // Computes the ranks
+    rank.x = pred0 ? trueBefore.x + falseTotal : (ELEMS_PER_THREAD_LOCAL * threadIdx.x) - trueBefore.x;
+    rank.y = pred1 ? trueBefore.y + falseTotal : (ELEMS_PER_THREAD_LOCAL * threadIdx.x + 1) - trueBefore.y;
+    rank.z = pred2 ? trueBefore.z + falseTotal : (ELEMS_PER_THREAD_LOCAL * threadIdx.x + 2) - trueBefore.z;
+    rank.w = pred3 ? trueBefore.w + falseTotal : (ELEMS_PER_THREAD_LOCAL * threadIdx.x + 3) - trueBefore.w;
 
     return rank;
 }
