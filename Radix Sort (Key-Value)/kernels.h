@@ -13,7 +13,8 @@ __global__ void generateBucketsKernel(
 );
 
 __global__ void radixSortGlobalKernel(
-    data_t *input, data_t *output, uint_t *offsetsLocal, uint_t *offsetsGlobal, uint_t bitOffset
+    data_t *keysInput, data_t *valuesInput, data_t *keysOutput, data_t *valuesOutput, uint_t *offsetsLocal,
+    uint_t *offsetsGlobal, uint_t bitOffset
 );
 
 #endif

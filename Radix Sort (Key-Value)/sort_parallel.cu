@@ -123,18 +123,19 @@ Scatters elements to their corresponding buckets according to current radix digg
 with "bitOffset".
 */
 void runRadixSortGlobalKernel(
-    data_t *dataTable,  data_t *dataBuffer, uint_t *offsetsLocal, uint_t *offsetsGlobal, uint_t tableLen,
-    uint_t bitOffset, order_t sortOrder
+    data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, uint_t *offsetsLocal,
+    uint_t *offsetsGlobal, uint_t tableLen, uint_t bitOffset, order_t sortOrder
 )
 {
     uint_t elemsPerLocalSort = THREADS_PER_LOCAL_SORT * ELEMS_PER_THREAD_LOCAL;
-    uint_t sharedMemSIze = elemsPerLocalSort * sizeof(*dataTable);
+    // "2" because of values, which are sorted alongside keys
+    uint_t sharedMemSIze = 2 * elemsPerLocalSort * sizeof(*dataKeys);
 
     dim3 dimGrid((tableLen - 1) / elemsPerLocalSort + 1, 1, 1);
     dim3 dimBlock(THREADS_PER_GLOBAL_SORT, 1, 1);
 
     radixSortGlobalKernel<<<dimGrid, dimBlock, sharedMemSIze>>>(
-        dataTable, dataBuffer, offsetsLocal, offsetsGlobal, bitOffset
+        dataKeys, dataValues, bufferKeys, bufferValues, offsetsLocal, offsetsGlobal, bitOffset
     );
 }
 
@@ -172,12 +173,17 @@ double sortParallel(
         }
 
         runRadixSortGlobalKernel(
-            d_dataKeys, d_bufferKeys, d_bucketOffsetsLocal, d_bucketOffsetsGlobal, tableLen, bitOffset, sortOrder
+            d_dataKeys, d_dataValues, d_bufferKeys, d_bufferValues, d_bucketOffsetsLocal, d_bucketOffsetsGlobal,
+            tableLen, bitOffset, sortOrder
         );
 
         data_t *temp = d_dataKeys;
         d_dataKeys = d_bufferKeys;
         d_bufferKeys = temp;
+
+        temp = d_dataValues;
+        d_dataValues = d_bufferValues;
+        d_bufferValues = temp;
     }
 
     error = cudaDeviceSynchronize();

@@ -194,14 +194,14 @@ bit of diggit.
 template <order_t sortOrder>
 __global__ void radixSortLocalKernel(data_t *keys, data_t *values, uint_t bitOffset)
 {
-    extern __shared__ data_t sortTile[];
+    extern __shared__ data_t sortLocalTile[];
     const uint_t elemsPerThreadBlock = THREADS_PER_LOCAL_SORT * ELEMS_PER_THREAD_LOCAL;
     const uint_t offset = blockIdx.x * elemsPerThreadBlock;
     __shared__ uint_t falseTotal;
     uint_t index = 0;
 
-    data_t *keysTile = sortTile;
-    data_t *valuesTile = sortTile + elemsPerThreadBlock;
+    data_t *keysTile = sortLocalTile;
+    data_t *valuesTile = sortLocalTile + elemsPerThreadBlock;
 
     // Every thread reads it's corresponding elements
     for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += THREADS_PER_LOCAL_SORT)
@@ -462,7 +462,8 @@ From provided offsets scatters elements to their corresponding buckets (accordin
 primary to buffer array.
 */
 __global__ void radixSortGlobalKernel(
-    data_t *dataInput, data_t *dataOutput, uint_t *offsetsLocal, uint_t *offsetsGlobal, uint_t bitOffset
+    data_t *keysInput, data_t *valuesInput, data_t *keysOutput, data_t *valuesOutput, uint_t *offsetsLocal,
+    uint_t *offsetsGlobal, uint_t bitOffset
 )
 {
     extern __shared__ data_t sortGlobalTile[];
@@ -473,10 +474,14 @@ __global__ void radixSortGlobalKernel(
     const uint_t elemsPerLocalSort = THREADS_PER_LOCAL_SORT * ELEMS_PER_THREAD_LOCAL;
     const uint_t offset = blockIdx.x * elemsPerLocalSort;
 
+    data_t *keysTile = sortGlobalTile;
+    data_t *valuesTile = sortGlobalTile + elemsPerLocalSort;
+
     // Every thread reads multiple elements
     for (uint_t tx = threadIdx.x; tx < elemsPerLocalSort; tx += THREADS_PER_GLOBAL_SORT)
     {
-        sortGlobalTile[tx] = dataInput[offset + tx];
+        keysTile[tx] = keysInput[offset + tx];
+        valuesTile[tx] = valuesInput[offset + tx];
     }
 
     // Reads local and global offsets
@@ -498,8 +503,10 @@ __global__ void radixSortGlobalKernel(
     // Every thread stores multiple elements
     for (uint_t tx = threadIdx.x; tx < elemsPerLocalSort; tx += THREADS_PER_GLOBAL_SORT)
     {
-        radix = (sortGlobalTile[tx] >> bitOffset) & RADIX_MASK_PARALLEL;
+        radix = (keysTile[tx] >> bitOffset) & RADIX_MASK_PARALLEL;
         indexOutput = offsetsGlobalTile[radix] + tx - offsetsLocalTile[radix];
-        dataOutput[indexOutput] = sortGlobalTile[tx];
+
+        keysOutput[indexOutput] = keysTile[tx];
+        valuesOutput[indexOutput] = valuesTile[tx];
     }
 }
