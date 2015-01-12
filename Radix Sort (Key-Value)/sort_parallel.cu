@@ -141,8 +141,9 @@ void runRadixSortGlobalKernel(
 Sorts data with parallel radix sort.
 */
 double sortParallel(
-    data_t *h_output, data_t *d_dataTable, data_t *d_dataBuffer, uint_t *d_bucketOffsetsLocal,
-    uint_t *d_bucketOffsetsGlobal, uint_t *d_bucketSizes, uint_t tableLen, order_t sortOrder
+    data_t *h_keys, data_t *h_values, data_t *d_dataKeys, data_t *d_dataValues, data_t *d_bufferKeys,
+    data_t *d_bufferValues, uint_t *d_bucketOffsetsLocal, uint_t *d_bucketOffsetsGlobal, uint_t *d_bucketSizes,
+    uint_t tableLen, order_t sortOrder
 )
 {
     uint_t elemsPerLocalSort = THREADS_PER_LOCAL_SORT * ELEMS_PER_THREAD_LOCAL;
@@ -153,12 +154,12 @@ double sortParallel(
 
     startStopwatch(&timer);
     cudppInitScan(&scanPlan, bucketsLen);
-    runAddPaddingKernel(d_dataTable, tableLen, sortOrder);
+    runAddPaddingKernel(d_dataKeys, tableLen, sortOrder);
 
     for (uint_t bitOffset = 0; bitOffset < sizeof(data_t) * 8; bitOffset += BIT_COUNT_PARALLEL)
     {
-        runRadixSortLocalKernel(d_dataTable, tableLen, bitOffset, sortOrder);
-        runGenerateBucketsKernel(d_dataTable, d_bucketOffsetsLocal, d_bucketSizes, tableLen, bitOffset);
+        runRadixSortLocalKernel(d_dataKeys, tableLen, bitOffset, sortOrder);
+        runGenerateBucketsKernel(d_dataKeys, d_bucketOffsetsLocal, d_bucketSizes, tableLen, bitOffset);
 
         // Performs global scan in order to calculate global bucket offsets from local bucket sizes
         CUDPPResult result = cudppScan(scanPlan, d_bucketOffsetsGlobal, d_bucketSizes, bucketsLen);
@@ -170,19 +171,21 @@ double sortParallel(
         }
 
         runRadixSortGlobalKernel(
-            d_dataTable, d_dataBuffer, d_bucketOffsetsLocal, d_bucketOffsetsGlobal, tableLen, bitOffset, sortOrder
+            d_dataKeys, d_bufferKeys, d_bucketOffsetsLocal, d_bucketOffsetsGlobal, tableLen, bitOffset, sortOrder
         );
 
-        data_t *temp = d_dataTable;
-        d_dataTable = d_dataBuffer;
-        d_dataBuffer = temp;
+        data_t *temp = d_dataKeys;
+        d_dataKeys = d_bufferKeys;
+        d_bufferKeys = temp;
     }
 
     error = cudaDeviceSynchronize();
     checkCudaError(error);
     double time = endStopwatch(timer);
 
-    error = cudaMemcpy(h_output, d_dataTable, tableLen * sizeof(*h_output), cudaMemcpyDeviceToHost);
+    error = cudaMemcpy(h_keys, d_dataKeys, tableLen * sizeof(*h_keys), cudaMemcpyDeviceToHost);
+    checkCudaError(error);
+    error = cudaMemcpy(h_values, d_dataValues, tableLen * sizeof(*h_values), cudaMemcpyDeviceToHost);
     checkCudaError(error);
 
     return time;
