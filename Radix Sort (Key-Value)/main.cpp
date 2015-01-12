@@ -58,7 +58,7 @@ int main(int argc, char **argv)
         &d_bucketOffsetsGlobal, &d_bucketSizes, tableLen
     );
 
-    printf(">>> BITONIC SORT (Key-Value) <<<\n\n\n");
+    printf(">>> RADIX SORT (Key-Value) <<<\n\n\n");
     printDataDistribution(distribution);
     printf("> Array length: %d\n", tableLen);
     if (printMeaurements)
