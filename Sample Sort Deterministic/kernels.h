@@ -11,10 +11,8 @@ __global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen);
 // Bitonic merge kernels
 template <order_t sortOrder, bool isFirstStepOfPhase>
 __global__ void bitonicMergeGlobalKernel(data_t *dataTable, uint_t tableLen, uint_t step);
-template <order_t sortOrder>
-__global__ void bitonicMergeLocalKernel(
-    data_t *dataTable, uint_t tableLen, uint_t step, bool isFirstStepOfPhase
-);
+template <order_t sortOrder, bool isFirstStepOfPhase>
+__global__ void bitonicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint_t step);
 
 // Kernels for samples
 __global__ void collectGlobalSamplesKernel(data_t *samples, uint_t samplesLen);

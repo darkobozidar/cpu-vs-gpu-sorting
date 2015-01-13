@@ -127,16 +127,42 @@ void runBitoicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint_t phase,
 {
     // Every thread loads and sorts 2 elements
     uint_t elemsPerThreadBlock = THREADS_PER_LOCAL_MERGE * ELEMS_PER_THREAD_LOCAL_MERGE;
+    uint_t sharedMemSize = elemsPerThreadBlock * sizeof(*dataTable);
+
     dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
     dim3 dimBlock(THREADS_PER_LOCAL_MERGE, 1, 1);
 
+    bool isFirstStepOfPhase = phase == step;
+
     if (sortOrder == ORDER_ASC)
     {
-        bitonicMergeLocalKernel<ORDER_ASC><<<dimGrid, dimBlock>>>(dataTable, tableLen, step, phase == step);
+        if (isFirstStepOfPhase)
+        {
+            bitonicMergeLocalKernel<ORDER_ASC, true><<<dimGrid, dimBlock, sharedMemSize>>>(
+                dataTable, tableLen, step
+            );
+        }
+        else
+        {
+            bitonicMergeLocalKernel<ORDER_ASC, false><<<dimGrid, dimBlock, sharedMemSize>>>(
+                dataTable, tableLen, step
+            );
+        }
     }
     else
     {
-        bitonicMergeLocalKernel<ORDER_DESC><<<dimGrid, dimBlock>>>(dataTable, tableLen, step, phase == step);
+        if (isFirstStepOfPhase)
+        {
+            bitonicMergeLocalKernel<ORDER_DESC, true><<<dimGrid, dimBlock, sharedMemSize>>>(
+                dataTable, tableLen, step
+            );
+        }
+        else
+        {
+            bitonicMergeLocalKernel<ORDER_DESC, false><<<dimGrid, dimBlock, sharedMemSize>>>(
+                dataTable, tableLen, step
+            );
+        }
     }
 }
 
@@ -237,9 +263,7 @@ Performs bitonic sort.
 */
 void bitonicSort(data_t *dataTable, uint_t tableLen, order_t sortOrder)
 {
-    uint_t tableLenPower2 = nextPowerOf2(tableLen);
     uint_t elemsPerBlockBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
-    uint_t phasesAll = log2((double)tableLenPower2);
 
     runBitonicSortKernel(dataTable, tableLen, sortOrder);
     bitonicMerge(dataTable, tableLen, elemsPerBlockBitonicSort, sortOrder);

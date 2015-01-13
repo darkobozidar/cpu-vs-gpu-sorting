@@ -169,19 +169,18 @@ template __global__ void bitonicMergeGlobalKernel<ORDER_DESC, false>(data_t *dat
 /*
 Global bitonic merge for sections, where stride IS LOWER OR EQUAL than max shared memory.
 */
-template <order_t sortOrder>
-__global__ void bitonicMergeLocalKernel(
-    data_t *dataTable, uint_t tableLen, uint_t step, bool isFirstStepOfPhase
-)
+template <order_t sortOrder, bool isFirstStepOfPhase>
+__global__ void bitonicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint_t step)
 {
-    __shared__ data_t mergeTile[THREADS_PER_LOCAL_MERGE * ELEMS_PER_THREAD_LOCAL_MERGE];
+    extern __shared__ data_t mergeTile[];
+    bool isFirstStepOfPhaseCopy = isFirstStepOfPhase;  // isFirstStepOfPhase is not editable (constant)
 
-    uint_t elemsPerThreadBlock = THREADS_PER_LOCAL_MERGE * ELEMS_PER_THREAD_LOCAL_MERGE;
-    uint_t offset = blockIdx.x * elemsPerThreadBlock;
-    uint_t dataBlockLength = offset + elemsPerThreadBlock <= tableLen ? elemsPerThreadBlock : tableLen - offset;
-    uint_t pairsPerBlockLength = dataBlockLength >> 1;
+    const uint_t elemsPerThreadBlock = THREADS_PER_LOCAL_MERGE * ELEMS_PER_THREAD_LOCAL_MERGE;
+    const uint_t offset = blockIdx.x * elemsPerThreadBlock;
+    const uint_t dataBlockLength = offset + elemsPerThreadBlock <= tableLen ? elemsPerThreadBlock : tableLen - offset;
+    const uint_t pairsPerBlockLength = dataBlockLength >> 1;
 
-    // Read data from global to shared memory.
+    // Reads data from global to shared memory.
     for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_LOCAL_MERGE)
     {
         mergeTile[tx] = dataTable[offset + tx];
@@ -197,11 +196,11 @@ __global__ void bitonicMergeLocalKernel(
             uint_t offset = stride;
 
             // In normalized bitonic sort, first STEP of every PHASE uses different offset than all other STEPS.
-            if (isFirstStepOfPhase)
+            if (isFirstStepOfPhaseCopy)
             {
                 offset = ((tx & (stride - 1)) << 1) + 1;
                 indexThread = (tx / stride) * stride + ((stride - 1) - (tx % stride));
-                isFirstStepOfPhase = false;
+                isFirstStepOfPhaseCopy = false;
             }
 
             uint_t index = (indexThread << 1) - (indexThread & (stride - 1));
@@ -222,12 +221,10 @@ __global__ void bitonicMergeLocalKernel(
     }
 }
 
-template __global__ void bitonicMergeLocalKernel<ORDER_ASC>(
-    data_t *dataTable, uint_t tableLen, uint_t step, bool isFirstStepOfPhase
-);
-template __global__ void bitonicMergeLocalKernel<ORDER_DESC>(
-    data_t *dataTable, uint_t tableLen, uint_t step, bool isFirstStepOfPhase
-);
+template __global__ void bitonicMergeLocalKernel<ORDER_ASC, true>(data_t *dataTable, uint_t tableLen, uint_t step);
+template __global__ void bitonicMergeLocalKernel<ORDER_ASC, false>(data_t *dataTable, uint_t tableLen, uint_t step);
+template __global__ void bitonicMergeLocalKernel<ORDER_DESC, true>(data_t *dataTable, uint_t tableLen, uint_t step);
+template __global__ void bitonicMergeLocalKernel<ORDER_DESC, false>(data_t *dataTable, uint_t tableLen, uint_t step);
 
 
 /*
@@ -299,9 +296,12 @@ __global__ void sampleIndexingKernel(
     uint_t allDataBlocks = gridDim.x * dataBlocksPerThreadBlock;
     uint_t outputSampleIndex = sampleIndex * allDataBlocks + indexBlock;
 
-    if (sampleIndex == 0) {
+    if (sampleIndex == 0)
+    {
         prevIndex = offset;
-    } else {
+    }
+    else
+    {
         prevIndex = indexingTile[threadIdx.x - 1];
     }
     __syncthreads();
@@ -360,11 +360,11 @@ __global__ void bucketsRelocationKernel(
     }
     __syncthreads();
 
-    uint_t elemsPerBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
-    uint_t offset = blockIdx.x * elemsPerBitonicSort;
+    const uint_t elemsPerBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+    const uint_t offset = blockIdx.x * elemsPerBitonicSort;
+    const uint_t dataBlockLength = offset + elemsPerBitonicSort <= tableLen ? elemsPerBitonicSort : tableLen - offset;
     uint_t activeThreads = 0;
     uint_t activeThreadsPrev = 0;
-    uint_t dataBlockLength = offset + elemsPerBitonicSort <= tableLen ? elemsPerBitonicSort : tableLen - offset;
 
     uint_t tx = threadIdx.x;
     uint_t bucketIndex = 0;
