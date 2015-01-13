@@ -2,6 +2,14 @@
 #define CONSTANTS_H
 
 
+/* ------------------ PADDING KERNEL ----------------- */
+
+// How many threads are used per on thread block for padding. Has to be power of 2.
+#define THREADS_PER_PADDING 128
+// How many table elements are processed by one thread in padding kernel. Min value is 2.
+#define ELEMS_PER_THREAD_PADDING 4
+
+
 /* --------------- ALGORITHM PARAMETERS -------------- */
 // Has to be lower or equal than multiplication of THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT.
 // Has to be power of 2.
@@ -38,14 +46,14 @@
 
 /* ----------------- SAMPLE INDEXING ----------------- */
 
-// Has to be greater or equal than NUM_SAMPLES.
-#define THREADS_PER_SAMPLE_INDEXING 128
+// Has to be greater or equal than NUM_SAMPLES. Has to be multiple of NUM_SAMPLES.
+#define THREADS_PER_SAMPLE_INDEXING (4 * NUM_SAMPLES)
 
 
 /* ---------------- BUCKETS RELOCATION --------------- */
 
 // How many threads are used per one thread block in kernel for buckets relocation. Has to be power of 2.
-// Also has to be greater or equal than NUM_SAMPLES.
+// Also has to be greater or equal than NUM_SAMPLES. Has to be multiple of NUM_SAMPLES.
 #define THREADS_PER_BUCKETS_RELOCATION (2 * NUM_SAMPLES)
 
 #endif

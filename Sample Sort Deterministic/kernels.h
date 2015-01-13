@@ -2,6 +2,10 @@
 #define KERNELS_H
 
 
+// Kernel for padding
+template <data_t value>
+__global__ void addPaddingKernel(data_t *dataTable, uint_t start, uint_t length);
+
 // Bitonic sort kernels
 template <order_t sortOrder>
 __global__ void bitonicSortCollectSamplesKernel(data_t *dataTable, data_t *localSamples, uint_t tableLen);

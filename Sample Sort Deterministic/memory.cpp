@@ -75,15 +75,18 @@ void allocDeviceMemory(
 )
 {
     uint_t elemsPerInitBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+    // If table length is not multiple of number of elements processed by one thread block in initial
+    // bitonic sort, than array is padded to that length.
+    uint_t tableLenRoundedUp = roundUp(tableLen, elemsPerInitBitonicSort);
     uint_t localSamplesDistance = (elemsPerInitBitonicSort - 1) / NUM_SAMPLES + 1;
-    uint_t localSamplesLen = (tableLen - 1) / localSamplesDistance + 1;
+    uint_t localSamplesLen = (tableLenRoundedUp - 1) / localSamplesDistance + 1;
     // (number of all data blocks (tiles)) * (number buckets generated from NUM_SAMPLES)
-    uint_t localBucketsLen = ((tableLen - 1) / elemsPerInitBitonicSort + 1) * (NUM_SAMPLES + 1);
+    uint_t localBucketsLen = ((tableLenRoundedUp - 1) / elemsPerInitBitonicSort + 1) * (NUM_SAMPLES + 1);
     cudaError_t error;
 
-    error = cudaMalloc(dataTable, tableLen * sizeof(**dataTable));
+    error = cudaMalloc(dataTable, tableLenRoundedUp * sizeof(**dataTable));
     checkCudaError(error);
-    error = cudaMalloc(dataBuffer, tableLen * sizeof(**dataBuffer));
+    error = cudaMalloc(dataBuffer, tableLenRoundedUp * sizeof(**dataBuffer));
     checkCudaError(error);
 
     error = cudaMalloc(samples, localSamplesLen * sizeof(**samples));

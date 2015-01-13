@@ -40,6 +40,40 @@ void cudppInitScan(CUDPPHandle *scanPlan, uint_t tableLen)
 }
 
 /*
+Adds padding of MAX/MIN values to input table, deppending if sort order is ascending or descending. This is
+needed, if table length is not divisable with number of elements sorted by local radix sort. In order for
+parallel sort to work, table length has to be divisable with number of elements processed by one thread block
+in local radix sort.
+*/
+void runAddPaddingKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder)
+{
+    uint_t elemsPerLocalSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+    uint_t tableLenRoundedUp = roundUp(tableLen, elemsPerLocalSort);
+
+    // If table length is already power of 2, than no padding is needed
+    if (tableLen == tableLenRoundedUp)
+    {
+        return;
+    }
+
+    uint_t paddingLength = tableLenRoundedUp - tableLen;
+
+    uint_t elemsPerThreadBlock = THREADS_PER_PADDING * ELEMS_PER_THREAD_PADDING;;
+    dim3 dimGrid((paddingLength - 1) / elemsPerThreadBlock + 1, 1, 1);
+    dim3 dimBlock(THREADS_PER_PADDING, 1, 1);
+
+    // Depending on sort order different value is used for padding.
+    if (sortOrder == ORDER_ASC)
+    {
+        addPaddingKernel<MAX_VAL><<<dimGrid, dimBlock>>>(dataTable, tableLen, paddingLength);
+    }
+    else
+    {
+        addPaddingKernel<MIN_VAL><<<dimGrid, dimBlock>>>(dataTable, tableLen, paddingLength);
+    }
+}
+
+/*
 Sorts sub-blocks of input data with bitonic sort and collects samples after the sort is complete.
 */
 void runBitonicSortCollectSamplesKernel(data_t *dataTable, data_t *samples, uint_t tableLen, order_t sortOrder)
@@ -214,6 +248,7 @@ void runBucketsRelocationKernel(
 )
 {
     // For NUM_SAMPLES samples (NUM_SAMPLES + 1) buckets are created
+    // "2" -> bucket sizes + bucket offsets
     uint_t sharedMemSize = 2 * (NUM_SAMPLES + 1) * sizeof(*localBucketSizes);
     uint_t elemsPerBitonicSort = THREADS_PER_GLOBAL_MERGE * ELEMS_PER_THREAD_GLOBAL_MERGE;
     cudaError_t error;
@@ -279,17 +314,22 @@ void sampleSort(
 )
 {
     uint_t elemsPerInitBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
-    uint_t localSamplesDistance = (THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT) / NUM_SAMPLES;
-    uint_t localSamplesLen = (tableLen - 1) / localSamplesDistance + 1;
+    // If table length is not multiple of number of elements processed by one thread block in initial
+    // bitonic sort, than array is padded to that length.
+    uint_t tableLenRoundedUp = roundUp(tableLen, elemsPerInitBitonicSort);
+    uint_t localSamplesDistance = (elemsPerInitBitonicSort - 1) / NUM_SAMPLES + 1;
+    uint_t localSamplesLen = (tableLenRoundedUp - 1) / localSamplesDistance + 1;
     // (number of all data blocks (tiles)) * (number buckets generated from NUM_SAMPLES)
-    uint_t localBucketsLen = ((tableLen - 1) / elemsPerInitBitonicSort + 1) * (NUM_SAMPLES + 1);
+    uint_t localBucketsLen = ((tableLenRoundedUp - 1) / elemsPerInitBitonicSort + 1) * (NUM_SAMPLES + 1);
     CUDPPHandle scanPlan;
 
     cudppInitScan(&scanPlan, localBucketsLen);
-    runBitonicSortCollectSamplesKernel(dataTable, samples, tableLen, sortOrder);
+    runAddPaddingKernel(dataTable, tableLen, sortOrder);
+    runBitonicSortCollectSamplesKernel(dataTable, samples, tableLenRoundedUp, sortOrder);
 
     // Array has already been sorted
-    if (tableLen <= elemsPerInitBitonicSort) {
+    if (tableLen <= elemsPerInitBitonicSort)
+    {
         data_t *temp = dataTable;
         dataTable = dataBuffer;
         dataBuffer = temp;
@@ -300,10 +340,8 @@ void sampleSort(
     // Local samples are already partially ordered - NUM_SAMPLES per every tile. These partially ordered
     // samples have to be merged.
     bitonicMerge(samples, localSamplesLen, NUM_SAMPLES, sortOrder);
-
-    // TODO handle case, if all samples are the same
     runCollectGlobalSamplesKernel(samples, localSamplesLen);
-    runSampleIndexingKernel(dataTable, samples, d_localBucketSizes, tableLen, localBucketsLen, sortOrder);
+    runSampleIndexingKernel(dataTable, samples, d_localBucketSizes, tableLenRoundedUp, localBucketsLen, sortOrder);
 
     CUDPPResult result = cudppScan(scanPlan, d_localBucketOffsets, d_localBucketSizes, localBucketsLen);
     if (result != CUDPP_SUCCESS)
@@ -315,7 +353,7 @@ void sampleSort(
 
     runBucketsRelocationKernel(
         dataTable, dataBuffer, h_globalBucketOffsets, d_globalBucketOffsets, d_localBucketSizes,
-        d_localBucketOffsets, tableLen
+        d_localBucketOffsets, tableLenRoundedUp
     );
 
     // Sorts every bucket with bitonic sort
