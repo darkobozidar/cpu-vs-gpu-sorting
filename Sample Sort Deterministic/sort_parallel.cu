@@ -219,14 +219,9 @@ void runSampleIndexingKernel(
     order_t sortOrder
 )
 {
-    // Number of threads per thread block can be greater than number of samples.
-    uint_t elemsPerBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
-    uint_t numBlocks = (tableLen - 1) / elemsPerBitonicSort + 1;
-    uint_t threadBlockSize = min(numBlocks * NUM_SAMPLES, THREADS_PER_SAMPLE_INDEXING);
-
     // Every thread block creates from NUM_SAMPLES samples (NUM_SAMPLES + 1) buckets
-    dim3 dimGrid((numAllBuckets - 1) / (threadBlockSize / NUM_SAMPLES * (NUM_SAMPLES + 1)) + 1, 1, 1);
-    dim3 dimBlock(threadBlockSize, 1, 1);
+    dim3 dimGrid((numAllBuckets - 1) / (THREADS_PER_SAMPLE_INDEXING / NUM_SAMPLES * (NUM_SAMPLES + 1)) + 1, 1, 1);
+    dim3 dimBlock(THREADS_PER_SAMPLE_INDEXING, 1, 1);
 
     if (sortOrder == ORDER_ASC)
     {
@@ -270,9 +265,10 @@ void runBucketsRelocationKernel(
 /*
 Performs global bitonic merge, when number of elements is greater than shared memory size.
 */
-void bitonicMerge(data_t *dataTable, uint_t tableLen, uint_t elemsPerBlockBitonicSort, order_t sortOrder)
+void bitonicMerge(data_t *dataTable, uint_t tableLen, order_t sortOrder)
 {
     uint_t tableLenPower2 = nextPowerOf2(tableLen);
+    uint_t elemsPerBlockBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
     uint_t elemsPerBlockMergeLocal = THREADS_PER_LOCAL_MERGE * ELEMS_PER_THREAD_LOCAL_MERGE;
 
     // Number of phases, which can be executed in shared memory (stride is lower than shared memory size)
@@ -298,10 +294,8 @@ Performs bitonic sort.
 */
 void bitonicSort(data_t *dataTable, uint_t tableLen, order_t sortOrder)
 {
-    uint_t elemsPerBlockBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
-
     runBitonicSortKernel(dataTable, tableLen, sortOrder);
-    bitonicMerge(dataTable, tableLen, elemsPerBlockBitonicSort, sortOrder);
+    bitonicMerge(dataTable, tableLen, sortOrder);
 }
 
 /*
@@ -339,7 +333,7 @@ void sampleSort(
 
     // Local samples are already partially ordered - NUM_SAMPLES per every tile. These partially ordered
     // samples have to be merged.
-    bitonicMerge(samples, localSamplesLen, NUM_SAMPLES, sortOrder);
+    bitonicSort(samples, localSamplesLen, sortOrder);
     runCollectGlobalSamplesKernel(samples, localSamplesLen);
     runSampleIndexingKernel(dataTable, samples, d_localBucketSizes, tableLenRoundedUp, localBucketsLen, sortOrder);
 

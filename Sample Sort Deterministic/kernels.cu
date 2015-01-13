@@ -294,10 +294,8 @@ __global__ void sampleIndexingKernel(
 {
     __shared__ uint_t indexingTile[THREADS_PER_SAMPLE_INDEXING];
 
-    uint_t sampleIndex = threadIdx.x % NUM_SAMPLES;
-
     // One thread block can process multiple data blocks (multiple chunks of data previously sorted by bitonic sort).
-    const uint_t dataBlocksPerThreadBlock = (blockDim.x - 1) / NUM_SAMPLES + 1;
+    const uint_t dataBlocksPerThreadBlock = THREADS_PER_SAMPLE_INDEXING / NUM_SAMPLES;
     const uint_t dataBlockIndex = threadIdx.x / NUM_SAMPLES;
     const uint_t elemsPerBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
 
@@ -305,30 +303,41 @@ __global__ void sampleIndexingKernel(
     const uint_t offset = indexBlock * elemsPerBitonicSort;
     const uint_t dataBlockLength = offset + elemsPerBitonicSort <= tableLen ? elemsPerBitonicSort : tableLen - offset;
 
-    indexingTile[threadIdx.x] = binarySearchInclusive<sortOrder>(
-        dataTable, samples[sampleIndex], offset, offset + dataBlockLength - 1
-    );
+    const uint_t sampleIndex = threadIdx.x % NUM_SAMPLES;
+
+    if (offset < tableLen)
+    {
+        indexingTile[threadIdx.x] = binarySearchInclusive<sortOrder>(
+            dataTable, samples[sampleIndex], offset, offset + dataBlockLength - 1
+        );
+    }
     __syncthreads();
 
     uint_t prevIndex;
     const uint_t allDataBlocks = gridDim.x * dataBlocksPerThreadBlock;
     const uint_t outputSampleIndex = sampleIndex * allDataBlocks + indexBlock;
 
-    if (sampleIndex == 0)
+    if (offset < tableLen)
     {
-        prevIndex = offset;
-    }
-    else
-    {
-        prevIndex = indexingTile[threadIdx.x - 1];
+        if (sampleIndex == 0)
+        {
+            prevIndex = offset;
+        }
+        else
+        {
+            prevIndex = indexingTile[threadIdx.x - 1];
+        }
     }
     __syncthreads();
 
-    bucketSizes[outputSampleIndex] = indexingTile[threadIdx.x] - prevIndex;
-    // Because there is NUM_SAMPLES samples, (NUM_SAMPLES + 1) buckets are created.
-    if (sampleIndex == NUM_SAMPLES - 1)
+    if (offset < tableLen)
     {
-        bucketSizes[outputSampleIndex + allDataBlocks] = offset + dataBlockLength - indexingTile[threadIdx.x];
+        bucketSizes[outputSampleIndex] = indexingTile[threadIdx.x] - prevIndex;
+        // Because there is NUM_SAMPLES samples, (NUM_SAMPLES + 1) buckets are created.
+        if (sampleIndex == NUM_SAMPLES - 1)
+        {
+            bucketSizes[outputSampleIndex + allDataBlocks] = offset + dataBlockLength - indexingTile[threadIdx.x];
+        }
     }
 }
 
