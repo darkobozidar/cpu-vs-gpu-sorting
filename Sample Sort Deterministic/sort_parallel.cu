@@ -325,7 +325,10 @@ void sampleSort(
         uint_t currentOffset = h_globalBucketOffsets[bucket];
         uint_t bucketLen = currentOffset - previousOffset;
 
-        bitonicSort(dataBuffer + previousOffset, bucketLen, sortOrder);
+        if (bucketLen > 0)
+        {
+            bitonicSort(dataBuffer + previousOffset, bucketLen, sortOrder);
+        }
         previousOffset = currentOffset;
     }
 }
