@@ -10,12 +10,7 @@
 #include "constants.h"
 
 
-//__global__ void printDataKernel(data_t *table, uint_t tableLen) {
-//    for (uint_t i = 0; i < tableLen; i++) {
-//        printf("%2d ", table[i]);
-//    }
-//    printf("\n");
-//}
+
 
 /*
 Compares 2 elements and exchanges them according to sortOrder.
@@ -96,12 +91,12 @@ __global__ void bitonicSortCollectSamplesKernel(data_t *dataTable, data_t *local
     bitonicSort<sortOrder>(dataTable, tableLen);
 
     // After sort has been performed, samples are scattered to array of local samples
-    uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
-    uint_t offset = blockIdx.x * elemsPerThreadBlock;
-    uint_t dataBlockLength = offset + elemsPerThreadBlock <= tableLen ? elemsPerThreadBlock : tableLen - offset;
+    const uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+    const uint_t offset = blockIdx.x * elemsPerThreadBlock;
+    const uint_t dataBlockLength = offset + elemsPerThreadBlock <= tableLen ? elemsPerThreadBlock : tableLen - offset;
 
-    uint_t localSamplesDistance = elemsPerThreadBlock / NUM_SAMPLES;
-    uint_t samplesPerThreadBlock = (dataBlockLength - 1) / localSamplesDistance + 1;
+    const uint_t localSamplesDistance = elemsPerThreadBlock / NUM_SAMPLES;
+    const uint_t samplesPerThreadBlock = (dataBlockLength - 1) / localSamplesDistance + 1;
 
     // Collects samples
     for (uint_t tx = threadIdx.x; tx < samplesPerThreadBlock; tx += THREADS_PER_BITONIC_SORT)
@@ -136,14 +131,12 @@ template __global__ void bitonicSortKernel<ORDER_DESC>(data_t *dataTable, uint_t
 /*
 Global bitonic merge for sections, where stride IS GREATER than max shared memory.
 */
-template <order_t sortOrder>
-__global__ void bitonicMergeGlobalKernel(
-    data_t *dataTable, uint_t tableLen, uint_t step, bool firstStepOfPhase
-)
+template <order_t sortOrder, bool isFirstStepOfPhase>
+__global__ void bitonicMergeGlobalKernel(data_t *dataTable, uint_t tableLen, uint_t step)
 {
-    uint_t stride = 1 << (step - 1);
-    uint_t pairsPerThreadBlock = (THREADS_PER_GLOBAL_MERGE * ELEMS_PER_THREAD_GLOBAL_MERGE) >> 1;
-    uint_t indexGlobal = blockIdx.x * pairsPerThreadBlock + threadIdx.x;
+    const uint_t stride = 1 << (step - 1);
+    const uint_t pairsPerThreadBlock = (THREADS_PER_GLOBAL_MERGE * ELEMS_PER_THREAD_GLOBAL_MERGE) >> 1;
+    const uint_t indexGlobal = blockIdx.x * pairsPerThreadBlock + threadIdx.x;
 
     for (uint_t i = 0; i < ELEMS_PER_THREAD_GLOBAL_MERGE >> 1; i++)
     {
@@ -151,7 +144,7 @@ __global__ void bitonicMergeGlobalKernel(
         uint_t offset = stride;
 
         // In normalized bitonic sort, first STEP of every PHASE uses different offset than all other STEPS.
-        if (firstStepOfPhase)
+        if (isFirstStepOfPhase)
         {
             offset = ((indexThread & (stride - 1)) << 1) + 1;
             indexThread = (indexThread / stride) * stride + ((stride - 1) - (indexThread % stride));
@@ -167,12 +160,10 @@ __global__ void bitonicMergeGlobalKernel(
     }
 }
 
-template __global__ void bitonicMergeGlobalKernel<ORDER_ASC>(
-    data_t *dataTable, uint_t tableLen, uint_t step, bool firstStepOfPhase
-);
-template __global__ void bitonicMergeGlobalKernel<ORDER_DESC>(
-    data_t *dataTable, uint_t tableLen, uint_t step, bool firstStepOfPhase
-);
+template __global__ void bitonicMergeGlobalKernel<ORDER_ASC, true>(data_t *dataTable, uint_t tableLen, uint_t step);
+template __global__ void bitonicMergeGlobalKernel<ORDER_ASC, false>(data_t *dataTable, uint_t tableLen, uint_t step);
+template __global__ void bitonicMergeGlobalKernel<ORDER_DESC, true>(data_t *dataTable, uint_t tableLen, uint_t step);
+template __global__ void bitonicMergeGlobalKernel<ORDER_DESC, false>(data_t *dataTable, uint_t tableLen, uint_t step);
 
 
 /*

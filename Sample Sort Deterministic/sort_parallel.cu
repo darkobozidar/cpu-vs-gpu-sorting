@@ -97,13 +97,29 @@ void runBitonicMergeGlobalKernel(
     dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
     dim3 dimBlock(THREADS_PER_GLOBAL_MERGE, 1, 1);
 
+    bool isFirstStepOfPhase = phase == step;
+
     if (sortOrder == ORDER_ASC)
     {
-        bitonicMergeGlobalKernel<ORDER_ASC><<<dimGrid, dimBlock>>>(dataTable, tableLen, step, step == phase);
+        if (isFirstStepOfPhase)
+        {
+            bitonicMergeGlobalKernel<ORDER_ASC, true><<<dimGrid, dimBlock>>>(dataTable, tableLen, step);
+        }
+        else
+        {
+            bitonicMergeGlobalKernel<ORDER_ASC, false><<<dimGrid, dimBlock>>>(dataTable, tableLen, step);
+        }
     }
     else
     {
-        bitonicMergeGlobalKernel<ORDER_DESC><<<dimGrid, dimBlock>>>(dataTable, tableLen, step, step == phase);
+        if (isFirstStepOfPhase)
+        {
+            bitonicMergeGlobalKernel<ORDER_DESC, true><<<dimGrid, dimBlock>>>(dataTable, tableLen, step);
+        }
+        else
+        {
+            bitonicMergeGlobalKernel<ORDER_DESC, false><<<dimGrid, dimBlock>>>(dataTable, tableLen, step);
+        }
     }
 }
 
@@ -190,12 +206,6 @@ void runBucketsRelocationKernel(
     checkCudaError(error);
 }
 
-//void runPrintDataKernel(data_t *table, uint_t tableLen) {
-//    printDataKernel<<<1, 1>>>(table, tableLen);
-//    cudaError_t error = cudaDeviceSynchronize();
-//    checkCudaError(error);
-//}
-
 /*
 Performs global bitonic merge, when number of elements is greater than shared memory size.
 */
@@ -235,7 +245,9 @@ void bitonicSort(data_t *dataTable, uint_t tableLen, order_t sortOrder)
     bitonicMerge(dataTable, tableLen, elemsPerBlockBitonicSort, sortOrder);
 }
 
-// TODO figure out what the bottleneck is
+/*
+Sorts array with deterministic sample sort.
+*/
 void sampleSort(
     data_t *&dataTable, data_t *&dataBuffer, data_t *samples, uint_t *h_globalBucketOffsets,
     uint_t *d_globalBucketOffsets, uint_t *d_localBucketSizes, uint_t *d_localBucketOffsets, uint_t tableLen,
@@ -262,7 +274,7 @@ void sampleSort(
     }
 
     // Local samples are already partially ordered - NUM_SAMPLES per every tile. These partially ordered
-    // samples need to be merged.
+    // samples have to be merged.
     bitonicMerge(samples, localSamplesLen, NUM_SAMPLES, sortOrder);
 
     // TODO handle case, if all samples are the same
