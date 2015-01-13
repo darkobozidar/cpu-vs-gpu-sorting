@@ -284,7 +284,7 @@ __device__ int binarySearchInclusive(data_t* dataTable, data_t target, int_t ind
 }
 
 /*
-For all previously sorted chunks finds the index of global samples and calculates the number of elements in each
+In all previously sorted chunks finds the index of global samples and calculates the number of elements in each
 of the (NUM_SAMPLES + 1) buckets.
 */
 template <order_t sortOrder>
@@ -295,48 +295,35 @@ __global__ void sampleIndexingKernel(
     __shared__ uint_t indexingTile[THREADS_PER_SAMPLE_INDEXING];
 
     // One thread block can process multiple data blocks (multiple chunks of data previously sorted by bitonic sort).
-    const uint_t dataBlocksPerThreadBlock = THREADS_PER_SAMPLE_INDEXING / NUM_SAMPLES;
-    const uint_t dataBlockIndex = threadIdx.x / NUM_SAMPLES;
     const uint_t elemsPerBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+    const uint_t allDataBlocks = tableLen / elemsPerBitonicSort;
+    const uint_t indexBlock = (blockIdx.x * THREADS_PER_SAMPLE_INDEXING / NUM_SAMPLES + threadIdx.x / NUM_SAMPLES);
 
-    const uint_t indexBlock = (blockIdx.x * dataBlocksPerThreadBlock + dataBlockIndex);
     const uint_t offset = indexBlock * elemsPerBitonicSort;
-    const uint_t dataBlockLength = offset + elemsPerBitonicSort <= tableLen ? elemsPerBitonicSort : tableLen - offset;
-
     const uint_t sampleIndex = threadIdx.x % NUM_SAMPLES;
 
-    if (offset < tableLen)
+    // Because one thread block can process multiple data blocks, length has to be verified in case threads
+    // try to process data elements outside table length
+    if (indexBlock < allDataBlocks)
     {
         indexingTile[threadIdx.x] = binarySearchInclusive<sortOrder>(
-            dataTable, samples[sampleIndex], offset, offset + dataBlockLength - 1
+            dataTable, samples[sampleIndex], offset, offset + elemsPerBitonicSort - 1
         );
     }
     __syncthreads();
 
-    uint_t prevIndex;
-    const uint_t allDataBlocks = gridDim.x * dataBlocksPerThreadBlock;
     const uint_t outputSampleIndex = sampleIndex * allDataBlocks + indexBlock;
-
-    if (offset < tableLen)
-    {
-        if (sampleIndex == 0)
-        {
-            prevIndex = offset;
-        }
-        else
-        {
-            prevIndex = indexingTile[threadIdx.x - 1];
-        }
-    }
+    const uint_t prevIndex = sampleIndex == 0 ? offset : indexingTile[threadIdx.x - 1];
     __syncthreads();
 
-    if (offset < tableLen)
+    if (indexBlock < allDataBlocks)
     {
         bucketSizes[outputSampleIndex] = indexingTile[threadIdx.x] - prevIndex;
+
         // Because there is NUM_SAMPLES samples, (NUM_SAMPLES + 1) buckets are created.
         if (sampleIndex == NUM_SAMPLES - 1)
         {
-            bucketSizes[outputSampleIndex + allDataBlocks] = offset + dataBlockLength - indexingTile[threadIdx.x];
+            bucketSizes[outputSampleIndex + allDataBlocks] = offset + elemsPerBitonicSort - indexingTile[threadIdx.x];
         }
     }
 }

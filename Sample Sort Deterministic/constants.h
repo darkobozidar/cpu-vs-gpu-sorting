@@ -54,6 +54,6 @@
 
 // How many threads are used per one thread block in kernel for buckets relocation. Has to be power of 2.
 // Also has to be greater or equal than NUM_SAMPLES. Has to be multiple of NUM_SAMPLES.
-#define THREADS_PER_BUCKETS_RELOCATION (2 * NUM_SAMPLES)
+#define THREADS_PER_BUCKETS_RELOCATION (8 * NUM_SAMPLES)
 
 #endif

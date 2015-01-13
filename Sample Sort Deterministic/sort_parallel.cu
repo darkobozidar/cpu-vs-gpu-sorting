@@ -213,14 +213,17 @@ void runCollectGlobalSamplesKernel(data_t *samples, uint_t samplesLen)
 
 /*
 For every sample searches, how many elements in tile are lower than it's value.
+Every thread block creates from NUM_SAMPLES samples (NUM_SAMPLES + 1) buckets
 */
 void runSampleIndexingKernel(
     data_t *dataTable, data_t *samples, data_t *bucketSizes, uint_t tableLen, uint_t numAllBuckets,
     order_t sortOrder
 )
 {
-    // Every thread block creates from NUM_SAMPLES samples (NUM_SAMPLES + 1) buckets
-    dim3 dimGrid((numAllBuckets - 1) / (THREADS_PER_SAMPLE_INDEXING / NUM_SAMPLES * (NUM_SAMPLES + 1)) + 1, 1, 1);
+    uint_t elemsPerBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+
+    // "Number of all blocks" / "number of blocks processed by one thread block"
+    dim3 dimGrid((tableLen / elemsPerBitonicSort - 1) / (THREADS_PER_SAMPLE_INDEXING / NUM_SAMPLES) + 1, 1, 1);
     dim3 dimBlock(THREADS_PER_SAMPLE_INDEXING, 1, 1);
 
     if (sortOrder == ORDER_ASC)
@@ -245,7 +248,7 @@ void runBucketsRelocationKernel(
     // For NUM_SAMPLES samples (NUM_SAMPLES + 1) buckets are created
     // "2" -> bucket sizes + bucket offsets
     uint_t sharedMemSize = 2 * (NUM_SAMPLES + 1) * sizeof(*localBucketSizes);
-    uint_t elemsPerBitonicSort = THREADS_PER_GLOBAL_MERGE * ELEMS_PER_THREAD_GLOBAL_MERGE;
+    uint_t elemsPerBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
     cudaError_t error;
 
     dim3 dimGrid((tableLen - 1) / elemsPerBitonicSort + 1, 1, 1);
