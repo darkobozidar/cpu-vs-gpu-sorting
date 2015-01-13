@@ -265,8 +265,6 @@ __device__ int binarySearchInclusive(data_t* dataTable, data_t target, int_t ind
 /*
 For all previously sorted chunks finds the index of global samples and calculates the number of elements in each
 of the (NUM_SAMPLES + 1) buckets.
-
-TODO check if it is better, to read data chunks into shared memory and have one thread block per one data block
 */
 template <order_t sortOrder>
 __global__ void sampleIndexingKernel(
@@ -380,7 +378,6 @@ __global__ void bucketsRelocationKernel(
             tx += THREADS_PER_BUCKETS_RELOCATION;
         }
 
-        // TODO try with sycnthreads if it works faster
         activeThreadsPrev = activeThreads;
         bucketIndex++;
     }
