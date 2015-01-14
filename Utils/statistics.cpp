@@ -10,7 +10,7 @@ Prints out table vertical splitter if only keys are sorted.
 */
 void printTableSplitterKeysOnly()
 {
-    printf("====================================================================================================\n");
+    printf("===================================================================================================================\n");
 }
 
 /*
@@ -19,9 +19,9 @@ Prints out table header if only keys are sorted.
 void printTableHeaderKeysOnly()
 {
     printTableSplitterKeysOnly();
-    printf("||     # ||             PARALLEL              ||             SEQUENTIAL            ||   CORRECT   ||\n");
+    printf("||     # ||             PARALLEL              ||             SEQUENTIAL            ||            CORRECT         ||\n");
     printTableSplitterKeysOnly();
-    printf("||     # ||     time    |      rate    |  ok  ||     time    |      rate    |  ok  ||     time    ||\n");
+    printf("||     # ||     time    |      rate    |  ok  ||     time    |      rate    |  ok  ||     time    |      rate    ||\n");
     printTableSplitterKeysOnly();
 }
 
@@ -33,12 +33,13 @@ void printTableLineKeysOnly(
 )
 {
     printf(
-        "|| %5d || %8.2lf ms | %8.2lf M/s | %s  || %8.2lf ms | %8.2lf M/s | %s  || %8.2lf ms ||\n", iter + 1,
+        "|| %5d || %8.2lf ms | %8.2lf M/s | %s  || %8.2lf ms | %8.2lf M/s | %s  || %8.2lf ms | %8.2lf M/s ||\n",
+        iter + 1,
         timers[SORT_PARALLEL][iter], tableLen / 1000.0 / timers[SORT_PARALLEL][iter],
         areEqualParallel ? "YES" : " NO",
         timers[SORT_SEQUENTIAL][iter], tableLen / 1000.0 / timers[SORT_SEQUENTIAL][iter],
         areEqualSequential ? "YES" : " NO",
-        timers[SORT_CORRECT][iter]
+        timers[SORT_CORRECT][iter], tableLen / 1000.0 / timers[SORT_CORRECT][iter]
     );
 }
 
@@ -47,7 +48,7 @@ Prints out table vertical splitter if key-value pairs are sorted.
 */
 void printTableSplitterKeyValue()
 {
-    printf("======================================================================================================================\n");
+    printf("=====================================================================================================================================\n");
 }
 
 /*
@@ -56,9 +57,9 @@ Prints out table header if key-value pairs are sorted.
 void printTableHeaderKeyValue()
 {
     printTableSplitterKeyValue();
-    printf("||     # ||                  PARALLEL                  ||                  SEQUENTIAL                ||   CORRECT   ||\n");
+    printf("||     # ||                  PARALLEL                  ||                  SEQUENTIAL                ||            CORRECT         ||\n");
     printTableSplitterKeyValue();
-    printf("||     # ||     time    |      rate    |  ok  | stable ||     time    |      rate    |  ok  | stable ||     time    ||\n");
+    printf("||     # ||     time    |      rate    |  ok  | stable ||     time    |      rate    |  ok  | stable ||     time    |      rate    ||\n");
     printTableSplitterKeyValue();
 }
 
@@ -71,13 +72,13 @@ void printTableLineKeyValue(
 )
 {
     printf(
-        "|| %5d || %8.2lf ms | %8.2lf M/s | %s  |   %s  || %8.2lf ms | %8.2lf M/s | %s  |   %s  || %8.2lf ms ||\n",
+        "|| %5d || %8.2lf ms | %8.2lf M/s | %s  |   %s  || %8.2lf ms | %8.2lf M/s | %s  |   %s  || %8.2lf ms | %8.2lf M/s ||\n",
         iter + 1,
         timers[SORT_PARALLEL][iter], tableLen / 1000.0 / timers[SORT_PARALLEL][iter],
         areEqualParallel ? "YES" : " NO", isStableParallel ? "YES" : " NO",
         timers[SORT_SEQUENTIAL][iter], tableLen / 1000.0 / timers[SORT_SEQUENTIAL][iter],
         areEqualSequential ? "YES" : " NO", isStableSequential ? "YES" : " NO",
-        timers[SORT_CORRECT][iter]
+        timers[SORT_CORRECT][iter], tableLen / 1000.0 / timers[SORT_CORRECT][iter]
     );
 }
 
