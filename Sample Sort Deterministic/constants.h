@@ -59,10 +59,18 @@
 
 /* --------- SEQUENTIAL ALGORITHM PARAMETERS --------- */
 
-#define NUM_SPLITTERS_SEQUENTIAL 64
+// How many splitters are used for buckets. From "N" splitters "N + 1" buckets are created.
+#define NUM_SPLITTERS_SEQUENTIAL 32
+
+// How many extra samples are taken for every splitter. Increases the queality of splitters (samples
+// get sorted and only "NUM_SPLITTERS_SEQUENTIAL" splitters are taken from sorted array of samples).
 #define OVERSAMPLING_FACTOR 4
+
+// How many samples are taken from array, which has to be sorted.
 #define NUM_SAMPLES_SEQUENTIAL (NUM_SPLITTERS_SEQUENTIAL * OVERSAMPLING_FACTOR)
-// Has to be greater or equeal than NUM_SAMPLES_SEQUENTIAL
-#define SMALL_SORT_THRESHOLD (1 << 10)
+
+// Threshold, when small sort is applied (in our case marge sort). Has to be greater or equeal than
+// "NUM_SAMPLES_SEQUENTIAL".
+#define SMALL_SORT_THRESHOLD (1 << 15)
 
 #endif
