@@ -15,7 +15,8 @@
 Allocates host memory.
 */
 void allocHostMemory(
-    data_t **input, data_t **outputParallel, data_t **outputSequential, data_t **outputCorrect,
+    data_t **input, data_t **outputParallel, data_t **inputSequential, data_t **outputSequential,
+    data_t **outputCorrect, data_t **samples, uint_t **bucketSizes, uint_t **elementBuckets,
     uint_t **globalBucketOffsets, double ***timers, uint_t tableLen, uint_t testRepetitions
 )
 {
@@ -26,10 +27,22 @@ void allocHostMemory(
     // Data output
     *outputParallel = (data_t*)malloc(tableLen * sizeof(**outputParallel));
     checkMallocError(*outputParallel);
+    *inputSequential = (data_t*)malloc(tableLen * sizeof(**inputSequential));
+    checkMallocError(*inputSequential);
     *outputSequential = (data_t*)malloc(tableLen * sizeof(**outputSequential));
     checkMallocError(*outputSequential);
     *outputCorrect = (data_t*)malloc(tableLen * sizeof(**outputCorrect));
     checkMallocError(*outputCorrect);
+
+    // Holds samples and splitters in sequential sample sort
+    *samples = (data_t*)malloc(NUM_SAMPLES_SEQUENTIAL * OVERSAMPLING_FACTOR * sizeof(**samples));
+    checkMallocError(*samples);
+    // Holds bucket sizes and bucket offsets in sequential sample sort
+    *bucketSizes = (uint_t*)malloc((NUM_SAMPLES_SEQUENTIAL + 1) * sizeof(**bucketSizes));
+    checkMallocError(*bucketSizes);
+    // For each element in array holds, to which bucket it belongs
+    *elementBuckets = (uint_t*)malloc(tableLen * sizeof(**elementBuckets));
+    checkMallocError(*elementBuckets);
 
     // Offsets of all global buckets
     *globalBucketOffsets = (uint_t*)malloc((NUM_SAMPLES_PARALLEL + 1) * sizeof(**globalBucketOffsets));
@@ -49,14 +62,21 @@ void allocHostMemory(
 Frees host memory.
 */
 void freeHostMemory(
-    data_t *input, data_t *outputParallel, data_t *outputSequential, data_t *outputCorrect,
+    data_t *input, data_t *outputParallel, data_t *inputSequential, data_t *outputSequential,
+    data_t *outputCorrect, data_t *samples, uint_t *bucketSizes, uint_t *elementBuckets,
     uint_t *globalBucketOffsets, double **timers
 )
 {
     free(input);
     free(outputParallel);
+    free(inputSequential);
     free(outputSequential);
     free(outputCorrect);
+
+    free(samples);
+    free(bucketSizes);
+    free(elementBuckets);
+
     free(globalBucketOffsets);
 
     for (uint_t i = 0; i < NUM_STOPWATCHES; ++i)

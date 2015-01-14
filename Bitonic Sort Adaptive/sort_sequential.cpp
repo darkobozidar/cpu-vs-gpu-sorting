@@ -272,7 +272,7 @@ void adaptiveBitonicSort(node_t *root, node_t *spare, order_t sortOrder)
 /*
 Sorts data sequentially with adaptive bitonic sort.
 */
-double sortSequential(data_t* dataTable, uint_t tableLen, order_t sortOrder)
+double sortSequential(data_t *dataTable, uint_t tableLen, order_t sortOrder)
 {
     LARGE_INTEGER timer;
     startStopwatch(&timer);

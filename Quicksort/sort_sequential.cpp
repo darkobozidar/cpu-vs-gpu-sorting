@@ -111,7 +111,7 @@ void quickSort(data_t *dataTable, uint_t length)
 /*
 Sorts data sequentially with quicksort.
 */
-double sortSequential(data_t* dataTable, uint_t tableLen, order_t sortOrder)
+double sortSequential(data_t *dataTable, uint_t tableLen, order_t sortOrder)
 {
     LARGE_INTEGER timer;
     startStopwatch(&timer);

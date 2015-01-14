@@ -22,7 +22,14 @@
 int main(int argc, char **argv)
 {
     data_t *h_input;
-    data_t *h_outputParallel, *h_outputSequential, *h_outputCorrect;
+    // For sequential sample sort 2 arrays are needed (one buffer array)
+    data_t *h_outputParallel, *h_inputSequential, *h_outputSequential, *h_outputCorrect;
+    data_t *h_samples;
+    // Holds bucket sizes and bucket offsets after exclusive scan is performed on bucket sizes (needed for
+    // sequential sample sort)
+    uint_t *h_bucketSizes;
+    // For every element in input holds bucket index to which it belogns (needed for sequential sample sort)
+    uint_t *h_elementBuckets;
     data_t *d_dataTable, *d_dataBuffer;
     // LOCAL samples:  NUM_SAMPLES samples for each data block sorted by initial bitonic sort
     // GLOBAL samples: NUM_SAMPLES samples collected from sorted LOCAL samples
@@ -46,8 +53,8 @@ int main(int argc, char **argv)
 
     // Memory alloc
     allocHostMemory(
-        &h_input, &h_outputParallel, &h_outputSequential, &h_outputCorrect, &h_globalBucketOffsets, &timers,
-        tableLen, testRepetitions
+        &h_input, &h_outputParallel, &h_inputSequential, &h_outputSequential, &h_outputCorrect, &h_samples,
+        &h_bucketSizes, &h_elementBuckets, &h_globalBucketOffsets, &timers, tableLen, testRepetitions
     );
     allocDeviceMemory(
         &d_dataTable, &d_dataBuffer, &d_samplesLocal, &d_samplesGlobal, &d_localBucketSizes,
@@ -78,8 +85,10 @@ int main(int argc, char **argv)
         );
 
         // Sort sequential
-        std::copy(h_input, h_input + tableLen, h_outputSequential);
-        timers[SORT_SEQUENTIAL][i] = sortSequential(h_outputSequential, tableLen, sortOrder);
+        std::copy(h_input, h_input + tableLen, h_inputSequential);
+        timers[SORT_SEQUENTIAL][i] = sortSequential(
+            h_inputSequential, h_outputSequential, h_samples, h_bucketSizes, h_elementBuckets, tableLen, sortOrder
+        );
 
         // Sort correct
         std::copy(h_input, h_input + tableLen, h_outputCorrect);
@@ -120,7 +129,10 @@ int main(int argc, char **argv)
     );
 
     // Memory free
-    freeHostMemory(h_input, h_outputParallel, h_outputSequential, h_outputCorrect, h_globalBucketOffsets, timers);
+    freeHostMemory(
+        h_input, h_outputParallel, h_inputSequential, h_outputSequential, h_outputCorrect, h_samples,
+        h_bucketSizes, h_elementBuckets, h_globalBucketOffsets, timers
+    );
     freeDeviceMemory(
         d_dataTable, d_dataBuffer, d_samplesLocal, d_samplesGlobal, d_localBucketSizes, d_localBucketOffsets,
         d_globalBucketOffsets

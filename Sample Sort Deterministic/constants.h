@@ -61,5 +61,7 @@
 
 #define NUM_SAMPLES_SEQUENTIAL 64
 #define OVERSAMPLING_FACTOR 4
+// Has to be greater or equeal than "NUM_SAMPLES_SEQUENTIAL * OVERSAMPLING_FACTOR"
+#define SMALL_SORT_THRESHOLD 4
 
 #endif

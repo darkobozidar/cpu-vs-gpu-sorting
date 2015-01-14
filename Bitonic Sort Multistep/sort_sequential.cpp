@@ -9,7 +9,7 @@
 /*
 Sorts data sequentially with NORMALIZED bitonic sort.
 */
-double sortSequential(data_t* dataTable, uint_t tableLen, order_t sortOrder)
+double sortSequential(data_t *dataTable, uint_t tableLen, order_t sortOrder)
 {
     LARGE_INTEGER timer;
     startStopwatch(&timer);
