@@ -251,7 +251,7 @@ template __global__ void bitonicMergeLocalKernel<ORDER_DESC, false>(data_t *data
 
 
 /*
-From LOCAL samples extracts GLOBAL samples (every NUM_SAMPLES sample). This is done by one thread block.
+From sorted LOCAL samples extracts GLOBAL samples (every NUM_SAMPLES sample). This is done by one thread block.
 */
 __global__ void collectGlobalSamplesKernel(data_t *samplesLocal, data_t *samplesGlobal, uint_t samplesLen)
 {
@@ -261,6 +261,9 @@ __global__ void collectGlobalSamplesKernel(data_t *samplesLocal, data_t *samples
     samplesGlobal[threadIdx.x] = samplesLocal[threadIdx.x * samplesDistance + (samplesDistance / 2)];
 }
 
+/*
+Performs a binary INCLUSIVE search and returns index on which element was found.
+*/
 template <order_t sortOrder>
 __device__ int binarySearchInclusive(data_t* dataTable, data_t target, int_t indexStart, int_t indexEnd)
 {
@@ -282,46 +285,54 @@ __device__ int binarySearchInclusive(data_t* dataTable, data_t target, int_t ind
 }
 
 /*
-In all previously sorted chunks finds the index of global samples and calculates the number of elements in each
-of the (NUM_SAMPLES + 1) buckets.
+In all previously sorted (by initial bitonic sort) sub-blocks finds the indexes of all NUM_SAMPLES global samples.
+From these indexes calculates the number of elements in each of the (NUM_SAMPLES + 1) local buckets (calculates
+local bucket sizes) for every sorted sub-block.
+
+One thread block can process multiple sorted sub-blocks (previously sorted by initial bitonic sort). Every sub-block
+is processed by NUM_SAMPLES threads - every thread block processes "THREADS_PER_SAMPLE_INDEXING / NUM_SAMPLES"
+sorted sub-blocks.
 */
 template <order_t sortOrder>
 __global__ void sampleIndexingKernel(
-    data_t *dataTable, const data_t* __restrict__ samples, uint_t * bucketSizes, uint_t tableLen
+    data_t *dataTable, const data_t* __restrict__ samplesGlobal, uint_t * localBucketSizes, uint_t tableLen
 )
 {
+    // Holds indexes of global samples in corresponding sorted (by initial bitonic sort) sub-blocks
     __shared__ uint_t indexingTile[THREADS_PER_SAMPLE_INDEXING];
 
-    // One thread block can process multiple data blocks (multiple chunks of data previously sorted by bitonic sort).
-    const uint_t elemsPerBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
-    const uint_t allDataBlocks = tableLen / elemsPerBitonicSort;
-    const uint_t indexBlock = (blockIdx.x * THREADS_PER_SAMPLE_INDEXING / NUM_SAMPLES + threadIdx.x / NUM_SAMPLES);
+    const uint_t elemsPerInitBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+    const uint_t numAllSubBlocks = tableLen / elemsPerInitBitonicSort;
+    const uint_t indexSubBlock = (blockIdx.x * THREADS_PER_SAMPLE_INDEXING / NUM_SAMPLES + threadIdx.x / NUM_SAMPLES);
 
-    const uint_t offset = indexBlock * elemsPerBitonicSort;
+    const uint_t offset = indexSubBlock * elemsPerInitBitonicSort;
     const uint_t sampleIndex = threadIdx.x % NUM_SAMPLES;
 
-    // Because one thread block can process multiple data blocks, length has to be verified in case threads
-    // try to process data elements outside table length
-    if (indexBlock < allDataBlocks)
+    // Because one thread block can process multiple sub-blocks previously sorted by initial bitonic sort, sub-block
+    // index has to be verified that it is still within array length limit
+    if (indexSubBlock < numAllSubBlocks)
     {
+        // Searches for global sample index inside sorted sub-block
         indexingTile[threadIdx.x] = binarySearchInclusive<sortOrder>(
-            dataTable, samples[sampleIndex], offset, offset + elemsPerBitonicSort - 1
+            dataTable, samplesGlobal[sampleIndex], offset, offset + elemsPerInitBitonicSort - 1
         );
     }
     __syncthreads();
 
-    const uint_t outputSampleIndex = sampleIndex * allDataBlocks + indexBlock;
+    const uint_t outputBucketIndex = sampleIndex * numAllSubBlocks + indexSubBlock;
     const uint_t prevIndex = sampleIndex == 0 ? offset : indexingTile[threadIdx.x - 1];
-    __syncthreads();
 
-    if (indexBlock < allDataBlocks)
+    // From global sample indexes calculates and stores bucket sizes
+    if (indexSubBlock < numAllSubBlocks)
     {
-        bucketSizes[outputSampleIndex] = indexingTile[threadIdx.x] - prevIndex;
+        localBucketSizes[outputBucketIndex] = indexingTile[threadIdx.x] - prevIndex;
 
-        // Because there is NUM_SAMPLES samples, (NUM_SAMPLES + 1) buckets are created.
+        // Because there is NUM_SAMPLES samples, (NUM_SAMPLES + 1) buckets are created. Last thread assigned
+        // to every sub-block calculates and stores bucket size for (NUM_SAMPLES + 1) bucket
         if (sampleIndex == NUM_SAMPLES - 1)
         {
-            bucketSizes[outputSampleIndex + allDataBlocks] = offset + elemsPerBitonicSort - indexingTile[threadIdx.x];
+            uint_t bucketSize = offset + elemsPerInitBitonicSort - indexingTile[threadIdx.x];
+            localBucketSizes[outputBucketIndex + numAllSubBlocks] = bucketSize;
         }
     }
 }
@@ -334,10 +345,12 @@ template __global__ void sampleIndexingKernel<ORDER_DESC>(
 );
 
 /*
-According to local (per one tile) bucket sizes and offsets, kernel scatters elements to their global buckets.
+According to local (per one sorted sub-block) bucket sizes and offsets, kernel scatters elements to their global
+buckets. Last thread block also calculates global bucket offsets (from local bucket sizes and offsets) and stores
+them.
 */
 __global__ void bucketsRelocationKernel(
-    data_t*dataTable, data_t *dataBuffer, uint_t *d_globalBucketOffsets, const uint_t* __restrict__ localBucketSizes,
+    data_t*dataTable, data_t *dataBuffer, uint_t *globalBucketOffsets, const uint_t* __restrict__ localBucketSizes,
     const uint_t* __restrict__ localBucketOffsets, uint_t tableLen
 )
 {
@@ -352,14 +365,14 @@ __global__ void bucketsRelocationKernel(
         bucketSizes[threadIdx.x] = localBucketSizes[index];
         bucketOffsets[threadIdx.x] = localBucketOffsets[index];
 
-        // Last block writes size of entire buckets into array of global bucket sizes
+        // Last thread block writes size of entire buckets into array of global bucket sizes
         if (blockIdx.x == gridDim.x - 1)
         {
-            d_globalBucketOffsets[threadIdx.x] = bucketOffsets[threadIdx.x] + bucketSizes[threadIdx.x];
+            globalBucketOffsets[threadIdx.x] = bucketOffsets[threadIdx.x] + bucketSizes[threadIdx.x];
         }
 
         // If thread block contains only NUM_SAMPLES threads (which is min number of threads per this kernel),
-        // then last thread reads also (NUM_SAMPLES + 1)th bucket
+        // then last thread also reads (NUM_SAMPLES + 1)th bucket
         if (THREADS_PER_BUCKETS_RELOCATION == NUM_SAMPLES && threadIdx.x == NUM_SAMPLES - 1)
         {
             bucketSizes[threadIdx.x + 1] = localBucketSizes[index + gridDim.x];
@@ -367,7 +380,7 @@ __global__ void bucketsRelocationKernel(
 
             if (blockIdx.x == gridDim.x - 1)
             {
-                d_globalBucketOffsets[threadIdx.x + 1] = bucketOffsets[threadIdx.x + 1] + bucketSizes[threadIdx.x + 1];
+                globalBucketOffsets[threadIdx.x + 1] = bucketOffsets[threadIdx.x + 1] + bucketSizes[threadIdx.x + 1];
             }
         }
     }
@@ -382,17 +395,19 @@ __global__ void bucketsRelocationKernel(
     uint_t tx = threadIdx.x;
     uint_t bucketIndex = 0;
 
-    // Every thread reads bucket size and scatters elements to their global buckets
+    // Every thread reads bucket size and scatters it's corresponding elements to their global buckets
     while (tx < dataBlockLength)
     {
         activeThreads += bucketSizes[bucketIndex];
 
+        // Stores elements to it's corresponding bucket until bucket is filled
         while (tx < activeThreads)
         {
             dataBuffer[bucketOffsets[bucketIndex] + tx - activeThreadsPrev] = dataTable[offset + tx];
             tx += THREADS_PER_BUCKETS_RELOCATION;
         }
 
+        // When bucket is filled, moves to next bucket
         activeThreadsPrev = activeThreads;
         bucketIndex++;
     }
