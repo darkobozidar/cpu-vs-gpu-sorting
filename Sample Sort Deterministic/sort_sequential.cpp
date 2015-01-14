@@ -28,10 +28,13 @@ uint_t getEndIndex(uint_t offset, uint_t subBlockSize, uint_t tableLen)
 Sorts data sequentially with merge sort. Sorted array is outputted to result array.
 */
 template <order_t sortOrder>
-double mergeSort(data_t *dataTable, data_t *dataBuffer, data_t *dataResult, uint_t tableLen)
+void mergeSort(data_t *dataTable, data_t *dataBuffer, data_t *dataResult, uint_t tableLen)
 {
-    LARGE_INTEGER timer;
-    startStopwatch(&timer);
+    if (tableLen == 1)
+    {
+        dataResult[0] = dataTable[0];
+        return;
+    }
 
     uint_t tableLenPower2 = nextPowerOf2(tableLen);
 
@@ -97,8 +100,6 @@ double mergeSort(data_t *dataTable, data_t *dataBuffer, data_t *dataResult, uint
         dataTable = dataBuffer;
         dataBuffer = temp;
     }
-
-    return endStopwatch(timer);
 }
 
 /*
@@ -164,13 +165,14 @@ Sorts array with sample sort and outputs sorted data to result array.
 */
 template <order_t sortOrder>
 void sampleSort(
-    data_t *dataTable, data_t *dataBuffer, data_t *dataResult, data_t *samples, uint_t *bucketSizes,
-    uint_t *elementBuckets, uint_t tableLen
+    data_t *dataTable, data_t *dataBuffer, data_t *dataResult, data_t *samples, uint_t *elementBuckets,
+    uint_t tableLen
 )
 {
     if (tableLen < SMALL_SORT_THRESHOLD)
     {
         mergeSort<sortOrder>(dataTable, dataBuffer, dataResult, tableLen);
+        return;
     }
 
     auto seed = chrono::high_resolution_clock::now().time_since_epoch().count();
@@ -187,11 +189,16 @@ void sampleSort(
     // For clarity purposes another pointer is used
     data_t *splitters = samples;
 
+    // Holds bucket sizes and bucket offsets after exclusive scan is performed on bucket sizes (needed for
+    // sequential sample sort).
+    // A new array is needed for every level of recursion.
+    uint_t bucketSizes[NUM_SPLITTERS_SEQUENTIAL + 1];
+
     // From "NUM_SAMPLES_SEQUENTIAL" samples collects "NUM_SPLITTERS_SEQUENTIAL" splitters
     for (uint_t i = 0; i < NUM_SPLITTERS_SEQUENTIAL; i++)
     {
         // TODO add "OVERSAMPLING_FACTOR / 2"
-        splitters[i] = samples[i * OVERSAMPLING_FACTOR];
+        splitters[i] = samples[i * OVERSAMPLING_FACTOR + (OVERSAMPLING_FACTOR / 2)];
         bucketSizes[i] = 0;
     }
     // For "NUM_SPLITTERS_SEQUENTIAL" splitters "NUM_SPLITTERS_SEQUENTIAL + 1" buckets are created
@@ -230,10 +237,13 @@ void sampleSort(
         uint_t prevBucketOffset = i > 0 ? bucketOffsets[i - 1] : 0;
         uint_t bucketSize = bucketOffsets[i] - prevBucketOffset;
 
-        sampleSort<sortOrder>(
-            dataBuffer + prevBucketOffset, dataTable + prevBucketOffset, dataResult + prevBucketOffset, samples,
-            bucketSizes, elementBuckets, bucketSize
-        );
+        if (bucketSize > 0)
+        {
+            sampleSort<sortOrder>(
+                dataBuffer + prevBucketOffset, dataTable + prevBucketOffset, dataResult + prevBucketOffset, samples,
+                elementBuckets, bucketSize
+            );
+        }
     }
 }
 
@@ -241,8 +251,8 @@ void sampleSort(
 Sorts data sequentially with sample sort.
 */
 double sortSequential(
-    data_t *dataInput, data_t *dataBuffer, data_t *dataOutput, data_t *samples, uint_t *bucketSizes,
-    uint_t *elementBuckets, uint_t tableLen, order_t sortOrder
+    data_t *dataInput, data_t *dataBuffer, data_t *dataOutput, data_t *samples, uint_t *elementBuckets,
+    uint_t tableLen, order_t sortOrder
 )
 {
     LARGE_INTEGER timer;
@@ -250,11 +260,11 @@ double sortSequential(
 
     if (sortOrder == ORDER_ASC)
     {
-        sampleSort<ORDER_ASC>(dataInput, dataBuffer, dataOutput, samples, bucketSizes, elementBuckets, tableLen);
+        sampleSort<ORDER_ASC>(dataInput, dataBuffer, dataOutput, samples, elementBuckets, tableLen);
     }
     else
     {
-        sampleSort<ORDER_DESC>(dataInput, dataBuffer, dataOutput, samples, bucketSizes, elementBuckets, tableLen);
+        sampleSort<ORDER_DESC>(dataInput, dataBuffer, dataOutput, samples, elementBuckets, tableLen);
     }
 
     return endStopwatch(timer);

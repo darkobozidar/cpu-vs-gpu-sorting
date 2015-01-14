@@ -28,9 +28,6 @@ int main(int argc, char **argv)
     data_t *h_inputSequential, *h_bufferSequential, *h_outputSequential;
     // Holds samples and after samples are sorted holds splitters in sequential sample sort
     data_t *h_samples;
-    // Holds bucket sizes and bucket offsets after exclusive scan is performed on bucket sizes (needed for
-    // sequential sample sort)
-    uint_t *h_bucketSizes;
     // For every element in input holds bucket index to which it belogns (needed for sequential sample sort)
     uint_t *h_elementBuckets;
     data_t *d_dataTable, *d_dataBuffer;
@@ -57,8 +54,8 @@ int main(int argc, char **argv)
     // Memory alloc
     allocHostMemory(
         &h_input, &h_outputParallel, &h_inputSequential, &h_bufferSequential, &h_outputSequential,
-        &h_outputCorrect, &h_samples, &h_bucketSizes, &h_elementBuckets, &h_globalBucketOffsets, &timers,
-        tableLen, testRepetitions
+        &h_outputCorrect, &h_samples, &h_elementBuckets, &h_globalBucketOffsets, &timers, tableLen,
+        testRepetitions
     );
     allocDeviceMemory(
         &d_dataTable, &d_dataBuffer, &d_samplesLocal, &d_samplesGlobal, &d_localBucketSizes,
@@ -91,7 +88,7 @@ int main(int argc, char **argv)
         // Sort sequential
         std::copy(h_input, h_input + tableLen, h_inputSequential);
         timers[SORT_SEQUENTIAL][i] = sortSequential(
-            h_inputSequential, h_bufferSequential, h_outputSequential, h_samples, h_bucketSizes, h_elementBuckets,
+            h_inputSequential, h_bufferSequential, h_outputSequential, h_samples, h_elementBuckets,
             tableLen, sortOrder
         );
 
@@ -136,7 +133,7 @@ int main(int argc, char **argv)
     // Memory free
     freeHostMemory(
         h_input, h_outputParallel, h_inputSequential, h_bufferSequential, h_outputSequential, h_outputCorrect,
-        h_samples, h_bucketSizes, h_elementBuckets, h_globalBucketOffsets, timers
+        h_samples, h_elementBuckets, h_globalBucketOffsets, timers
     );
     freeDeviceMemory(
         d_dataTable, d_dataBuffer, d_samplesLocal, d_samplesGlobal, d_localBucketSizes, d_localBucketOffsets,
