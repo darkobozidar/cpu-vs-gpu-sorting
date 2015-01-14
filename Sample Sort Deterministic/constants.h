@@ -7,7 +7,7 @@
 // How many threads are used per on thread block for padding. Has to be power of 2.
 #define THREADS_PER_PADDING 128
 // How many table elements are processed by one thread in padding kernel. Min value is 2.
-#define ELEMS_PER_THREAD_PADDING 4
+#define ELEMS_PER_THREAD_PADDING 8
 
 
 /* --------------- ALGORITHM PARAMETERS -------------- */
@@ -29,7 +29,7 @@
 /* --------------- BITONIC MERGE GLOBAL -------------- */
 
 // How many threads are used per one thread block in GLOBAL bitonic merge. Has to be power of 2.
-#define THREADS_PER_GLOBAL_MERGE 512
+#define THREADS_PER_GLOBAL_MERGE 256
 // How many elements are processed by one thread in GLOBAL bitonic merge. Min value is 2.
 // Has to be divisable by 2.
 #define ELEMS_PER_THREAD_GLOBAL_MERGE 4
@@ -47,13 +47,13 @@
 /* ----------------- SAMPLE INDEXING ----------------- */
 
 // Has to be greater or equal than NUM_SAMPLES. Has to be multiple of NUM_SAMPLES.
-#define THREADS_PER_SAMPLE_INDEXING (4 * NUM_SAMPLES)
+#define THREADS_PER_SAMPLE_INDEXING 128
 
 
 /* ---------------- BUCKETS RELOCATION --------------- */
 
 // How many threads are used per one thread block in kernel for buckets relocation. Has to be power of 2.
 // Also has to be greater or equal than NUM_SAMPLES. Has to be multiple of NUM_SAMPLES.
-#define THREADS_PER_BUCKETS_RELOCATION (8 * NUM_SAMPLES)
+#define THREADS_PER_BUCKETS_RELOCATION 256
 
 #endif
