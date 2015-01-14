@@ -201,14 +201,14 @@ void runBitoicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint_t phase,
 }
 
 /*
-From all LOCAL samples collects (NUM_SAMPLES) GLOBAL samples.
+From sorted LOCAL samples collects (NUM_SAMPLES) GLOBAL samples.
 */
-void runCollectGlobalSamplesKernel(data_t *samples, uint_t samplesLen)
+void runCollectGlobalSamplesKernel(data_t *samplesLocal, data_t *samplesGlobal, uint_t samplesLen)
 {
     dim3 dimGrid(1, 1, 1);
     dim3 dimBlock(NUM_SAMPLES, 1, 1);
 
-    collectGlobalSamplesKernel<<<dimGrid, dimBlock>>>(samples, samplesLen);
+    collectGlobalSamplesKernel<<<dimGrid, dimBlock>>>(samplesLocal, samplesGlobal, samplesLen);
 }
 
 /*
@@ -305,9 +305,9 @@ void bitonicSort(data_t *dataTable, uint_t tableLen, order_t sortOrder)
 Sorts array with deterministic sample sort.
 */
 void sampleSort(
-    data_t *&dataTable, data_t *&dataBuffer, data_t *samples, uint_t *h_globalBucketOffsets,
-    uint_t *d_globalBucketOffsets, uint_t *d_localBucketSizes, uint_t *d_localBucketOffsets, uint_t tableLen,
-    order_t sortOrder
+    data_t *&dataTable, data_t *&dataBuffer, data_t *d_samplesLocal, data_t *d_samplesGlobal,
+    uint_t *h_globalBucketOffsets, uint_t *d_globalBucketOffsets, uint_t *d_localBucketSizes,
+    uint_t *d_localBucketOffsets, uint_t tableLen, order_t sortOrder
 )
 {
     uint_t elemsPerInitBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
@@ -322,7 +322,7 @@ void sampleSort(
 
     cudppInitScan(&scanPlan, localBucketsLen);
     runAddPaddingKernel(dataTable, tableLen, sortOrder);
-    runBitonicSortCollectSamplesKernel(dataTable, samples, tableLenRoundedUp, sortOrder);
+    runBitonicSortCollectSamplesKernel(dataTable, d_samplesLocal, tableLenRoundedUp, sortOrder);
 
     // Array has already been sorted
     if (tableLen <= elemsPerInitBitonicSort)
@@ -336,9 +336,11 @@ void sampleSort(
 
     // Local samples are already partially ordered - NUM_SAMPLES per every tile. These partially ordered
     // samples have to be merged.
-    bitonicSort(samples, localSamplesLen, sortOrder);
-    runCollectGlobalSamplesKernel(samples, localSamplesLen);
-    runSampleIndexingKernel(dataTable, samples, d_localBucketSizes, tableLenRoundedUp, localBucketsLen, sortOrder);
+    bitonicSort(d_samplesLocal, localSamplesLen, sortOrder);
+    runCollectGlobalSamplesKernel(d_samplesLocal, d_samplesGlobal, localSamplesLen);
+    runSampleIndexingKernel(
+        dataTable, d_samplesGlobal, d_localBucketSizes, tableLenRoundedUp, localBucketsLen, sortOrder
+    );
 
     CUDPPResult result = cudppScan(scanPlan, d_localBucketOffsets, d_localBucketSizes, localBucketsLen);
     if (result != CUDPP_SUCCESS)
@@ -372,9 +374,9 @@ void sampleSort(
 Sorts input data with parallel sample sort.
 */
 double sortParallel(
-    data_t *h_output, data_t *d_dataTable, data_t *d_dataBuffer, data_t *d_samples, uint_t *d_localBucketSizes,
-    uint_t *d_localBucketOffsets, uint_t *h_globalBucketOffsets, uint_t *d_globalBucketOffsets, uint_t tableLen,
-    order_t sortOrder
+    data_t *h_output, data_t *d_dataTable, data_t *d_dataBuffer, data_t *d_samplesLocal, data_t *d_samplesGlobal,
+    uint_t *d_localBucketSizes, uint_t *d_localBucketOffsets, uint_t *h_globalBucketOffsets,
+    uint_t *d_globalBucketOffsets, uint_t tableLen, order_t sortOrder
 )
 {
     LARGE_INTEGER timer;
@@ -382,8 +384,8 @@ double sortParallel(
 
     startStopwatch(&timer);
     sampleSort(
-        d_dataTable, d_dataBuffer, d_samples, h_globalBucketOffsets, d_globalBucketOffsets, d_localBucketSizes,
-        d_localBucketOffsets, tableLen, sortOrder
+        d_dataTable, d_dataBuffer, d_samplesLocal, d_samplesGlobal, h_globalBucketOffsets, d_globalBucketOffsets,
+        d_localBucketSizes, d_localBucketOffsets, tableLen, sortOrder
     );
 
     error = cudaDeviceSynchronize();

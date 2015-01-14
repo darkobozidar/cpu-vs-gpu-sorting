@@ -24,8 +24,9 @@ int main(int argc, char **argv)
     data_t *h_input;
     data_t *h_outputParallel, *h_outputSequential, *h_outputCorrect;
     data_t *d_dataTable, *d_dataBuffer;
-    // First it holds LOCAL and than GLOBAL samples
-    data_t *d_samples;
+    // LOCAL samples:  NUM_SAMPLES samples for each data block sorted by initial bitonic sort
+    // GLOBAL samples: NUM_SAMPLES samples collected from sorted LOCAL samples
+    data_t *d_samplesLocal, *d_samplesGlobal;
     // Sizes and offsets of local (per every tile - thread block) buckets (gained after scan on bucket sizes)
     uint_t *d_localBucketSizes, *d_localBucketOffsets;
     // Offsets of entire (whole, global) buckets, not just parts of buckets for every tile (local)
@@ -49,8 +50,8 @@ int main(int argc, char **argv)
         tableLen, testRepetitions
     );
     allocDeviceMemory(
-        &d_dataTable, &d_dataBuffer, &d_samples, &d_localBucketSizes, &d_localBucketOffsets,
-        &d_globalBucketOffsets, tableLen
+        &d_dataTable, &d_dataBuffer, &d_samplesLocal, &d_samplesGlobal, &d_localBucketSizes,
+        &d_localBucketOffsets, &d_globalBucketOffsets, tableLen
     );
 
     printf(">>> SAMPLE SORT <<<\n\n\n");
@@ -72,8 +73,8 @@ int main(int argc, char **argv)
         error = cudaDeviceSynchronize();
         checkCudaError(error);
         timers[SORT_PARALLEL][i] = sortParallel(
-            h_outputParallel, d_dataTable, d_dataBuffer, d_samples, d_localBucketSizes, d_localBucketOffsets,
-            h_globalBucketOffsets, d_globalBucketOffsets, tableLen, sortOrder
+            h_outputParallel, d_dataTable, d_dataBuffer, d_samplesLocal, d_samplesGlobal, d_localBucketSizes,
+            d_localBucketOffsets, h_globalBucketOffsets, d_globalBucketOffsets, tableLen, sortOrder
         );
 
         // Sort sequential
@@ -121,7 +122,8 @@ int main(int argc, char **argv)
     // Memory free
     freeHostMemory(h_input, h_outputParallel, h_outputSequential, h_outputCorrect, h_globalBucketOffsets, timers);
     freeDeviceMemory(
-        d_dataTable, d_dataBuffer, d_samples, d_localBucketSizes, d_localBucketOffsets, d_globalBucketOffsets
+        d_dataTable, d_dataBuffer, d_samplesLocal, d_samplesGlobal, d_localBucketSizes, d_localBucketOffsets,
+        d_globalBucketOffsets
     );
 
     getchar();

@@ -126,7 +126,7 @@ __global__ void bitonicSortCollectSamplesKernel(data_t *dataTable, data_t *local
     // Collects the samples on offset "localSampleDistance / 2" in order to collect them as evenly as possible
     for (uint_t tx = threadIdx.x; tx < NUM_SAMPLES; tx += THREADS_PER_BITONIC_SORT)
     {
-        localSamples[offsetSamples + tx] = bitonicSortTile[localSamplesDistance / 2 + tx * localSamplesDistance];
+        localSamples[offsetSamples + tx] = bitonicSortTile[tx * localSamplesDistance + (localSamplesDistance / 2)];
     }
 }
 
@@ -253,16 +253,12 @@ template __global__ void bitonicMergeLocalKernel<ORDER_DESC, false>(data_t *data
 /*
 From LOCAL samples extracts GLOBAL samples (every NUM_SAMPLES sample). This is done by one thread block.
 */
-__global__ void collectGlobalSamplesKernel(data_t *samples, uint_t samplesLen)
+__global__ void collectGlobalSamplesKernel(data_t *samplesLocal, data_t *samplesGlobal, uint_t samplesLen)
 {
-    // Shared memory is needed, because samples are read and written to the same array (race condition).
-    __shared__ data_t globalSamplesTile[NUM_SAMPLES];
-    uint_t samplesDistance = samplesLen / NUM_SAMPLES;
+    const uint_t samplesDistance = samplesLen / NUM_SAMPLES;
 
-    // We also add (samplesDistance / 2) in order to collect samples as evenly as possible
-    globalSamplesTile[threadIdx.x] = samples[threadIdx.x * samplesDistance + (samplesDistance / 2)];
-    __syncthreads();
-    samples[threadIdx.x] = globalSamplesTile[threadIdx.x];
+    // Samples are collected on offset (samplesDistance / 2) in order to collect samples as evenly as possible
+    samplesGlobal[threadIdx.x] = samplesLocal[threadIdx.x * samplesDistance + (samplesDistance / 2)];
 }
 
 template <order_t sortOrder>

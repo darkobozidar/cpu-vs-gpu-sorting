@@ -70,8 +70,8 @@ void freeHostMemory(
 Allocates device memory.
 */
 void allocDeviceMemory(
-    data_t **dataTable, data_t **dataBuffer, data_t **samples, uint_t **localBucketSizes,
-    uint_t **localBucketOffsets, uint_t **globalBucketOffsets, uint_t tableLen
+    data_t **dataTable, data_t **dataBuffer, data_t **samplesLocal, data_t **samplesGlobal,
+    uint_t **localBucketSizes, uint_t **localBucketOffsets, uint_t **globalBucketOffsets, uint_t tableLen
 )
 {
     uint_t elemsPerInitBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
@@ -84,14 +84,19 @@ void allocDeviceMemory(
     uint_t localBucketsLen = ((tableLenRoundedUp - 1) / elemsPerInitBitonicSort + 1) * (NUM_SAMPLES + 1);
     cudaError_t error;
 
+    // Arrays for storing data
     error = cudaMalloc(dataTable, tableLenRoundedUp * sizeof(**dataTable));
     checkCudaError(error);
     error = cudaMalloc(dataBuffer, tableLenRoundedUp * sizeof(**dataBuffer));
     checkCudaError(error);
 
-    error = cudaMalloc(samples, localSamplesLen * sizeof(**samples));
+    // Arrays for storing samples
+    error = cudaMalloc(samplesLocal, localSamplesLen * sizeof(**samplesLocal));
+    checkCudaError(error);
+    error = cudaMalloc(samplesGlobal, NUM_SAMPLES * sizeof(**samplesGlobal));
     checkCudaError(error);
 
+    // Arrays from bucket bookkeeping
     error = cudaMalloc(localBucketSizes, localBucketsLen * sizeof(**localBucketSizes));
     checkCudaError(error);
     error = cudaMalloc(localBucketOffsets, localBucketsLen * sizeof(**localBucketOffsets));
@@ -104,20 +109,25 @@ void allocDeviceMemory(
 Frees device memory.
 */
 void freeDeviceMemory(
-    data_t *dataTable, data_t *dataBuffer, data_t *samples, uint_t *localBucketSizes, uint_t *localBucketOffsets,
-    uint_t *globalBucketOffsets
+    data_t *dataTable, data_t *dataBuffer, data_t *samplesLocal, data_t *samplesGlobal, uint_t *localBucketSizes,
+    uint_t *localBucketOffsets, uint_t *globalBucketOffsets
 )
 {
     cudaError_t error;
 
+    // Arrays for storing data
     error = cudaFree(dataTable);
     checkCudaError(error);
     error = cudaFree(dataBuffer);
     checkCudaError(error);
 
-    error = cudaFree(samples);
+    // Arrays for storing samples
+    error = cudaFree(samplesLocal);
+    checkCudaError(error);
+    error = cudaFree(samplesGlobal);
     checkCudaError(error);
 
+    // Arrays from bucket bookkeeping
     error = cudaFree(localBucketSizes);
     checkCudaError(error);
     error = cudaFree(localBucketOffsets);

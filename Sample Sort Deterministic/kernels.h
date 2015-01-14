@@ -18,8 +18,8 @@ __global__ void bitonicMergeGlobalKernel(data_t *dataTable, uint_t tableLen, uin
 template <order_t sortOrder, bool isFirstStepOfPhase>
 __global__ void bitonicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint_t step);
 
-// Kernels for samples
-__global__ void collectGlobalSamplesKernel(data_t *samples, uint_t samplesLen);
+// Kernels for samples and buckets
+__global__ void collectGlobalSamplesKernel(data_t *samplesLocal, data_t *samplesGlobal, uint_t samplesLen);
 template <order_t sortOrder>
 __global__ void sampleIndexingKernel(
     data_t *dataTable, const data_t* __restrict__ samples, uint_t * bucketSizes, uint_t tableLen
