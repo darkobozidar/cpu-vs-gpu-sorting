@@ -48,7 +48,7 @@ void mergeSort(data_t *dataTable, data_t *dataBuffer, data_t *dataResult, uint_t
         // Number of sub-blocks being merged
         uint_t subBlockSize = sortedBlockSize / 2;
         // If it is last phase of merge sort, data is coppied to result array
-        uint_t *outputTable = numBlocks == 1 ? dataResult : dataBuffer;
+        data_t *outputTable = numBlocks == 1 ? dataResult : dataBuffer;
 
         // Merge of all blocks
         for (uint_t blockIndex = 0; blockIndex < numBlocks; blockIndex++)

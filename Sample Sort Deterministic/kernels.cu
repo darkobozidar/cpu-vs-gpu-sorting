@@ -296,7 +296,7 @@ Every sub-block is processed by NUM_SAMPLES_PARALLEL threads - every thread bloc
 */
 template <order_t sortOrder>
 __global__ void sampleIndexingKernel(
-    data_t *dataTable, const data_t* __restrict__ samplesGlobal, uint_t * localBucketSizes, uint_t tableLen
+    data_t *dataTable, const data_t* __restrict__ samplesGlobal, uint_t *localBucketSizes, uint_t tableLen
 )
 {
     // Holds indexes of global samples in corresponding sorted (by initial bitonic sort) sub-blocks

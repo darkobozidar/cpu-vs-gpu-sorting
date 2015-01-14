@@ -218,7 +218,7 @@ global samples. From these indexes calculates the number of elements in each of 
 local buckets (calculates local bucket sizes) for every sorted sub-block.
 */
 void runSampleIndexingKernel(
-    data_t *dataTable, data_t *samples, data_t *bucketSizes, uint_t tableLen, uint_t numAllBuckets,
+    data_t *dataTable, data_t *samples, uint_t *bucketSizes, uint_t tableLen, uint_t numAllBuckets,
     order_t sortOrder
 )
 {
