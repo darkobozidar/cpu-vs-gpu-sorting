@@ -22,8 +22,7 @@ Fills keys with random numbers.
 void fillTableKeysOnly(data_t *keys, uint_t tableLen, uint_t interval, uint_t bucketSize, data_dist_t distribution)
 {
     auto seed = chrono::high_resolution_clock::now().time_since_epoch().count() + generatorCalls++;
-    // Choose appropriate random generator according to data type
-    auto generator = std::bind(std::uniform_int_distribution<data_t>(0, interval), mt19937(seed));
+    auto generator = std::bind(std::uniform_int_distribution<data_t>(0, interval), mt19937_64(seed));
 
     switch (distribution)
     {
