@@ -22,8 +22,11 @@
 int main(int argc, char **argv)
 {
     data_t *h_input;
-    // For sequential sample sort 2 arrays are needed (one buffer array)
-    data_t *h_outputParallel, *h_inputSequential, *h_outputSequential, *h_outputCorrect;
+    data_t *h_outputParallel, *h_outputCorrect;
+    // For sequential sample sort 3 arrays are needed. Data is exchanged between input and buffer array.
+    // At the end result is coppied to output array.
+    data_t *h_inputSequential, *h_bufferSequential, *h_outputSequential;
+    // Holds samples and after samples are sorted holds splitters in sequential sample sort
     data_t *h_samples;
     // Holds bucket sizes and bucket offsets after exclusive scan is performed on bucket sizes (needed for
     // sequential sample sort)
@@ -53,8 +56,9 @@ int main(int argc, char **argv)
 
     // Memory alloc
     allocHostMemory(
-        &h_input, &h_outputParallel, &h_inputSequential, &h_outputSequential, &h_outputCorrect, &h_samples,
-        &h_bucketSizes, &h_elementBuckets, &h_globalBucketOffsets, &timers, tableLen, testRepetitions
+        &h_input, &h_outputParallel, &h_inputSequential, &h_bufferSequential, &h_outputSequential,
+        &h_outputCorrect, &h_samples, &h_bucketSizes, &h_elementBuckets, &h_globalBucketOffsets, &timers,
+        tableLen, testRepetitions
     );
     allocDeviceMemory(
         &d_dataTable, &d_dataBuffer, &d_samplesLocal, &d_samplesGlobal, &d_localBucketSizes,
@@ -87,7 +91,8 @@ int main(int argc, char **argv)
         // Sort sequential
         std::copy(h_input, h_input + tableLen, h_inputSequential);
         timers[SORT_SEQUENTIAL][i] = sortSequential(
-            h_inputSequential, h_outputSequential, h_samples, h_bucketSizes, h_elementBuckets, tableLen, sortOrder
+            h_inputSequential, h_bufferSequential, h_outputSequential, h_samples, h_bucketSizes, h_elementBuckets,
+            tableLen, sortOrder
         );
 
         // Sort correct
@@ -130,8 +135,8 @@ int main(int argc, char **argv)
 
     // Memory free
     freeHostMemory(
-        h_input, h_outputParallel, h_inputSequential, h_outputSequential, h_outputCorrect, h_samples,
-        h_bucketSizes, h_elementBuckets, h_globalBucketOffsets, timers
+        h_input, h_outputParallel, h_inputSequential, h_bufferSequential, h_outputSequential, h_outputCorrect,
+        h_samples, h_bucketSizes, h_elementBuckets, h_globalBucketOffsets, timers
     );
     freeDeviceMemory(
         d_dataTable, d_dataBuffer, d_samplesLocal, d_samplesGlobal, d_localBucketSizes, d_localBucketOffsets,

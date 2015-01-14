@@ -5,13 +5,13 @@
 
 
 void allocHostMemory(
-    data_t **input, data_t **outputParallel, data_t **inputSequential, data_t **outputSequential,
-    data_t **outputCorrect, data_t **samples, uint_t **bucketSizes, uint_t **elementBuckets,
-    uint_t **globalBucketOffsets, double ***timers, uint_t tableLen, uint_t testRepetitions
+    data_t **input, data_t **outputParallel, data_t **inputSequential, data_t **bufferSequential,
+    data_t **outputSequential, data_t **outputCorrect, data_t **samples, uint_t **bucketSizes,
+    uint_t **elementBuckets, uint_t **globalBucketOffsets, double ***timers, uint_t tableLen, uint_t testRepetitions
 );
 void freeHostMemory(
-    data_t *input, data_t *outputParallel, data_t *inputSequential, data_t *outputSequential,
-    data_t *outputCorrect, data_t *samples, uint_t *bucketSizes, uint_t *elementBuckets,
+    data_t *input, data_t *outputParallel, data_t *inputSequential, data_t *bufferSequential,
+    data_t *outputSequential, data_t *outputCorrect, data_t *samples, uint_t *bucketSizes, uint_t *elementBuckets,
     uint_t *globalBucketOffsets, double **timers
 );
 
