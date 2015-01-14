@@ -74,7 +74,7 @@ void runAddPaddingKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder)
 }
 
 /*
-Sorts sub-blocks of input data with NORMALIZED bitonic sort and collects NUM_SAMPLES samples from every
+Sorts sub-blocks of input data with NORMALIZED bitonic sort and collects NUM_SAMPLES_PARALLEL samples from every
 sorted chunk after the sort is complete.
 */
 void runBitonicSortCollectSamplesKernel(data_t *dataTable, data_t *samples, uint_t tableLen, order_t sortOrder)
@@ -202,20 +202,20 @@ void runBitoicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint_t phase,
 }
 
 /*
-From sorted LOCAL samples collects (NUM_SAMPLES) GLOBAL samples.
+From sorted LOCAL samples collects (NUM_SAMPLES_PARALLEL) GLOBAL samples.
 */
 void runCollectGlobalSamplesKernel(data_t *samplesLocal, data_t *samplesGlobal, uint_t samplesLen)
 {
     dim3 dimGrid(1, 1, 1);
-    dim3 dimBlock(NUM_SAMPLES, 1, 1);
+    dim3 dimBlock(NUM_SAMPLES_PARALLEL, 1, 1);
 
     collectGlobalSamplesKernel<<<dimGrid, dimBlock>>>(samplesLocal, samplesGlobal, samplesLen);
 }
 
 /*
-In all previously sorted (by initial bitonic sort) sub-blocks finds the indexes of all NUM_SAMPLES global samples.
-From these indexes calculates the number of elements in each of the (NUM_SAMPLES + 1) local buckets (calculates
-local bucket sizes) for every sorted sub-block.
+In all previously sorted (by initial bitonic sort) sub-blocks finds the indexes of all NUM_SAMPLES_PARALLEL
+global samples. From these indexes calculates the number of elements in each of the (NUM_SAMPLES_PARALLEL + 1)
+local buckets (calculates local bucket sizes) for every sorted sub-block.
 */
 void runSampleIndexingKernel(
     data_t *dataTable, data_t *samples, data_t *bucketSizes, uint_t tableLen, uint_t numAllBuckets,
@@ -223,9 +223,10 @@ void runSampleIndexingKernel(
 )
 {
     uint_t elemsPerBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
+    uint_t subBlocksPerThreadBlock = THREADS_PER_SAMPLE_INDEXING / NUM_SAMPLES_PARALLEL;
 
     // "Number of all sorted sub-blocks" / "number of sorted sub-blocks processed by one thread block"
-    dim3 dimGrid((tableLen / elemsPerBitonicSort - 1) / (THREADS_PER_SAMPLE_INDEXING / NUM_SAMPLES) + 1, 1, 1);
+    dim3 dimGrid((tableLen / elemsPerBitonicSort - 1) / subBlocksPerThreadBlock + 1, 1, 1);
     dim3 dimBlock(THREADS_PER_SAMPLE_INDEXING, 1, 1);
 
     if (sortOrder == ORDER_ASC)
@@ -247,9 +248,9 @@ void runBucketsRelocationKernel(
     uint_t *localBucketSizes, uint_t *localBucketOffsets, uint_t tableLen
 )
 {
-    // For NUM_SAMPLES samples (NUM_SAMPLES + 1) buckets are created
+    // For NUM_SAMPLES_PARALLEL samples (NUM_SAMPLES_PARALLEL + 1) buckets are created
     // "2" -> bucket sizes + bucket offsets
-    uint_t sharedMemSize = 2 * (NUM_SAMPLES + 1) * sizeof(*localBucketSizes);
+    uint_t sharedMemSize = 2 * (NUM_SAMPLES_PARALLEL + 1) * sizeof(*localBucketSizes);
     uint_t elemsPerInitBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
     cudaError_t error;
 
@@ -261,7 +262,7 @@ void runBucketsRelocationKernel(
     );
 
     error = cudaMemcpy(
-        h_globalBucketOffsets, d_globalBucketOffsets, (NUM_SAMPLES + 1) * sizeof(*h_globalBucketOffsets),
+        h_globalBucketOffsets, d_globalBucketOffsets, (NUM_SAMPLES_PARALLEL + 1) * sizeof(*h_globalBucketOffsets),
         cudaMemcpyDeviceToHost
     );
     checkCudaError(error);
@@ -316,15 +317,15 @@ void sampleSort(
     // If table length is not multiple of number of elements processed by one thread block in initial
     // bitonic sort, than array is padded to that length.
     uint_t tableLenRoundedUp = roundUp(tableLen, elemsPerInitBitonicSort);
-    uint_t localSamplesDistance = (elemsPerInitBitonicSort - 1) / NUM_SAMPLES + 1;
+    uint_t localSamplesDistance = (elemsPerInitBitonicSort - 1) / NUM_SAMPLES_PARALLEL + 1;
     uint_t localSamplesLen = (tableLenRoundedUp - 1) / localSamplesDistance + 1;
-    // (number of all data blocks (tiles)) * (number buckets generated from NUM_SAMPLES)
-    uint_t localBucketsLen = ((tableLenRoundedUp - 1) / elemsPerInitBitonicSort + 1) * (NUM_SAMPLES + 1);
+    // (number of all data blocks (tiles)) * (number buckets generated from NUM_SAMPLES_PARALLEL)
+    uint_t localBucketsLen = ((tableLenRoundedUp - 1) / elemsPerInitBitonicSort + 1) * (NUM_SAMPLES_PARALLEL + 1);
     CUDPPHandle scanPlan;
 
     cudppInitScan(&scanPlan, localBucketsLen);
     runAddPaddingKernel(d_dataTable, tableLen, sortOrder);
-    // Sorts sub-blocks of input data with bitonic sort and from every chunk collects NUM_SAMPLES samples
+    // Sorts sub-blocks of input data with bitonic sort and from every chunk collects NUM_SAMPLES_PARALLEL samples
     runBitonicSortCollectSamplesKernel(d_dataTable, d_samplesLocal, tableLenRoundedUp, sortOrder);
 
     // Array has already been sorted
@@ -339,7 +340,7 @@ void sampleSort(
 
     // Sorts collected local samples
     bitonicSort(d_samplesLocal, localSamplesLen, sortOrder);
-    // From sorted LOCAL samples collects NUM_SAMPLES global samples
+    // From sorted LOCAL samples collects NUM_SAMPLES_PARALLEL global samples
     runCollectGlobalSamplesKernel(d_samplesLocal, d_samplesGlobal, localSamplesLen);
     // For all previously sorted sub-blocks calculates bucket sizes for global samples
     runSampleIndexingKernel(
@@ -363,10 +364,10 @@ void sampleSort(
 
     // Sorts every bucket with bitonic sort
     uint_t previousOffset = 0;
-    for (uint_t bucket = 0; bucket < NUM_SAMPLES + 1; bucket++)
+    for (uint_t bucket = 0; bucket < NUM_SAMPLES_PARALLEL + 1; bucket++)
     {
         // Padded part of the array doesn't need to be sorted in last bucket
-        uint_t currentOffset = bucket < NUM_SAMPLES ? h_globalBucketOffsets[bucket] : tableLen;
+        uint_t currentOffset = bucket < NUM_SAMPLES_PARALLEL ? h_globalBucketOffsets[bucket] : tableLen;
         uint_t bucketLen = currentOffset - previousOffset;
 
         if (bucketLen > 0)

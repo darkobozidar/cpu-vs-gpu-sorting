@@ -118,13 +118,13 @@ __global__ void bitonicSortCollectSamplesKernel(data_t *dataTable, data_t *local
 
     // After sort has been performed, samples are collected and stored to array of local samples.
     // Because array is always padded to next multiple of "elemsPerThreadBlock", we can always collect
-    // NUM_SAMPLES from data block.
+    // NUM_SAMPLES_PARALLEL from data block.
     const uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
-    const uint_t localSamplesDistance = elemsPerThreadBlock / NUM_SAMPLES;
-    const uint_t offsetSamples = blockIdx.x * NUM_SAMPLES;
+    const uint_t localSamplesDistance = elemsPerThreadBlock / NUM_SAMPLES_PARALLEL;
+    const uint_t offsetSamples = blockIdx.x * NUM_SAMPLES_PARALLEL;
 
     // Collects the samples on offset "localSampleDistance / 2" in order to collect them as evenly as possible
-    for (uint_t tx = threadIdx.x; tx < NUM_SAMPLES; tx += THREADS_PER_BITONIC_SORT)
+    for (uint_t tx = threadIdx.x; tx < NUM_SAMPLES_PARALLEL; tx += THREADS_PER_BITONIC_SORT)
     {
         localSamples[offsetSamples + tx] = bitonicSortTile[tx * localSamplesDistance + (localSamplesDistance / 2)];
     }
@@ -251,11 +251,12 @@ template __global__ void bitonicMergeLocalKernel<ORDER_DESC, false>(data_t *data
 
 
 /*
-From sorted LOCAL samples extracts GLOBAL samples (every NUM_SAMPLES sample). This is done by one thread block.
+From sorted LOCAL samples extracts GLOBAL samples (every NUM_SAMPLES_PARALLEL sample). This is done by one
+thread block.
 */
 __global__ void collectGlobalSamplesKernel(data_t *samplesLocal, data_t *samplesGlobal, uint_t samplesLen)
 {
-    const uint_t samplesDistance = samplesLen / NUM_SAMPLES;
+    const uint_t samplesDistance = samplesLen / NUM_SAMPLES_PARALLEL;
 
     // Samples are collected on offset (samplesDistance / 2) in order to collect samples as evenly as possible
     samplesGlobal[threadIdx.x] = samplesLocal[threadIdx.x * samplesDistance + (samplesDistance / 2)];
@@ -285,13 +286,13 @@ __device__ int binarySearchInclusive(data_t* dataTable, data_t target, int_t ind
 }
 
 /*
-In all previously sorted (by initial bitonic sort) sub-blocks finds the indexes of all NUM_SAMPLES global samples.
-From these indexes calculates the number of elements in each of the (NUM_SAMPLES + 1) local buckets (calculates
-local bucket sizes) for every sorted sub-block.
+In all previously sorted (by initial bitonic sort) sub-blocks finds the indexes of all NUM_SAMPLES_PARALLEL
+global samples. From these indexes calculates the number of elements in each of the (NUM_SAMPLES_PARALLEL + 1)
+local buckets (calculates local bucket sizes) for every sorted sub-block.
 
-One thread block can process multiple sorted sub-blocks (previously sorted by initial bitonic sort). Every sub-block
-is processed by NUM_SAMPLES threads - every thread block processes "THREADS_PER_SAMPLE_INDEXING / NUM_SAMPLES"
-sorted sub-blocks.
+One thread block can process multiple sorted sub-blocks (previously sorted by initial bitonic sort).
+Every sub-block is processed by NUM_SAMPLES_PARALLEL threads - every thread block processes
+"THREADS_PER_SAMPLE_INDEXING / NUM_SAMPLES_PARALLEL" sorted sub-blocks.
 */
 template <order_t sortOrder>
 __global__ void sampleIndexingKernel(
@@ -303,10 +304,12 @@ __global__ void sampleIndexingKernel(
 
     const uint_t elemsPerInitBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
     const uint_t numAllSubBlocks = tableLen / elemsPerInitBitonicSort;
-    const uint_t indexSubBlock = (blockIdx.x * THREADS_PER_SAMPLE_INDEXING / NUM_SAMPLES + threadIdx.x / NUM_SAMPLES);
+    const uint_t indexSubBlock = (
+        blockIdx.x * THREADS_PER_SAMPLE_INDEXING / NUM_SAMPLES_PARALLEL + threadIdx.x / NUM_SAMPLES_PARALLEL
+    );
 
     const uint_t offset = indexSubBlock * elemsPerInitBitonicSort;
-    const uint_t sampleIndex = threadIdx.x % NUM_SAMPLES;
+    const uint_t sampleIndex = threadIdx.x % NUM_SAMPLES_PARALLEL;
 
     // Because one thread block can process multiple sub-blocks previously sorted by initial bitonic sort, sub-block
     // index has to be verified that it is still within array length limit
@@ -327,9 +330,10 @@ __global__ void sampleIndexingKernel(
     {
         localBucketSizes[outputBucketIndex] = indexingTile[threadIdx.x] - prevIndex;
 
-        // Because there is NUM_SAMPLES samples, (NUM_SAMPLES + 1) buckets are created. Last thread assigned
-        // to every sub-block calculates and stores bucket size for (NUM_SAMPLES + 1) bucket
-        if (sampleIndex == NUM_SAMPLES - 1)
+        // Because there is NUM_SAMPLES_PARALLEL samples, (NUM_SAMPLES_PARALLEL + 1) buckets are created. Last
+        // thread assigned to every sub-block calculates and stores bucket size for (NUM_SAMPLES_PARALLEL + 1)
+        // bucket
+        if (sampleIndex == NUM_SAMPLES_PARALLEL - 1)
         {
             uint_t bucketSize = offset + elemsPerInitBitonicSort - indexingTile[threadIdx.x];
             localBucketSizes[outputBucketIndex + numAllSubBlocks] = bucketSize;
@@ -350,16 +354,16 @@ buckets. Last thread block also calculates global bucket offsets (from local buc
 them.
 */
 __global__ void bucketsRelocationKernel(
-    data_t*dataTable, data_t *dataBuffer, uint_t *globalBucketOffsets, const uint_t* __restrict__ localBucketSizes,
+    data_t *dataTable, data_t *dataBuffer, uint_t *globalBucketOffsets, const uint_t* __restrict__ localBucketSizes,
     const uint_t* __restrict__ localBucketOffsets, uint_t tableLen
 )
 {
     extern __shared__ uint_t bucketsTile[];
     uint_t *bucketSizes = bucketsTile;
-    uint_t *bucketOffsets = bucketsTile + NUM_SAMPLES + 1;
+    uint_t *bucketOffsets = bucketsTile + NUM_SAMPLES_PARALLEL + 1;
 
     // Reads bucket sizes and offsets to shared memory
-    if (threadIdx.x < NUM_SAMPLES + 1)
+    if (threadIdx.x < NUM_SAMPLES_PARALLEL + 1)
     {
         uint_t index = threadIdx.x * gridDim.x + blockIdx.x;
         bucketSizes[threadIdx.x] = localBucketSizes[index];
@@ -371,9 +375,9 @@ __global__ void bucketsRelocationKernel(
             globalBucketOffsets[threadIdx.x] = bucketOffsets[threadIdx.x] + bucketSizes[threadIdx.x];
         }
 
-        // If thread block contains only NUM_SAMPLES threads (which is min number of threads per this kernel),
-        // then last thread also reads (NUM_SAMPLES + 1)th bucket
-        if (THREADS_PER_BUCKETS_RELOCATION == NUM_SAMPLES && threadIdx.x == NUM_SAMPLES - 1)
+        // If thread block contains only NUM_SAMPLES_PARALLEL threads (which is min number of threads per this
+        // kernel), then last thread also reads (NUM_SAMPLES_PARALLEL + 1)th bucket
+        if (THREADS_PER_BUCKETS_RELOCATION == NUM_SAMPLES_PARALLEL && threadIdx.x == NUM_SAMPLES_PARALLEL - 1)
         {
             bucketSizes[threadIdx.x + 1] = localBucketSizes[index + gridDim.x];
             bucketOffsets[threadIdx.x + 1] = localBucketOffsets[index + gridDim.x];

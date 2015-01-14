@@ -79,7 +79,7 @@ int main(int argc, char **argv)
 
         // Sort sequential
         std::copy(h_input, h_input + tableLen, h_outputSequential);
-        timers[SORT_SEQUENTIAL][i] = 999;  // sortSequential(h_outputSequential, tableLen, sortOrder);
+        timers[SORT_SEQUENTIAL][i] = sortSequential(h_outputSequential, tableLen, sortOrder);
 
         // Sort correct
         std::copy(h_input, h_input + tableLen, h_outputCorrect);

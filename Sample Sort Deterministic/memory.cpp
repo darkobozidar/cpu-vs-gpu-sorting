@@ -32,7 +32,7 @@ void allocHostMemory(
     checkMallocError(*outputCorrect);
 
     // Offsets of all global buckets
-    *globalBucketOffsets = (uint_t*)malloc((NUM_SAMPLES + 1) * sizeof(**globalBucketOffsets));
+    *globalBucketOffsets = (uint_t*)malloc((NUM_SAMPLES_PARALLEL + 1) * sizeof(**globalBucketOffsets));
     checkMallocError(*globalBucketOffsets);
 
     // Stopwatch times for PARALLEL, SEQUENTIAL and CORREECT
@@ -78,10 +78,10 @@ void allocDeviceMemory(
     // If table length is not multiple of number of elements processed by one thread block in initial
     // bitonic sort, than array is padded to that length.
     uint_t tableLenRoundedUp = roundUp(tableLen, elemsPerInitBitonicSort);
-    uint_t localSamplesDistance = (elemsPerInitBitonicSort - 1) / NUM_SAMPLES + 1;
+    uint_t localSamplesDistance = (elemsPerInitBitonicSort - 1) / NUM_SAMPLES_PARALLEL + 1;
     uint_t localSamplesLen = (tableLenRoundedUp - 1) / localSamplesDistance + 1;
-    // (number of all data blocks (tiles)) * (number buckets generated from NUM_SAMPLES)
-    uint_t localBucketsLen = ((tableLenRoundedUp - 1) / elemsPerInitBitonicSort + 1) * (NUM_SAMPLES + 1);
+    // (number of all data blocks (tiles)) * (number buckets generated from NUM_SAMPLES_PARALLEL)
+    uint_t localBucketsLen = ((tableLenRoundedUp - 1) / elemsPerInitBitonicSort + 1) * (NUM_SAMPLES_PARALLEL + 1);
     cudaError_t error;
 
     // Arrays for storing data
@@ -93,7 +93,7 @@ void allocDeviceMemory(
     // Arrays for storing samples
     error = cudaMalloc(samplesLocal, localSamplesLen * sizeof(**samplesLocal));
     checkCudaError(error);
-    error = cudaMalloc(samplesGlobal, NUM_SAMPLES * sizeof(**samplesGlobal));
+    error = cudaMalloc(samplesGlobal, NUM_SAMPLES_PARALLEL * sizeof(**samplesGlobal));
     checkCudaError(error);
 
     // Arrays from bucket bookkeeping
@@ -101,7 +101,7 @@ void allocDeviceMemory(
     checkCudaError(error);
     error = cudaMalloc(localBucketOffsets, localBucketsLen * sizeof(**localBucketOffsets));
     checkCudaError(error);
-    error = cudaMalloc(globalBucketOffsets, (NUM_SAMPLES + 1) * sizeof(**globalBucketOffsets));
+    error = cudaMalloc(globalBucketOffsets, (NUM_SAMPLES_PARALLEL + 1) * sizeof(**globalBucketOffsets));
     checkCudaError(error);
 }
 

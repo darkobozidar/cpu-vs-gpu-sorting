@@ -13,7 +13,7 @@
 /* --------------- ALGORITHM PARAMETERS -------------- */
 // Has to be lower or equal than multiplication of THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT.
 // Has to be power of 2.
-#define NUM_SAMPLES 32
+#define NUM_SAMPLES_PARALLEL 32
 
 
 /* ---------------- BITONIC SORT KERNEL -------------- */
@@ -55,5 +55,11 @@
 // How many threads are used per one thread block in kernel for buckets relocation. Has to be power of 2.
 // Also has to be greater or equal than NUM_SAMPLES. Has to be multiple of NUM_SAMPLES.
 #define THREADS_PER_BUCKETS_RELOCATION 256
+
+
+/* --------- SEQUENTIAL ALGORITHM PARAMETERS --------- */
+
+#define NUM_SAMPLES_SEQUENTIAL 64
+#define OVERSAMPLING_FACTOR 4
 
 #endif
