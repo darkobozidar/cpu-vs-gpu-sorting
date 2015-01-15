@@ -207,8 +207,8 @@ template __global__ void bitonicSortKernel<ORDER_DESC, SORT_KEYS_AND_VALUES>(
 /*
 Global bitonic merge for sections, where stride IS GREATER than max shared memory.
 */
-template <order_t sortOrder, bool isFirstStepOfPhase>
-__global__ void bitonicMergeGlobalKernel(data_t *dataTable, uint_t tableLen, uint_t step)
+template <order_t sortOrder, bool isFirstStepOfPhase, sort_opt_t sortOption>
+__global__ void bitonicMergeGlobalKernel(data_t *keys, data_t *values, uint_t tableLen, uint_t step)
 {
     const uint_t stride = 1 << (step - 1);
     const uint_t pairsPerThreadBlock = (THREADS_PER_GLOBAL_MERGE * ELEMS_PER_THREAD_GLOBAL_MERGE) >> 1;
@@ -232,21 +232,50 @@ __global__ void bitonicMergeGlobalKernel(data_t *dataTable, uint_t tableLen, uin
             break;
         }
 
-        /*compareExchange<sortOrder>(&dataTable[index], &dataTable[index + offset]);*/
+        if (sortOption == SORT_KEYS_ONLY)
+        {
+            compareExchangeKeyOnly<sortOrder>(&keys[index], &keys[index + offset]);
+        }
+        else
+        {
+            compareExchangeKeyValue<sortOrder>(
+                &keys[index], &keys[index + offset], &values[index], &values[index + offset]
+            );
+        }
     }
 }
 
-template __global__ void bitonicMergeGlobalKernel<ORDER_ASC, true>(data_t *dataTable, uint_t tableLen, uint_t step);
-template __global__ void bitonicMergeGlobalKernel<ORDER_ASC, false>(data_t *dataTable, uint_t tableLen, uint_t step);
-template __global__ void bitonicMergeGlobalKernel<ORDER_DESC, true>(data_t *dataTable, uint_t tableLen, uint_t step);
-template __global__ void bitonicMergeGlobalKernel<ORDER_DESC, false>(data_t *dataTable, uint_t tableLen, uint_t step);
+template __global__ void bitonicMergeGlobalKernel<ORDER_ASC, true, SORT_KEYS_ONLY>(
+    data_t *keys, data_t *values, uint_t tableLen, uint_t step
+);
+template __global__ void bitonicMergeGlobalKernel<ORDER_ASC, true, SORT_KEYS_AND_VALUES>(
+    data_t *keys, data_t *values, uint_t tableLen, uint_t step
+);
+template __global__ void bitonicMergeGlobalKernel<ORDER_ASC, false, SORT_KEYS_ONLY>(
+    data_t *keys, data_t *values, uint_t tableLen, uint_t step
+);
+template __global__ void bitonicMergeGlobalKernel<ORDER_ASC, false, SORT_KEYS_AND_VALUES>(
+    data_t *keys, data_t *values, uint_t tableLen, uint_t step
+);
+template __global__ void bitonicMergeGlobalKernel<ORDER_DESC, true, SORT_KEYS_ONLY>(
+    data_t *keys, data_t *values, uint_t tableLen, uint_t step
+);
+template __global__ void bitonicMergeGlobalKernel<ORDER_DESC, true, SORT_KEYS_AND_VALUES>(
+    data_t *keys, data_t *values, uint_t tableLen, uint_t step
+);
+template __global__ void bitonicMergeGlobalKernel<ORDER_DESC, false, SORT_KEYS_ONLY>(
+    data_t *keys, data_t *values, uint_t tableLen, uint_t step
+);
+template __global__ void bitonicMergeGlobalKernel<ORDER_DESC, false, SORT_KEYS_AND_VALUES>(
+    data_t *keys, data_t *values, uint_t tableLen, uint_t step
+);
 
 
 /*
 Global bitonic merge for sections, where stride IS LOWER OR EQUAL than max shared memory.
 */
-template <order_t sortOrder, bool isFirstStepOfPhase>
-__global__ void bitonicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint_t step)
+template <order_t sortOrder, bool isFirstStepOfPhase, sort_opt_t sortOption>
+__global__ void bitonicMergeLocalKernel(data_t *keys, data_t *values, uint_t tableLen, uint_t step)
 {
     extern __shared__ data_t mergeTile[];
     bool isFirstStepOfPhaseCopy = isFirstStepOfPhase;  // isFirstStepOfPhase is not editable (constant)
@@ -256,10 +285,18 @@ __global__ void bitonicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint
     const uint_t dataBlockLength = offset + elemsPerThreadBlock <= tableLen ? elemsPerThreadBlock : tableLen - offset;
     const uint_t pairsPerBlockLength = dataBlockLength >> 1;
 
+    data_t *keysTile = mergeTile;
+    data_t *valuesTile = mergeTile + dataBlockLength;
+
     // Reads data from global to shared memory.
     for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_LOCAL_MERGE)
     {
-        mergeTile[tx] = dataTable[offset + tx];
+        keysTile[tx] = keys[offset + tx];
+
+        if (sortOption == SORT_KEYS_AND_VALUES)
+        {
+            valuesTile[tx] = values[offset + tx];
+        }
     }
     __syncthreads();
 
@@ -285,7 +322,16 @@ __global__ void bitonicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint
                 break;
             }
 
-            /*compareExchange<sortOrder>(&mergeTile[index], &mergeTile[index + offset]);*/
+            if (sortOption == SORT_KEYS_ONLY)
+            {
+                compareExchangeKeyOnly<sortOrder>(&keysTile[index], &keysTile[index + offset]);
+            }
+            else
+            {
+                compareExchangeKeyValue<sortOrder>(
+                    &keysTile[index], &keysTile[index + offset], &valuesTile[index], &valuesTile[index + offset]
+                );
+            }
         }
         __syncthreads();
     }
@@ -293,14 +339,39 @@ __global__ void bitonicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint
     // Stores data from shared to global memory
     for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_LOCAL_MERGE)
     {
-        dataTable[offset + tx] = mergeTile[tx];
+        keys[offset + tx] = keysTile[tx];
+
+        if (sortOption == SORT_KEYS_AND_VALUES)
+        {
+            values[offset + tx] = valuesTile[tx];
+        }
     }
 }
 
-template __global__ void bitonicMergeLocalKernel<ORDER_ASC, true>(data_t *dataTable, uint_t tableLen, uint_t step);
-template __global__ void bitonicMergeLocalKernel<ORDER_ASC, false>(data_t *dataTable, uint_t tableLen, uint_t step);
-template __global__ void bitonicMergeLocalKernel<ORDER_DESC, true>(data_t *dataTable, uint_t tableLen, uint_t step);
-template __global__ void bitonicMergeLocalKernel<ORDER_DESC, false>(data_t *dataTable, uint_t tableLen, uint_t step);
+template __global__ void bitonicMergeLocalKernel<ORDER_ASC, true, SORT_KEYS_ONLY>(
+    data_t *keys, data_t *values, uint_t tableLen, uint_t step
+);
+template __global__ void bitonicMergeLocalKernel<ORDER_ASC, true, SORT_KEYS_AND_VALUES>(
+    data_t *keys, data_t *values, uint_t tableLen, uint_t step
+);
+template __global__ void bitonicMergeLocalKernel<ORDER_ASC, false, SORT_KEYS_ONLY>(
+    data_t *keys, data_t *values, uint_t tableLen, uint_t step
+);
+template __global__ void bitonicMergeLocalKernel<ORDER_ASC, false, SORT_KEYS_AND_VALUES>(
+    data_t *keys, data_t *values, uint_t tableLen, uint_t step
+);
+template __global__ void bitonicMergeLocalKernel<ORDER_DESC, true, SORT_KEYS_ONLY>(
+    data_t *keys, data_t *values, uint_t tableLen, uint_t step
+);
+template __global__ void bitonicMergeLocalKernel<ORDER_DESC, true, SORT_KEYS_AND_VALUES>(
+    data_t *keys, data_t *values, uint_t tableLen, uint_t step
+);
+template __global__ void bitonicMergeLocalKernel<ORDER_DESC, false, SORT_KEYS_ONLY>(
+    data_t *keys, data_t *values, uint_t tableLen, uint_t step
+);
+template __global__ void bitonicMergeLocalKernel<ORDER_DESC, false, SORT_KEYS_AND_VALUES>(
+    data_t *keys, data_t *values, uint_t tableLen, uint_t step
+);
 
 
 /*
