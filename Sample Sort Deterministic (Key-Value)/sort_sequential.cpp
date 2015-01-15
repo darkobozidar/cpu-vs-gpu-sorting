@@ -9,6 +9,7 @@
 
 #include "../Utils/data_types_common.h"
 #include "../Utils/host.h"
+#include "../Utils/sort_correct.h"
 #include "constants.h"
 
 using namespace std;
@@ -124,41 +125,6 @@ void mergeSort(
 }
 
 
-/* ---------------- QUICK SORT ---------------- */
-
-/*
-Compare function for ASCENDING order needed for C++ qsort.
-*/
-int compareAsc(const void* elem1, const void* elem2)
-{
-    return *((data_t*)elem1) - *((data_t*)elem2);
-}
-
-/*
- Compare function for DESCENDING order needed for C++ qsort.
- */
-int compareDesc(const void* elem1, const void* elem2)
-{
-    return *((data_t*)elem2) - *((data_t*)elem1);
-}
-
-/*
-Sorts an array with C quicksort implementation.
-*/
-template <order_t sortOrder>
-void quickSort(data_t *dataTable, uint_t tableLen)
-{
-    if (sortOrder == ORDER_ASC)
-    {
-        qsort(dataTable, tableLen, sizeof(*dataTable), compareAsc);
-    }
-    else
-    {
-        qsort(dataTable, tableLen, sizeof(*dataTable), compareDesc);
-    }
-}
-
-
 /* -------------- GENERAL UTILS --------------- */
 
 /*
@@ -177,7 +143,7 @@ void collectSamples(data_t *dataTable, data_t *samples, uint_t tableLen)
     }
 
     // Sorts samples with quicksort. Quicksort is used, because it is not necessary, than sort is stable.
-    quickSort<sortOrder>(samples, NUM_SAMPLES_SEQUENTIAL);
+    quickSort<data_t>(samples, NUM_SAMPLES_SEQUENTIAL, sortOrder);
 }
 
 /*
