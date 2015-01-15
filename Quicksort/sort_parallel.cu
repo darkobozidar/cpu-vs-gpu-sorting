@@ -168,8 +168,6 @@ data_t* quickSort(
     uint_t numSeqLimit = (tableLen - 1) / THRESHOLD_PARTITION_SIZE_GLOBAL + 1;
     uint_t elemsPerThreadBlock = THREADS_PER_SORT_GLOBAL * ELEMENTS_PER_THREAD_GLOBAL;
     bool generateSequences = tableLen > THRESHOLD_PARTITION_SIZE_GLOBAL;
-
-    cudaError_t error;
     data_t minVal, maxVal;
 
     // Searches for min and max value in input array

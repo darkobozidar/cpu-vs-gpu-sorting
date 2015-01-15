@@ -58,7 +58,7 @@ void DeviceGlobalSequence::setFromHostSeq(
 {
     start = globalSeqHost.start;
     length = globalSeqHost.length;
-    pivot = (globalSeqHost.minVal + globalSeqHost.maxVal) / 2;
+    pivot = ((long long)globalSeqHost.minVal + (long long)globalSeqHost.maxVal) / 2;
     direction = globalSeqHost.direction;
 
     startThreadBlockIdx = startThreadBlock;
