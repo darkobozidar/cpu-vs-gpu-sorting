@@ -99,11 +99,12 @@ int main(int argc, char **argv)
         );
 
         // Sort sequential
-        std::copy(h_inputKeys, h_inputKeys + tableLen, h_outputSequentialKeys);
-        std::copy(h_inputValues, h_inputValues + tableLen, h_outputSequentialValues);
-        timers[SORT_SEQUENTIAL][i] = 9999;  /*sortSequential(
-            h_outputSequentialKeys, h_outputSequentialValues, tableLen, sortOrder
-        );*/
+        std::copy(h_inputKeys, h_inputKeys + tableLen, h_inputSequentialKeys);
+        std::copy(h_inputValues, h_inputValues + tableLen, h_inputSequentialValues);
+        timers[SORT_SEQUENTIAL][i] = sortSequential(
+            h_inputSequentialKeys, h_inputSequentialValues, h_bufferSequentialKeys, h_bufferSequentialValues,
+            h_outputSequentialKeys, h_outputSequentialValues, h_samples, h_elementBuckets, tableLen, sortOrder
+        );
 
         // Sort correct
         std::copy(h_inputKeys, h_inputKeys + tableLen, h_outputCorrect);

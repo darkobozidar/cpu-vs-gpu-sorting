@@ -211,19 +211,19 @@ Sorts array with sample sort and outputs sorted data to result array.
 */
 template <order_t sortOrder>
 void sampleSort(
-    data_t *dataTable, data_t *dataBuffer, data_t *dataResult, data_t *samples, uint_t *elementBuckets,
-    uint_t tableLen
+    data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, data_t *resultKeys,
+    data_t *resultValues, data_t *samples, uint_t *elementBuckets, uint_t tableLen
 )
 {
     // When array is small enough, it is sorted with small sort (in our case merge sort).
     // Merge sort was chosen because it is stable sort and it keeps sorted array stable.
     if (tableLen < SMALL_SORT_THRESHOLD)
     {
-        mergeSort<sortOrder>(dataTable, dataBuffer, dataResult, tableLen);
+        mergeSort<sortOrder>(dataKeys, bufferKeys, resultKeys, tableLen);
         return;
     }
 
-    collectSamples<sortOrder>(dataTable, samples, tableLen);
+    collectSamples<sortOrder>(dataKeys, samples, tableLen);
 
     // Holds bucket sizes and bucket offsets after exclusive scan is performed on bucket sizes.
     // A new array is needed for every level of recursion.
@@ -243,7 +243,7 @@ void sampleSort(
     // For all elements in data table searches, which bucket they belong to and counts the elements in buckets
     for (uint_t i = 0; i < tableLen; i++)
     {
-        uint_t bucket = binarySearchInclusive<sortOrder>(splitters, dataTable[i], NUM_SPLITTERS_SEQUENTIAL);
+        uint_t bucket = binarySearchInclusive<sortOrder>(splitters, dataKeys[i], NUM_SPLITTERS_SEQUENTIAL);
         bucketSizes[bucket]++;
         elementBuckets[i] = bucket;
     }
@@ -256,7 +256,7 @@ void sampleSort(
     // Goes through all elements again and stores them in their corresponding buckets
     for (uint_t i = 0; i < tableLen; i++)
     {
-        dataBuffer[bucketOffsets[elementBuckets[i]]++] = dataTable[i];
+        bufferKeys[bucketOffsets[elementBuckets[i]]++] = dataKeys[i];
     }
 
     // Recursively sorts buckets
@@ -269,8 +269,9 @@ void sampleSort(
         {
             // Primary and buffer array are exchanged
             sampleSort<sortOrder>(
-                dataBuffer + prevBucketOffset, dataTable + prevBucketOffset, dataResult + prevBucketOffset, samples,
-                elementBuckets, bucketSize
+                bufferKeys + prevBucketOffset, bufferValues + prevBucketOffset, dataKeys + prevBucketOffset,
+                dataValues + prevBucketOffset, resultKeys + prevBucketOffset, resultValues + prevBucketOffset,
+                samples, elementBuckets, bucketSize
             );
         }
     }
@@ -280,8 +281,8 @@ void sampleSort(
 Sorts data sequentially with sample sort.
 */
 double sortSequential(
-    data_t *dataInput, data_t *dataBuffer, data_t *dataOutput, data_t *samples, uint_t *elementBuckets,
-    uint_t tableLen, order_t sortOrder
+    data_t *inputKeys, data_t *inputValues, data_t *bufferKeys, data_t *bufferValues, data_t *outputKeys,
+    data_t *outputValues, data_t *samples, uint_t *elementBuckets, uint_t tableLen, order_t sortOrder
 )
 {
     LARGE_INTEGER timer;
@@ -289,11 +290,17 @@ double sortSequential(
 
     if (sortOrder == ORDER_ASC)
     {
-        sampleSort<ORDER_ASC>(dataInput, dataBuffer, dataOutput, samples, elementBuckets, tableLen);
+        sampleSort<ORDER_ASC>(
+            inputKeys, inputValues, bufferKeys, bufferValues, outputKeys, outputValues, samples, elementBuckets,
+            tableLen
+        );
     }
     else
     {
-        sampleSort<ORDER_DESC>(dataInput, dataBuffer, dataOutput, samples, elementBuckets, tableLen);
+        sampleSort<ORDER_DESC>(
+            inputKeys, inputValues, bufferKeys, bufferValues, outputKeys, outputValues, samples, elementBuckets,
+            tableLen
+        );
     }
 
     return endStopwatch(timer);
