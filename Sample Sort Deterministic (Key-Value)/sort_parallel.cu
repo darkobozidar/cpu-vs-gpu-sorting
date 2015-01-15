@@ -308,9 +308,9 @@ void bitonicSort(data_t *dataTable, uint_t tableLen, order_t sortOrder)
 Sorts array with deterministic sample sort.
 */
 void sampleSort(
-    data_t *&d_dataTable, data_t *&d_dataBuffer, data_t *d_samplesLocal, data_t *d_samplesGlobal,
-    uint_t *h_globalBucketOffsets, uint_t *d_globalBucketOffsets, uint_t *d_localBucketSizes,
-    uint_t *d_localBucketOffsets, uint_t tableLen, order_t sortOrder
+    data_t *&d_dataKeys, data_t *&d_dataValues, data_t *&d_bufferKeys, data_t *&d_bufferValues,
+    data_t *d_samplesLocal, data_t *d_samplesGlobal, uint_t *h_globalBucketOffsets, uint_t *d_globalBucketOffsets,
+    uint_t *d_localBucketSizes, uint_t *d_localBucketOffsets, uint_t tableLen, order_t sortOrder
 )
 {
     uint_t elemsPerInitBitonicSort = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
@@ -324,16 +324,20 @@ void sampleSort(
     CUDPPHandle scanPlan;
 
     cudppInitScan(&scanPlan, localBucketsLen);
-    runAddPaddingKernel(d_dataTable, tableLen, sortOrder);
+    runAddPaddingKernel(d_dataKeys, tableLen, sortOrder);
     // Sorts sub-blocks of input data with bitonic sort and from every chunk collects NUM_SAMPLES_PARALLEL samples
-    runBitonicSortCollectSamplesKernel(d_dataTable, d_samplesLocal, tableLenRoundedUp, sortOrder);
+    runBitonicSortCollectSamplesKernel(d_dataKeys, d_samplesLocal, tableLenRoundedUp, sortOrder);
 
     // Array has already been sorted
     if (tableLen <= elemsPerInitBitonicSort)
     {
-        data_t *temp = d_dataTable;
-        d_dataTable = d_dataBuffer;
-        d_dataBuffer = temp;
+        data_t *temp = d_dataKeys;
+        d_dataKeys = d_bufferKeys;
+        d_bufferKeys = temp;
+
+        temp = d_dataValues;
+        d_dataValues = d_bufferValues;
+        d_bufferValues = temp;
 
         return;
     }
@@ -344,7 +348,7 @@ void sampleSort(
     runCollectGlobalSamplesKernel(d_samplesLocal, d_samplesGlobal, localSamplesLen);
     // For all previously sorted sub-blocks calculates bucket sizes for global samples
     runSampleIndexingKernel(
-        d_dataTable, d_samplesGlobal, d_localBucketSizes, tableLenRoundedUp, localBucketsLen, sortOrder
+        d_dataKeys, d_samplesGlobal, d_localBucketSizes, tableLenRoundedUp, localBucketsLen, sortOrder
     );
 
     // Performs scan on local bucket sizes to gain local bucket offsets (global offset for all local buckets)
@@ -358,7 +362,7 @@ void sampleSort(
 
     // Moves elements to their corresponding global buckets and calculates global bucket offsets
     runBucketsRelocationKernel(
-        d_dataTable, d_dataBuffer, h_globalBucketOffsets, d_globalBucketOffsets, d_localBucketSizes,
+        d_dataKeys, d_bufferKeys, h_globalBucketOffsets, d_globalBucketOffsets, d_localBucketSizes,
         d_localBucketOffsets, tableLen
     );
 
@@ -372,7 +376,7 @@ void sampleSort(
 
         if (bucketLen > 0)
         {
-            bitonicSort(d_dataBuffer + previousOffset, bucketLen, sortOrder);
+            bitonicSort(d_bufferKeys + previousOffset, bucketLen, sortOrder);
         }
         previousOffset = currentOffset;
     }
@@ -382,9 +386,10 @@ void sampleSort(
 Sorts input data with parallel sample sort.
 */
 double sortParallel(
-    data_t *h_output, data_t *d_dataTable, data_t *d_dataBuffer, data_t *d_samplesLocal, data_t *d_samplesGlobal,
-    uint_t *d_localBucketSizes, uint_t *d_localBucketOffsets, uint_t *h_globalBucketOffsets,
-    uint_t *d_globalBucketOffsets, uint_t tableLen, order_t sortOrder
+    data_t *h_keys, data_t *h_values, data_t *d_dataKeys, data_t *d_dataValues, data_t *d_bufferKeys,
+    data_t *d_bufferValues, data_t *d_samplesLocal, data_t *d_samplesGlobal, uint_t *d_localBucketSizes,
+    uint_t *d_localBucketOffsets, uint_t *h_globalBucketOffsets, uint_t *d_globalBucketOffsets,
+    uint_t tableLen, order_t sortOrder
 )
 {
     LARGE_INTEGER timer;
@@ -392,15 +397,18 @@ double sortParallel(
 
     startStopwatch(&timer);
     sampleSort(
-        d_dataTable, d_dataBuffer, d_samplesLocal, d_samplesGlobal, h_globalBucketOffsets, d_globalBucketOffsets,
-        d_localBucketSizes, d_localBucketOffsets, tableLen, sortOrder
+        d_dataKeys, d_dataValues, d_bufferKeys, d_bufferValues, d_samplesLocal, d_samplesGlobal,
+        h_globalBucketOffsets, d_globalBucketOffsets, d_localBucketSizes, d_localBucketOffsets, tableLen,
+        sortOrder
     );
 
     error = cudaDeviceSynchronize();
     checkCudaError(error);
     double time = endStopwatch(timer);
 
-    error = cudaMemcpy(h_output, d_dataBuffer, tableLen * sizeof(*h_output), cudaMemcpyDeviceToHost);
+    error = cudaMemcpy(h_keys, d_bufferKeys, tableLen * sizeof(*h_keys), cudaMemcpyDeviceToHost);
+    checkCudaError(error);
+    error = cudaMemcpy(h_values, d_bufferValues, tableLen * sizeof(*h_values), cudaMemcpyDeviceToHost);
     checkCudaError(error);
 
     return time;
