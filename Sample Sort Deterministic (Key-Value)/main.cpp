@@ -112,8 +112,8 @@ int main(int argc, char **argv)
 
         bool sortsCorrectlyParallelLocal = compareArrays(h_outputParallelKeys, h_outputCorrect, tableLen);
         bool sortsCorrectlySequentialLocal = compareArrays(h_outputSequentialKeys, h_outputCorrect, tableLen);
-        bool isStableParallelLocal = false;  // isSortStable(h_outputParallelKeys, h_outputParallelValues, tableLen);
-        bool isStableSequentialLocal = false;  // isSortStable(h_outputSequentialKeys, h_outputSequentialValues, tableLen);
+        bool isStableParallelLocal = isSortStable(h_outputParallelKeys, h_outputParallelValues, tableLen);
+        bool isStableSequentialLocal = isSortStable(h_outputSequentialKeys, h_outputSequentialValues, tableLen);
 
         sortsCorrectlyParallel &= sortsCorrectlyParallelLocal;
         sortsCorrectlySequential &= sortsCorrectlySequentialLocal;

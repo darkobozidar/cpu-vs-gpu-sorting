@@ -217,7 +217,7 @@ void sampleSort(
 {
     // When array is small enough, it is sorted with small sort (in our case merge sort).
     // Merge sort was chosen because it is stable sort and it keeps sorted array stable.
-    if (tableLen < SMALL_SORT_THRESHOLD)
+    if (tableLen <= SMALL_SORT_THRESHOLD)
     {
         mergeSort<sortOrder>(dataTable, dataBuffer, dataResult, tableLen);
         return;

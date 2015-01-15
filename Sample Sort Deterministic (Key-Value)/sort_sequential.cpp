@@ -30,11 +30,15 @@ Sorts data sequentially with merge sort. Sorted array is outputted to result arr
 Stable sort (merge sort) is used in order to keep sample sort stable.
 */
 template <order_t sortOrder>
-void mergeSort(data_t *dataTable, data_t *dataBuffer, data_t *dataResult, uint_t tableLen)
+void mergeSort(
+    data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, data_t *resultKeys,
+    data_t *resultValues, uint_t tableLen
+)
 {
     if (tableLen == 1)
     {
-        dataResult[0] = dataTable[0];
+        resultKeys[0] = dataKeys[0];
+        resultValues[0] = dataValues[0];
         return;
     }
 
@@ -48,7 +52,8 @@ void mergeSort(data_t *dataTable, data_t *dataBuffer, data_t *dataResult, uint_t
         // Number of sub-blocks being merged
         uint_t subBlockSize = sortedBlockSize / 2;
         // If it is last phase of merge sort, data is coppied to result array
-        data_t *outputTable = numBlocks == 1 ? dataResult : dataBuffer;
+        data_t *outputKeys = numBlocks == 1 ? resultKeys : bufferKeys;
+        data_t *outputValues = numBlocks == 1 ? resultValues : bufferValues;
 
         // Merge of all blocks
         for (uint_t blockIndex = 0; blockIndex < numBlocks; blockIndex++)
@@ -60,7 +65,8 @@ void mergeSort(data_t *dataTable, data_t *dataBuffer, data_t *dataResult, uint_t
             // If there is only odd block without even block, then only odd block is coppied into buffer
             if (oddEnd == tableLen)
             {
-                std::copy(dataTable + oddIndex, dataTable + oddEnd, outputTable + oddIndex);
+                std::copy(dataKeys + oddIndex, dataKeys + oddEnd, outputKeys + oddIndex);
+                std::copy(dataValues + oddIndex, dataValues + oddEnd, outputValues + oddIndex);
                 continue;
             }
 
@@ -72,17 +78,23 @@ void mergeSort(data_t *dataTable, data_t *dataBuffer, data_t *dataResult, uint_t
             // Merge of odd and even block
             while (oddIndex < oddEnd && evenIndex < evenEnd)
             {
-                data_t oddElement = dataTable[oddIndex];
-                data_t evenElement = dataTable[evenIndex];
+                data_t oddElement = dataKeys[oddIndex];
+                data_t evenElement = dataKeys[evenIndex];
 
                 if (sortOrder == ORDER_ASC ? oddElement <= evenElement : oddElement >= evenElement)
                 {
-                    outputTable[mergeIndex++] = oddElement;
+                    outputKeys[mergeIndex] = oddElement;
+                    outputValues[mergeIndex] = dataValues[oddIndex];
+
+                    mergeIndex++;
                     oddIndex++;
                 }
                 else
                 {
-                    outputTable[mergeIndex++] = evenElement;
+                    outputKeys[mergeIndex] = evenElement;
+                    outputValues[mergeIndex] = dataValues[evenIndex];
+
+                    mergeIndex++;
                     evenIndex++;
                 }
             }
@@ -90,17 +102,24 @@ void mergeSort(data_t *dataTable, data_t *dataBuffer, data_t *dataResult, uint_t
             // Block that wasn't merged entirely is coppied into buffer array
             if (oddIndex == oddEnd)
             {
-                std::copy(dataTable + evenIndex, dataTable + evenEnd, outputTable + mergeIndex);
+                std::copy(dataKeys + evenIndex, dataKeys + evenEnd, outputKeys + mergeIndex);
+                std::copy(dataValues + evenIndex, dataValues + evenEnd, outputValues + mergeIndex);
             }
             else
             {
-                std::copy(dataTable + oddIndex, dataTable + oddEnd, outputTable + mergeIndex);
+                std::copy(dataKeys + oddIndex, dataKeys + oddEnd, outputKeys + mergeIndex);
+                std::copy(dataValues + oddIndex, dataValues + oddEnd, outputValues + mergeIndex);
             }
         }
 
-        data_t *temp = dataTable;
-        dataTable = dataBuffer;
-        dataBuffer = temp;
+        // Exchanges key and value pointers with buffer
+        data_t *temp = dataKeys;
+        dataKeys = bufferKeys;
+        bufferKeys = temp;
+
+        temp = dataValues;
+        dataValues = bufferValues;
+        bufferValues = temp;
     }
 }
 
@@ -217,9 +236,9 @@ void sampleSort(
 {
     // When array is small enough, it is sorted with small sort (in our case merge sort).
     // Merge sort was chosen because it is stable sort and it keeps sorted array stable.
-    if (tableLen < SMALL_SORT_THRESHOLD)
+    if (tableLen <= SMALL_SORT_THRESHOLD)
     {
-        mergeSort<sortOrder>(dataKeys, bufferKeys, resultKeys, tableLen);
+        mergeSort<sortOrder>(dataKeys, dataValues, bufferKeys, bufferValues, resultKeys, resultValues, tableLen);
         return;
     }
 
@@ -256,7 +275,11 @@ void sampleSort(
     // Goes through all elements again and stores them in their corresponding buckets
     for (uint_t i = 0; i < tableLen; i++)
     {
-        bufferKeys[bucketOffsets[elementBuckets[i]]++] = dataKeys[i];
+        uint_t *bucketOffset = &bucketOffsets[elementBuckets[i]];
+        bufferKeys[*bucketOffset] = dataKeys[i];
+        bufferValues[*bucketOffset] = dataValues[i];
+
+        (*bucketOffset)++;
     }
 
     // Recursively sorts buckets
