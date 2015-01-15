@@ -362,8 +362,9 @@ With respect to local bucket sizes and offsets scatters elements to their global
 global bucket sizes (sizes of whole global buckets, not just bucket sizes per every sorted sub-block) to host.
 */
 void runBucketsRelocationKernel(
-    data_t *d_dataTable, data_t *d_dataBuffer, uint_t *h_globalBucketOffsets, uint_t *d_globalBucketOffsets,
-    uint_t *localBucketSizes, uint_t *localBucketOffsets, uint_t tableLen
+    data_t *d_dataKeys, data_t *d_dataValues, data_t *d_bufferKeys, data_t *d_bufferValues,
+    uint_t *h_globalBucketOffsets, uint_t *d_globalBucketOffsets, uint_t *localBucketSizes,
+    uint_t *localBucketOffsets, uint_t tableLen
 )
 {
     // For NUM_SAMPLES_PARALLEL samples (NUM_SAMPLES_PARALLEL + 1) buckets are created
@@ -376,7 +377,8 @@ void runBucketsRelocationKernel(
     dim3 dimBlock(THREADS_PER_BUCKETS_RELOCATION, 1, 1);
 
     bucketsRelocationKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
-        d_dataTable, d_dataBuffer, d_globalBucketOffsets, localBucketSizes, localBucketOffsets, tableLen
+        d_dataKeys, d_dataValues, d_bufferKeys, d_bufferValues, d_globalBucketOffsets, localBucketSizes,
+        localBucketOffsets, tableLen
     );
 
     error = cudaMemcpy(
@@ -480,8 +482,8 @@ void sampleSort(
 
     // Moves elements to their corresponding global buckets and calculates global bucket offsets
     runBucketsRelocationKernel(
-        d_dataKeys, d_bufferKeys, h_globalBucketOffsets, d_globalBucketOffsets, d_localBucketSizes,
-        d_localBucketOffsets, tableLen
+        d_dataKeys, d_dataValues, d_bufferKeys, d_bufferValues, h_globalBucketOffsets, d_globalBucketOffsets,
+        d_localBucketSizes, d_localBucketOffsets, tableLen
     );
 
     // Sorts every bucket with bitonic sort

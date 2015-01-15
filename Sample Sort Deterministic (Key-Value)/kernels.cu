@@ -478,8 +478,8 @@ buckets. Last thread block also calculates global bucket offsets (from local buc
 them.
 */
 __global__ void bucketsRelocationKernel(
-    data_t *dataTable, data_t *dataBuffer, uint_t *globalBucketOffsets, const uint_t* __restrict__ localBucketSizes,
-    const uint_t* __restrict__ localBucketOffsets, uint_t tableLen
+    data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, uint_t *globalBucketOffsets,
+    const uint_t* __restrict__ localBucketSizes, const uint_t* __restrict__ localBucketOffsets, uint_t tableLen
 )
 {
     extern __shared__ uint_t bucketsTile[];
@@ -531,7 +531,8 @@ __global__ void bucketsRelocationKernel(
         // Stores elements to it's corresponding bucket until bucket is filled
         while (tx < activeThreads)
         {
-            dataBuffer[bucketOffsets[bucketIndex] + tx - activeThreadsPrev] = dataTable[offset + tx];
+            bufferKeys[bucketOffsets[bucketIndex] + tx - activeThreadsPrev] = dataKeys[offset + tx];
+            bufferValues[bucketOffsets[bucketIndex] + tx - activeThreadsPrev] = dataValues[offset + tx];
             tx += THREADS_PER_BUCKETS_RELOCATION;
         }
 

@@ -5,7 +5,7 @@
 typedef enum SortOption sort_opt_t;
 
 /*
-TODO comment.
+Configures sort type - if only keys will be sorted or key-value pairs.
 */
 enum SortOption
 {
