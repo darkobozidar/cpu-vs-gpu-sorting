@@ -29,8 +29,8 @@ int main(int argc, char **argv)
     double **timers;
 
     uint_t tableLen = (1 << 20);
-    uint_t interval = (1 << 31);
-    uint_t testRepetitions = 100;    // How many times are sorts ran
+    uint_t interval = MAX_VAL;
+    uint_t testRepetitions = 10;    // How many times are sorts ran
     order_t sortOrder = ORDER_ASC;  // Values: ORDER_ASC, ORDER_DESC
     data_dist_t distribution = DISTRIBUTION_UNIFORM;
     bool printMeaurements = true;
@@ -49,6 +49,8 @@ int main(int argc, char **argv)
     printf(">>> BITONIC SORT ADAPTIVE <<<\n\n\n");
     printDataDistribution(distribution);
     printf("> Array length: %d\n", tableLen);
+    printf("> Data type: %s\n", typeid(data_t).name());
+
     if (printMeaurements)
     {
         printf("\n");

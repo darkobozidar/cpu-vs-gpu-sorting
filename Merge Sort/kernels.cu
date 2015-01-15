@@ -112,7 +112,7 @@ __global__ void mergeSortKernel(data_t *dataTable)
     // Var blockDim.x needed in case there array contains less elements than one thread block in
     // this kernel can sort
     uint_t elemsPerThreadBlock = blockDim.x * ELEMS_PER_THREAD_MERGE_SORT;
-    uint_t *globalDataTable = dataTable + blockIdx.x * elemsPerThreadBlock;
+    data_t *globalDataTable = dataTable + blockIdx.x * elemsPerThreadBlock;
 
     // Buffer array is needed in case every thread sorts more than 2 elements
     data_t *mergeTile = mergeSortTile;
