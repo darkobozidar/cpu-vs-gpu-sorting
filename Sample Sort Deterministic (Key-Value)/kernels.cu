@@ -8,6 +8,7 @@
 
 #include "../Utils/data_types_common.h"
 #include "constants.h"
+#include "data_types.h"
 
 
 /*
@@ -36,7 +37,7 @@ template __global__ void addPaddingKernel<MAX_VAL>(data_t *dataTable, uint_t sta
 Compares 2 elements and exchanges them according to sortOrder.
 */
 template <order_t sortOrder>
-__device__ void compareExchange(data_t *elem1, data_t *elem2)
+__device__ void compareExchangeKeyOnly(data_t *elem1, data_t *elem2)
 {
     if ((*elem1 > *elem2) ^ sortOrder)
     {
@@ -47,11 +48,30 @@ __device__ void compareExchange(data_t *elem1, data_t *elem2)
 }
 
 /*
-Reads the data from global memory to shared memory, sorts it with NORMALIZED bitonic sort and stores the data
-back to global memory.
+Compares 2 key-value pairs and exchanges them according to sortOrder.
 */
 template <order_t sortOrder>
-__device__ void bitonicSort(data_t *dataTable, uint_t tableLen)
+__device__ void compareExchangeKeyValue(data_t *key1, data_t *key2, data_t *val1, data_t *val2)
+{
+    if ((*key1 > *key2) ^ sortOrder)
+    {
+        data_t temp = *key1;
+        *key1 = *key2;
+        *key2 = temp;
+
+        temp = *val1;
+        *val1 = *val2;
+        *val2 = temp;
+    }
+}
+
+/*
+Reads the data from global memory to shared memory, sorts it with NORMALIZED bitonic sort and stores the data
+back to global memory.
+Sort option specifies, if only keys are sorted or key-value pairs.
+*/
+template <order_t sortOrder, sort_opt_t sortOption>
+__device__ void bitonicSort(data_t *keys, data_t *values, uint_t tableLen)
 {
     extern __shared__ data_t bitonicSortTile[];
 
@@ -59,10 +79,18 @@ __device__ void bitonicSort(data_t *dataTable, uint_t tableLen)
     const uint_t offset = blockIdx.x * elemsPerThreadBlock;
     const uint_t dataBlockLength = offset + elemsPerThreadBlock <= tableLen ? elemsPerThreadBlock : tableLen - offset;
 
+    data_t *keysTile = bitonicSortTile;
+    data_t *valuesTile = bitonicSortTile + dataBlockLength;
+
     // Reads data from global to shared memory.
     for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_BITONIC_SORT)
     {
-        bitonicSortTile[tx] = dataTable[offset + tx];
+        keysTile[tx] = keys[offset + tx];
+
+        if (sortOption == SORT_KEYS_AND_VALUES)
+        {
+            valuesTile[tx] = values[offset + tx];
+        }
     }
     __syncthreads();
 
@@ -91,7 +119,16 @@ __device__ void bitonicSort(data_t *dataTable, uint_t tableLen)
                     break;
                 }
 
-                compareExchange<sortOrder>(&bitonicSortTile[index], &bitonicSortTile[index + offset]);
+                if (sortOption == SORT_KEYS_ONLY)
+                {
+                    compareExchangeKeyOnly<sortOrder>(&keysTile[index], &keysTile[index + offset]);
+                }
+                else
+                {
+                    compareExchangeKeyValue<sortOrder>(
+                        &keysTile[index], &keysTile[index + offset], &valuesTile[index], &valuesTile[index + offset]
+                    );
+                }
             }
 
             __syncthreads();
@@ -101,7 +138,12 @@ __device__ void bitonicSort(data_t *dataTable, uint_t tableLen)
     // Stores data from shared to global memory
     for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_BITONIC_SORT)
     {
-        dataTable[offset + tx] = bitonicSortTile[tx];
+        keys[offset + tx] = keysTile[tx];
+
+        if (sortOption == SORT_KEYS_AND_VALUES)
+        {
+            values[offset + tx] = valuesTile[tx];
+        }
     }
 }
 
@@ -110,11 +152,11 @@ Sorts sub-blocks of input data with NORMALIZED bitonic sort, collects samples an
 local samples.
 */
 template <order_t sortOrder>
-__global__ void bitonicSortCollectSamplesKernel(data_t *dataTable, data_t *localSamples, uint_t tableLen)
+__global__ void bitonicSortCollectSamplesKernel(data_t *keys, data_t *values, data_t *localSamples, uint_t tableLen)
 {
     extern __shared__ data_t bitonicSortTile[];
 
-    bitonicSort<sortOrder>(dataTable, tableLen);
+    bitonicSort<sortOrder, SORT_KEYS_AND_VALUES>(keys, values, tableLen);
 
     // After sort has been performed, samples are collected and stored to array of local samples.
     // Because array is always padded to next multiple of "elemsPerThreadBlock", we can always collect
@@ -126,29 +168,40 @@ __global__ void bitonicSortCollectSamplesKernel(data_t *dataTable, data_t *local
     // Collects the samples on offset "localSampleDistance / 2" in order to collect them as evenly as possible
     for (uint_t tx = threadIdx.x; tx < NUM_SAMPLES_PARALLEL; tx += THREADS_PER_BITONIC_SORT)
     {
+        // Keys are located in first half of shared memory
         localSamples[offsetSamples + tx] = bitonicSortTile[tx * localSamplesDistance + (localSamplesDistance / 2)];
     }
 }
 
 template __global__ void bitonicSortCollectSamplesKernel<ORDER_ASC>(
-    data_t *dataTable, data_t *localSamples, uint_t tableLen
+    data_t *keys, data_t *values, data_t *localSamples, uint_t tableLen
 );
 template __global__ void bitonicSortCollectSamplesKernel<ORDER_DESC>(
-    data_t *dataTable, data_t *localSamples, uint_t tableLen
+    data_t *keys, data_t *values, data_t *localSamples, uint_t tableLen
 );
 
 
 /*
 Sorts sub-blocks of input data with NORMALIZED bitonic sort.
 */
-template <order_t sortOrder>
-__global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen)
+template <order_t sortOrder, sort_opt_t sortOption>
+__global__ void bitonicSortKernel(data_t *keys, data_t *values, uint_t tableLen)
 {
-    bitonicSort<sortOrder>(dataTable, tableLen);
+    bitonicSort<sortOrder, sortOption>(keys, values, tableLen);
 }
 
-template __global__ void bitonicSortKernel<ORDER_ASC>(data_t *dataTable, uint_t tableLen);
-template __global__ void bitonicSortKernel<ORDER_DESC>(data_t *dataTable, uint_t tableLen);
+template __global__ void bitonicSortKernel<ORDER_ASC, SORT_KEYS_ONLY>(
+    data_t *keys, data_t *values, uint_t tableLen
+);
+template __global__ void bitonicSortKernel<ORDER_ASC, SORT_KEYS_AND_VALUES>(
+    data_t *keys, data_t *values, uint_t tableLen
+);
+template __global__ void bitonicSortKernel<ORDER_DESC, SORT_KEYS_ONLY>(
+    data_t *keys, data_t *values, uint_t tableLen
+);
+template __global__ void bitonicSortKernel<ORDER_DESC, SORT_KEYS_AND_VALUES>(
+    data_t *keys, data_t *values, uint_t tableLen
+);
 
 
 /*
@@ -179,7 +232,7 @@ __global__ void bitonicMergeGlobalKernel(data_t *dataTable, uint_t tableLen, uin
             break;
         }
 
-        compareExchange<sortOrder>(&dataTable[index], &dataTable[index + offset]);
+        /*compareExchange<sortOrder>(&dataTable[index], &dataTable[index + offset]);*/
     }
 }
 
@@ -232,7 +285,7 @@ __global__ void bitonicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint
                 break;
             }
 
-            compareExchange<sortOrder>(&mergeTile[index], &mergeTile[index + offset]);
+            /*compareExchange<sortOrder>(&mergeTile[index], &mergeTile[index + offset]);*/
         }
         __syncthreads();
     }

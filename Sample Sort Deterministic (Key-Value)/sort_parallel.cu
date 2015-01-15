@@ -11,6 +11,7 @@
 #include "../Utils/cuda.h"
 #include "../Utils/host.h"
 #include "constants.h"
+#include "data_types.h"
 #include "kernels.h"
 
 
@@ -32,8 +33,9 @@ void cudppInitScan(CUDPPHandle *scanPlan, uint_t tableLen)
     *scanPlan = 0;
     CUDPPResult result = cudppPlan(theCudpp, scanPlan, config, tableLen, 1, 0);
 
-    if (result != CUDPP_SUCCESS) {
-        printf("Error creating CUDPPPlan\n");
+    if (result != CUDPP_SUCCESS)
+    {
+        printf("Error creating CUDPPPlan for scan\n");
         getchar();
         exit(-1);
     }
@@ -77,10 +79,13 @@ void runAddPaddingKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder)
 Sorts sub-blocks of input data with NORMALIZED bitonic sort and collects NUM_SAMPLES_PARALLEL samples from every
 sorted chunk after the sort is complete.
 */
-void runBitonicSortCollectSamplesKernel(data_t *dataTable, data_t *samples, uint_t tableLen, order_t sortOrder)
+void runBitonicSortCollectSamplesKernel(
+    data_t *keys, data_t *values, data_t *samples, uint_t tableLen, order_t sortOrder
+)
 {
     uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
-    uint_t sharedMemSize = elemsPerThreadBlock * sizeof(*dataTable);
+    // "2" for storing VALUES, which are stored and sorted alongside KEYS
+    uint_t sharedMemSize = 2 * elemsPerThreadBlock * sizeof(*keys);
 
     dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
     dim3 dimBlock(THREADS_PER_BITONIC_SORT, 1, 1);
@@ -88,39 +93,59 @@ void runBitonicSortCollectSamplesKernel(data_t *dataTable, data_t *samples, uint
     if (sortOrder == ORDER_ASC)
     {
         bitonicSortCollectSamplesKernel<ORDER_ASC><<<dimGrid, dimBlock, sharedMemSize>>>(
-            dataTable, samples, tableLen
+            keys, values, samples, tableLen
         );
     }
     else
     {
         bitonicSortCollectSamplesKernel<ORDER_DESC><<<dimGrid, dimBlock, sharedMemSize>>>(
-            dataTable, samples, tableLen
+            keys, values, samples, tableLen
         );
     }
 }
 
 /*
 Sorts sub-blocks of input data with bitonic sort.
+If only keys have to be sorted, than parameter "values" should be NULL.
 */
-void runBitonicSortKernel(data_t *dataTable, uint_t tableLen, order_t sortOrder)
+void runBitonicSortKernel(data_t *keys, data_t *values, uint_t tableLen, order_t sortOrder)
 {
     uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
-    uint_t sharedMemSize = elemsPerThreadBlock * sizeof(*dataTable);
+    // "2" for storing VALUES, which are stored and sorted alongside KEYS
+    uint_t sharedMemSize = 2 * elemsPerThreadBlock * sizeof(*keys);
 
     dim3 dimGrid((tableLen - 1) / elemsPerThreadBlock + 1, 1, 1);
     dim3 dimBlock(THREADS_PER_BITONIC_SORT, 1, 1);
 
     if (sortOrder == ORDER_ASC)
     {
-        bitonicSortKernel<ORDER_ASC><<<dimGrid, dimBlock, sharedMemSize>>>(
-            dataTable, tableLen
-        );
+        if (values == NULL)
+        {
+            bitonicSortKernel<ORDER_ASC, SORT_KEYS_ONLY><<<dimGrid, dimBlock, sharedMemSize>>>(
+                keys, values, tableLen
+            );
+        }
+        else
+        {
+            bitonicSortKernel<ORDER_ASC, SORT_KEYS_AND_VALUES><<<dimGrid, dimBlock, sharedMemSize>>>(
+                keys, values, tableLen
+            );
+        }
     }
     else
     {
-        bitonicSortKernel<ORDER_DESC><<<dimGrid, dimBlock, sharedMemSize>>>(
-            dataTable, tableLen
-        );
+        if (values == NULL)
+        {
+            bitonicSortKernel<ORDER_DESC, SORT_KEYS_ONLY><<<dimGrid, dimBlock, sharedMemSize>>>(
+                keys, values, tableLen
+            );
+        }
+        else
+        {
+            bitonicSortKernel<ORDER_DESC, SORT_KEYS_AND_VALUES><<<dimGrid, dimBlock, sharedMemSize>>>(
+                keys, values, tableLen
+            );
+        }
     }
 }
 
@@ -298,10 +323,10 @@ void bitonicMerge(data_t *dataTable, uint_t tableLen, order_t sortOrder)
 /*
 Performs bitonic sort.
 */
-void bitonicSort(data_t *dataTable, uint_t tableLen, order_t sortOrder)
+void bitonicSort(data_t *keys, data_t *values, uint_t tableLen, order_t sortOrder)
 {
-    runBitonicSortKernel(dataTable, tableLen, sortOrder);
-    bitonicMerge(dataTable, tableLen, sortOrder);
+    runBitonicSortKernel(keys, values, tableLen, sortOrder);
+    bitonicMerge(keys, tableLen, sortOrder);
 }
 
 /*
@@ -326,7 +351,7 @@ void sampleSort(
     cudppInitScan(&scanPlan, localBucketsLen);
     runAddPaddingKernel(d_dataKeys, tableLen, sortOrder);
     // Sorts sub-blocks of input data with bitonic sort and from every chunk collects NUM_SAMPLES_PARALLEL samples
-    runBitonicSortCollectSamplesKernel(d_dataKeys, d_samplesLocal, tableLenRoundedUp, sortOrder);
+    runBitonicSortCollectSamplesKernel(d_dataKeys, d_dataValues, d_samplesLocal, tableLenRoundedUp, sortOrder);
 
     // Array has already been sorted
     if (tableLen <= elemsPerInitBitonicSort)
@@ -343,7 +368,7 @@ void sampleSort(
     }
 
     // Sorts collected local samples
-    bitonicSort(d_samplesLocal, localSamplesLen, sortOrder);
+    bitonicSort(d_samplesLocal, NULL, localSamplesLen, sortOrder);
     // From sorted LOCAL samples collects NUM_SAMPLES_PARALLEL global samples
     runCollectGlobalSamplesKernel(d_samplesLocal, d_samplesGlobal, localSamplesLen);
     // For all previously sorted sub-blocks calculates bucket sizes for global samples
@@ -376,7 +401,7 @@ void sampleSort(
 
         if (bucketLen > 0)
         {
-            bitonicSort(d_bufferKeys + previousOffset, bucketLen, sortOrder);
+            bitonicSort(d_bufferKeys + previousOffset, d_bufferValues + previousOffset, bucketLen, sortOrder);
         }
         previousOffset = currentOffset;
     }

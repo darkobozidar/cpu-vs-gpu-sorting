@@ -32,7 +32,8 @@ void cudppInitScan(CUDPPHandle *scanPlan, uint_t tableLen)
     *scanPlan = 0;
     CUDPPResult result = cudppPlan(theCudpp, scanPlan, config, tableLen, 1, 0);
 
-    if (result != CUDPP_SUCCESS) {
+    if (result != CUDPP_SUCCESS)
+    {
         printf("Error creating CUDPPPlan\n");
         getchar();
         exit(-1);

@@ -8,9 +8,9 @@ __global__ void addPaddingKernel(data_t *dataTable, uint_t start, uint_t length)
 
 // Bitonic sort kernels
 template <order_t sortOrder>
-__global__ void bitonicSortCollectSamplesKernel(data_t *dataTable, data_t *localSamples, uint_t tableLen);
-template <order_t sortOrder>
-__global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen);
+__global__ void bitonicSortCollectSamplesKernel(data_t *keys, data_t *values, data_t *localSamples, uint_t tableLen);
+template <order_t sortOrder, sort_opt_t sortOption>
+__global__ void bitonicSortKernel(data_t *keys, data_t *values, uint_t tableLen);
 
 // Bitonic merge kernels
 template <order_t sortOrder, bool isFirstStepOfPhase>
