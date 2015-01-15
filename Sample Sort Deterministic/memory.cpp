@@ -36,14 +36,14 @@ void allocHostMemory(
     *outputCorrect = (data_t*)malloc(tableLen * sizeof(**outputCorrect));
     checkMallocError(*outputCorrect);
 
-    // Holds samples and splitters in sequential sample sort
+    // Holds samples and splitters in sequential sample sort (needed for sequential sample sort)
     *samples = (data_t*)malloc(NUM_SAMPLES_SEQUENTIAL * OVERSAMPLING_FACTOR * sizeof(**samples));
     checkMallocError(*samples);
-    // For each element in array holds, to which bucket it belongs
+    // For each element in array holds, to which bucket it belongs (needed for sequential sample sort)
     *elementBuckets = (uint_t*)malloc(tableLen * sizeof(**elementBuckets));
     checkMallocError(*elementBuckets);
 
-    // Offsets of all global buckets
+    // Offsets of all global buckets (Needed for parallel sort)
     *globalBucketOffsets = (uint_t*)malloc((NUM_SAMPLES_PARALLEL + 1) * sizeof(**globalBucketOffsets));
     checkMallocError(*globalBucketOffsets);
 
