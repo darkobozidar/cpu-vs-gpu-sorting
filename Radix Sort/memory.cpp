@@ -34,7 +34,7 @@ void allocHostMemory(
     checkMallocError(*outputCorrect);
 
     // Counters of element occurances - needed for sequential radix sort
-    *countersSequential = (data_t*)malloc(RADIX_SEQUENTIAL * sizeof(**countersSequential));
+    *countersSequential = (uint_t*)malloc(RADIX_SEQUENTIAL * sizeof(**countersSequential));
     checkMallocError(*countersSequential);
 
     // Stopwatch times for PARALLEL, SEQUENTIAL and CORREECT
