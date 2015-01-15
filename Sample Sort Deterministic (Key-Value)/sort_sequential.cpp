@@ -142,8 +142,8 @@ void collectSamples(data_t *dataTable, data_t *samples, uint_t tableLen)
         samples[i] = dataTable[generator()];
     }
 
-    // Sorts samples with quicksort. Quicksort is used, because it is not necessary, than sort is stable.
-    quickSort<data_t>(samples, NUM_SAMPLES_SEQUENTIAL, sortOrder);
+    // Samples are sorted with in-place sort
+    stdVectorSort<data_t>(samples, NUM_SAMPLES_SEQUENTIAL, sortOrder);
 }
 
 /*
