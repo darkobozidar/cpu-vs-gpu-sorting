@@ -132,11 +132,11 @@ void runMultiStepKernel(
 }
 
 /*
-Merges array, if data blocks are larger than shared memory size. It executes only of STEP on PHASE per
-kernel launch.
+Merges array, if data blocks are larger than shared memory size. Needed because of normalized bitonic sort,
+which uses different access pattern for first step of every phase than in other steps.
 */
 void runBitonicMergeGlobalKernel(
-    data_t *keys, data_t *values, uint_t tableLen, uint_t phase, uint_t step, order_t sortOrder
+    data_t *keys, data_t *values, uint_t tableLen, uint_t phase, order_t sortOrder
 )
 {
     uint_t elemsPerThreadBlock = THREADS_PER_GLOBAL_MERGE * ELEMS_PER_THREAD_GLOBAL_MERGE;
@@ -145,11 +145,11 @@ void runBitonicMergeGlobalKernel(
 
     if (sortOrder == ORDER_ASC)
     {
-        bitonicMergeGlobalKernel<ORDER_ASC><<<dimGrid, dimBlock>>>(keys, values, tableLen, step);
+        bitonicMergeGlobalKernel<ORDER_ASC><<<dimGrid, dimBlock>>>(keys, values, tableLen, phase);
     }
     else
     {
-        bitonicMergeGlobalKernel<ORDER_DESC><<<dimGrid, dimBlock>>>(keys, values, tableLen, step);
+        bitonicMergeGlobalKernel<ORDER_DESC><<<dimGrid, dimBlock>>>(keys, values, tableLen, phase);
     }
 }
 
@@ -227,7 +227,7 @@ double sortParallel(
         {
             // Global NORMALIZED bitonic merge for first step of phase, where different pattern of exchanges
             // is used compared to other steps
-            runBitonicMergeGlobalKernel(d_keys, d_values, tableLen, phase, step, sortOrder);
+            runBitonicMergeGlobalKernel(d_keys, d_values, tableLen, phase, sortOrder);
             step--;
 
             // Multisteps

@@ -22,7 +22,7 @@ __global__ void multiStep5Kernel(data_t *key, data_t *values, int_t tableLen, ui
 
 // Bitonic merge
 template <order_t sortOrder>
-__global__ void bitonicMergeGlobalKernel(data_t *keys, data_t *values, uint_t tableLen, uint_t step);
+__global__ void bitonicMergeGlobalKernel(data_t *keys, data_t *values, uint_t tableLen, uint_t phase);
 template <order_t sortOrder, bool isFirstStepOfPhase>
 __global__ void bitonicMergeLocalKernel(data_t *keys, data_t *values, uint_t tableLen, uint_t step);
 

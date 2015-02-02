@@ -669,9 +669,9 @@ template __global__ void multiStep6Kernel<ORDER_DESC>(data_t *table, uint_t tabl
 Global bitonic merge - needed for first step of every phase, when stride is greater than shared memory size.
 */
 template <order_t sortOrder>
-__global__ void bitonicMergeGlobalKernel(data_t *dataTable, uint_t tableLen, uint_t step)
+__global__ void bitonicMergeGlobalKernel(data_t *dataTable, uint_t tableLen, uint_t phase)
 {
-    uint_t stride = 1 << (step - 1);
+    uint_t stride = 1 << (phase - 1);
     uint_t pairsPerThreadBlock = (THREADS_PER_GLOBAL_MERGE * ELEMS_PER_THREAD_GLOBAL_MERGE) >> 1;
     uint_t indexGlobal = blockIdx.x * pairsPerThreadBlock + threadIdx.x;
 
