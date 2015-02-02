@@ -182,7 +182,6 @@ __device__ void load2(
 /*
 Stores 2 elements if they are inside table length boundaries.
 */
-template <order_t sortOrder>
 __device__ void store2(
     data_t *keys, data_t *values, int_t tableLen, int_t stride, data_t key1, data_t key2, data_t val1, data_t val2
 )
@@ -218,14 +217,13 @@ __device__ void load4(
 /*
 Stores 4 elements according to bitonic sort indexes.
 */
-template <order_t sortOrder>
 __device__ void store4(
     data_t *keys, data_t *values, int_t tableLen, uint_t tableOffset, int_t stride, data_t key1, data_t key2,
     data_t key3, data_t key4, data_t val1, data_t val2, data_t val3, data_t val4
 )
 {
-    store2<sortOrder>(keys, values, tableLen, stride, key1, key2, val1, val2);
-    store2<sortOrder>(
+    store2(keys, values, tableLen, stride, key1, key2, val1, val2);
+    store2(
         keys + tableOffset, values + tableOffset, tableLen - tableOffset, stride, key3, key4, val3, val4
     );
 }
@@ -252,17 +250,16 @@ __device__ void load8(
 /*
 Stores 8 elements according to bitonic sort indexes.
 */
-template <order_t sortOrder>
 __device__ void store8(
     data_t *keys, data_t *values, int_t tableLen, uint_t tableOffset, int_t stride, data_t key1, data_t key2,
     data_t key3, data_t key4, data_t key5, data_t key6, data_t key7, data_t key8, data_t val1, data_t val2,
     data_t val3, data_t val4, data_t val5, data_t val6, data_t val7, data_t val8
 )
 {
-    store4<sortOrder>(
+    store4(
         keys, values, tableLen, tableOffset, stride, key1, key2, key3, key4, val1, val2, val3, val4
     );
-    store4<sortOrder>(
+    store4(
         keys + 2 * tableOffset, values + 2 * tableOffset, tableLen - 2 * tableOffset, tableOffset, stride,
         key5, key6, key7, key8, val5, val6, val7, val8
     );
@@ -293,7 +290,6 @@ __device__ void load16(
 /*
 Stores 16 elements according to bitonic sort indexes.
 */
-template <order_t sortOrder>
 __device__ void store16(
     data_t *keys, data_t *values, int_t tableLen, uint_t tableOffset, int_t stride, data_t key1, data_t key2,
     data_t key3, data_t key4, data_t key5, data_t key6, data_t key7, data_t key8, data_t key9, data_t key10,
@@ -302,11 +298,11 @@ __device__ void store16(
     data_t val10, data_t val11, data_t val12, data_t val13, data_t val14, data_t val15, data_t val16
 )
 {
-    store8<sortOrder>(
+    store8(
         keys, values, tableLen, tableOffset, stride, key1, key2, key3, key4, key5, key6, key7, key8,
         val1, val2, val3, val4, val5, val6, val7, val8
     );
-    store8<sortOrder>(
+    store8(
         keys + 4 * tableOffset, values + 4 * tableOffset, tableLen - 4 * tableOffset, tableOffset, stride,
         key9, key10, key11, key12, key13, key14, key15, key16, val9, val10, val11, val12, val13, val14, val15, val16
     );
@@ -344,7 +340,6 @@ __device__ void load32(
 /*
 Stores 32 elements according to bitonic sort indexes.
 */
-template <order_t sortOrder>
 __device__ void store32(
     data_t *keys, data_t *values, int_t tableLen, uint_t tableOffset, int_t stride, data_t key1, data_t key2,
     data_t key3, data_t key4, data_t key5, data_t key6, data_t key7, data_t key8, data_t key9, data_t key10,
@@ -358,12 +353,12 @@ __device__ void store32(
     data_t val30, data_t val31, data_t val32
 )
 {
-    store16<sortOrder>(
+    store16(
         keys, values, tableLen, tableOffset, stride, key1, key2, key3, key4, key5, key6, key7, key8, key9, key10,
         key11, key12, key13, key14, key15, key16, val1, val2, val3, val4, val5, val6, val7, val8, val9, val10,
         val11, val12, val13, val14, val15, val16
     );
-    store16<sortOrder>(
+    store16(
         keys + 8 * tableOffset, values + 8 * tableOffset, tableLen - 8 * tableOffset, tableOffset, stride, key17,
         key18, key19, key20, key21, key22, key23, key24, key25, key26, key27, key28, key29, key30, key31, key32,
         val17, val18, val19, val20, val21, val22, val23, val24, val25, val26, val27, val28, val29, val30, val31, val32
@@ -481,7 +476,7 @@ __global__ void multiStep1Kernel(data_t *keys, data_t *values, int_t tableLen, u
         keys + indexTable, values + indexTable, tableLen - indexTable - 1, stride, &key1, &key2, &val1, &val2
     );
     compareExchange2<sortOrder>(&key1, &key2, &val1, &val2);
-    store2<sortOrder>(
+    store2(
         keys + indexTable, values + indexTable, tableLen - indexTable - 1, stride, key1, key2, val1, val2
     );
 }
@@ -507,7 +502,7 @@ __global__ void multiStep2Kernel(data_t *keys, data_t *values, int_t tableLen, u
         &key1, &key2, &key3, &key4, &val1, &val2, &val3, &val4
     );
     compareExchange4<sortOrder>(&key1, &key2, &key3, &key4, &val1, &val2, &val3, &val4);
-    store4<sortOrder>(
+    store4(
         keys + indexTable, values + indexTable, tableLen - indexTable - 1, tableOffset, stride,
         key1, key2, key3, key4, val1, val2, val3, val4
     );
@@ -537,7 +532,7 @@ __global__ void multiStep3Kernel(data_t *keys, data_t *values, int_t tableLen, u
         &key1, &key2, &key3, &key4, &key5, &key6, &key7, &key8,
         &val1, &val2, &val3, &val4, &val5, &val6, &val7, &val8
     );
-    store8<sortOrder>(
+    store8(
         keys + indexTable, values + indexTable, tableLen - indexTable - 1, tableOffset, stride, key1, key2,
         key3, key4, key5, key6, key7, key8, val1, val2, val3, val4, val5, val6, val7, val8
     );
@@ -570,7 +565,7 @@ __global__ void multiStep4Kernel(data_t *keys, data_t *values, int_t tableLen, u
         &key15, &key16, &val1, &val2, &val3, &val4, &val5, &val6, &val7, &val8, &val9, &val10, &val11, &val12,
         &val13, &val14, &val15, &val16
     );
-    store16<sortOrder>(
+    store16(
         keys + indexTable, values + indexTable, tableLen - indexTable - 1, tableOffset, stride, key1, key2,
         key3, key4, key5, key6, key7, key8, key9, key10, key11, key12, key13, key14, key15, key16, val1, val2,
         val3, val4, val5, val6, val7, val8, val9, val10, val11, val12, val13, val14, val15, val16
@@ -610,7 +605,7 @@ __global__ void multiStep5Kernel(data_t *keys, data_t *values, int_t tableLen, u
         &val10, &val11, &val12, &val13, &val14, &val15, &val16, &val17, &val18, &val19, &val20, &val21, &val22,
         &val23, &val24, &val25, &val26, &val27, &val28, &val29, &val30, &val31, &val32
     );
-    store32<sortOrder>(
+    store32(
         keys + indexTable, values + indexTable, tableLen - indexTable - 1, tableOffset, stride, key1, key2,
         key3, key4, key5, key6, key7, key8, key9, key10, key11, key12, key13, key14, key15, key16, key17,
         key18, key19, key20, key21, key22, key23, key24, key25, key26, key27, key28, key29, key30, key31,
