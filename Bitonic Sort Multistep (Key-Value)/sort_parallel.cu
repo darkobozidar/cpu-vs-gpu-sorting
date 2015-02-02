@@ -223,7 +223,7 @@ double sortParallel(
     {
         uint_t step = phase;
 
-        if (step > phasesMergeLocal && step == phase)
+        if (step > phasesMergeLocal)
         {
             // Global NORMALIZED bitonic merge for first step of phase, where different pattern of exchanges
             // is used compared to other steps
