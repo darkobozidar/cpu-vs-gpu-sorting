@@ -29,33 +29,22 @@ double sortSequential(data_t *&dataTable, data_t *&dataBuffer, uint_t tableLen, 
     LARGE_INTEGER timer;
     startStopwatch(&timer);
 
-    uint_t tableLenPower2 = nextPowerOf2(tableLen);
-
     // Log(tableLen) phases of merge sort
-    for (uint_t sortedBlockSize = 2; sortedBlockSize <= tableLenPower2; sortedBlockSize *= 2)
+    for (uint_t subBlockSize = 1; subBlockSize < tableLen; subBlockSize *= 2)
     {
         // Number of merged blocks that will be created in this iteration
-        uint_t numBlocks = (tableLen - 1) / sortedBlockSize + 1;
-        // Number of sub-blocks being merged
-        uint_t subBlockSize = sortedBlockSize / 2;
+        uint_t numBlocks = (tableLen - 1) / (2 * subBlockSize) + 1;
 
         // Merge of all blocks
         for (uint_t blockIndex = 0; blockIndex < numBlocks; blockIndex++)
         {
             // Odd (left) block being merged
-            uint_t oddIndex = blockIndex * sortedBlockSize;
+            uint_t oddIndex = blockIndex * (2 * subBlockSize);
             uint_t oddEnd = getEndIndex(oddIndex, subBlockSize, tableLen);
-
-            // If there is only odd block without even block, then only odd block is coppied into buffer
-            if (oddEnd == tableLen)
-            {
-                std::copy(dataTable + oddIndex, dataTable + oddEnd, dataBuffer + oddIndex);
-                continue;
-            }
-
             // Even (right) block being merged
             uint_t evenIndex = oddIndex + subBlockSize;
             uint_t evenEnd = getEndIndex(evenIndex, subBlockSize, tableLen);
+
             uint_t mergeIndex = oddIndex;
 
             // Merge of odd and even block
@@ -77,7 +66,7 @@ double sortSequential(data_t *&dataTable, data_t *&dataBuffer, uint_t tableLen, 
             }
 
             // Block that wasn't merged entirely is coppied into buffer array
-            if (oddIndex == oddEnd)
+            if (oddIndex >= oddEnd && evenIndex < evenEnd)
             {
                 std::copy(dataTable + evenIndex, dataTable + evenEnd, dataBuffer + mergeIndex);
             }
