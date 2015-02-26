@@ -41,7 +41,7 @@ void fillTableKeysOnly(data_t *keys, uint_t tableLen, uint_t interval, uint_t bu
 
             for (uint_t i = 0; i < tableLen; i++)
             {
-                data_t sum;
+                data_t sum = 0;
 
                 for (uint_t j = 0; j < numValues; j++)
                 {
