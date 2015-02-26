@@ -30,8 +30,6 @@ struct HostGlobalSequence
 {
     uint_t start;
     uint_t length;
-    uint_t oldStart;
-    uint_t oldLength;
     data_t minVal;
     data_t maxVal;
     direct_t direction;

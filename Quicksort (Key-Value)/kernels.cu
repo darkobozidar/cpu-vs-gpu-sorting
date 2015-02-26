@@ -428,13 +428,16 @@ __global__ void quickSortGlobalKernel(
 )
 {
     extern __shared__ data_t globalSortTile[];
+#if USE_REDUCTION_IN_GLOBAL_SORT
     data_t *minValues = globalSortTile;
     data_t *maxValues = globalSortTile + THREADS_PER_SORT_GLOBAL;
+    __shared__ uint_t numActiveThreads;
+#endif
 
     // Index of sequence, which this thread block is partitioning
     __shared__ uint_t seqIdx;
     // Start and length of the data assigned to this thread block
-    __shared__ uint_t localStart, localLength, numActiveThreads;
+    __shared__ uint_t localStart, localLength;
     __shared__ d_glob_seq_t sequence;
 
     if (threadIdx.x == (THREADS_PER_SORT_GLOBAL - 1))
@@ -448,7 +451,9 @@ __global__ void quickSortGlobalKernel(
         uint_t offset = localBlockIdx * elemsPerBlock;
         localStart = sequence.start + offset;
         localLength = offset + elemsPerBlock <= sequence.length ? elemsPerBlock : sequence.length - offset;
+#if USE_REDUCTION_IN_GLOBAL_SORT
         numActiveThreads = nextPowerOf2Device(min(THREADS_PER_SORT_GLOBAL, localLength));
+#endif
     }
     __syncthreads();
 

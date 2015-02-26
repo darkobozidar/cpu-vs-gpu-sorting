@@ -12,8 +12,6 @@ void HostGlobalSequence::setInitSeq(uint_t tableLen, data_t initMinVal, data_t i
 {
     start = 0;
     length = tableLen;
-    oldStart = start;
-    oldLength = length;
     minVal = initMinVal;
     maxVal = initMaxVal;
     direction = PRIMARY_MEM_TO_BUFFER;
@@ -21,10 +19,8 @@ void HostGlobalSequence::setInitSeq(uint_t tableLen, data_t initMinVal, data_t i
 
 void HostGlobalSequence::setLowerSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev)
 {
-    start = globalSeqHost.oldStart;
+    start = globalSeqHost.start;
     length = globalSeqDev.offsetLower;
-    oldStart = start;
-    oldLength = length;
     minVal = globalSeqHost.minVal;
 #if USE_REDUCTION_IN_GLOBAL_SORT
     maxVal = globalSeqDev.lowerSeqMaxVal;
@@ -36,10 +32,8 @@ void HostGlobalSequence::setLowerSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t gl
 
 void HostGlobalSequence::setGreaterSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev)
 {
-    start = globalSeqHost.oldStart + globalSeqHost.length - globalSeqDev.offsetGreater;
+    start = globalSeqHost.start + globalSeqHost.length - globalSeqDev.offsetGreater;
     length = globalSeqDev.offsetGreater;
-    oldStart = start;
-    oldLength = length;
 #if USE_REDUCTION_IN_GLOBAL_SORT
     minVal = globalSeqDev.greaterSeqMinVal;
 #else
@@ -86,14 +80,14 @@ void LocalSequence::setInitSeq(uint_t tableLen)
 
 void LocalSequence::setLowerSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev)
 {
-    start = globalSeqHost.oldStart;
+    start = globalSeqHost.start;
     length = globalSeqDev.offsetLower;
     direction = (direct_t)!globalSeqHost.direction;
 }
 
 void LocalSequence::setGreaterSeq(h_glob_seq_t globalSeqHost, d_glob_seq_t globalSeqDev)
 {
-    start = globalSeqHost.oldStart + globalSeqHost.length - globalSeqDev.offsetGreater;
+    start = globalSeqHost.start + globalSeqHost.length - globalSeqDev.offsetGreater;
     length = globalSeqDev.offsetGreater;
     direction = (direct_t)!globalSeqHost.direction;
 }
