@@ -39,32 +39,33 @@ __device__ uint_t binaryWarpScan(bool pred)
 /*
 Performs scan and computes, how many elements have 'true' predicate before current element.
 */
-__device__ uint_t intraWarpScan(volatile uint_t *scanTile, uint_t val, uint_t stride)
+template <uint_t blockSize>
+__device__ uint_t intraWarpScan(volatile uint_t *scanTile, uint_t val)
 {
     // The same kind of indexing as for bitonic sort
-    uint_t index = 2 * threadIdx.x - (threadIdx.x & (stride - 1));
+    uint_t index = 2 * threadIdx.x - (threadIdx.x & (min(blockSize, WARP_SIZE) - 1));
 
     scanTile[index] = 0;
-    index += stride;
+    index += min(blockSize, WARP_SIZE);
     scanTile[index] = val;
 
-    if (stride > 1)
+    if (blockSize >= 2)
     {
         scanTile[index] += scanTile[index - 1];
     }
-    if (stride > 2)
+    if (blockSize >= 4)
     {
         scanTile[index] += scanTile[index - 2];
     }
-    if (stride > 4)
+    if (blockSize >= 8)
     {
         scanTile[index] += scanTile[index - 4];
     }
-    if (stride > 8)
+    if (blockSize >= 16)
     {
         scanTile[index] += scanTile[index - 8];
     }
-    if (stride > 16)
+    if (blockSize >= 32)
     {
         scanTile[index] += scanTile[index - 16];
     }
@@ -76,6 +77,7 @@ __device__ uint_t intraWarpScan(volatile uint_t *scanTile, uint_t val, uint_t st
 /*
 Performs scan for provided predicates and returns structure of results for each predicate.
 */
+template <uint_t blockSize>
 __device__ uint_t intraBlockScan(
 #if (ELEMS_PER_THREAD_LOCAL >= 1)
     bool pred0
@@ -104,8 +106,8 @@ __device__ uint_t intraBlockScan(
 )
 {
     extern __shared__ uint_t scanTile[];
-    uint_t warpIdx = threadIdx.x / warpSize;
-    uint_t laneIdx = threadIdx.x & (warpSize - 1);
+    uint_t warpIdx = threadIdx.x / WARP_SIZE;
+    uint_t laneIdx = threadIdx.x & (WARP_SIZE - 1);
     uint_t warpResult = 0;
     uint_t predResult = 0;
     uint4 trueBefore;
@@ -144,16 +146,16 @@ __device__ uint_t intraBlockScan(
 #endif
     __syncthreads();
 
-    if (laneIdx == warpSize - 1)
+    if (laneIdx == WARP_SIZE - 1)
     {
         scanTile[warpIdx] = warpResult + predResult;
     }
     __syncthreads();
 
     // Maximum number of elements for scan is warpSize ^ 2
-    if (threadIdx.x < blockDim.x / warpSize)
+    if (threadIdx.x < blockDim.x / WARP_SIZE)
     {
-        scanTile[threadIdx.x] = intraWarpScan(scanTile, scanTile[threadIdx.x], blockDim.x / warpSize);
+        scanTile[threadIdx.x] = intraWarpScan<blockSize / WARP_SIZE>(scanTile, scanTile[threadIdx.x]);
     }
     __syncthreads();
 
@@ -255,7 +257,7 @@ __global__ void radixSortLocalKernel(data_t *dataTable, uint_t bitOffset)
         __syncthreads();
 
         // According to provided predicates calculates number of elements with true predicate before this thread.
-        uint_t trueBefore = intraBlockScan(
+        uint_t trueBefore = intraBlockScan<THREADS_PER_LOCAL_SORT>(
 #if (ELEMS_PER_THREAD_LOCAL >= 1)
             pred0
 #endif

@@ -55,4 +55,11 @@
 // Radix mask needed to to perform logical "& (AND)" operation in order to extract diggit from number.
 #define RADIX_MASK_SEQUENTIAL ((1 << BIT_COUNT_SEQUENTIAL) - 1)
 
+
+/* ------------ GENERAL DEVICE PARAMETERS ----------- */
+
+// These constants are needed in order to run C++ "templates", because variables cannot be used
+// How many threads are in warp (depending on device - for future compatibility)
+#define WARP_SIZE 32
+
 #endif
