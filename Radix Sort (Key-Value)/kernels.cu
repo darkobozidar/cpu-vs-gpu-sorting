@@ -153,7 +153,7 @@ __device__ uint_t intraBlockScan(
     __syncthreads();
 
     // Maximum number of elements for scan is warpSize ^ 2
-    if (threadIdx.x < blockDim.x / warpSize)
+    if (threadIdx.x < WARP_SIZE)
     {
         scanTile[threadIdx.x] = intraWarpScan<blockSize / WARP_SIZE>(scanTile, scanTile[threadIdx.x]);
     }
