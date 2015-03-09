@@ -134,6 +134,7 @@ double sortParallel(
     cudaError_t error;
 
     startStopwatch(&timer);
+    // Sorts blocks of input data with bitonic sort
     runBitoicSortKernel(d_keys, d_values, tableLen, sortOrder);
 
     // Bitonic merge

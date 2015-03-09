@@ -2,8 +2,16 @@
 #define SORT_PARALLEL_H
 
 #include "../Utils/data_types_common.h"
+#include "../Utils/sort_interface.h"
 
 
-double sortParallel(data_t *h_output, data_t *d_dataTable, uint_t tableLen, order_t sortOrder);
+class BitonicSortParallelKeyOnly : SortParallelKeyOnly
+{
+private:
+    void runBitoicSortKernel();
+    void runBitonicMergeGlobalKernel(uint_t phase, uint_t step);
+    void runBitoicMergeLocalKernel(uint_t phase, uint_t step);
+    void sortPrivate();
+};
 
 #endif

@@ -25,6 +25,8 @@ protected:
     data_t *h_keys = NULL;
     // Length of array
     uint_t arrayLength = 0;
+    // Sort order (ascending or descending)
+    order_t sortOrder;
 
     /*
     Executes the sort.
@@ -32,15 +34,16 @@ protected:
     void virtual sortPrivate();
 
 public:
-    SortSequentialKeyOnly(data_t *h_keys, uint_t arrayLength)
+    SortSequentialKeyOnly(data_t *h_keys, uint_t arrayLength, order_t sortOrder)
     {
         this->h_keys = h_keys;
         this->arrayLength = arrayLength;
+        this->sortOrder = sortOrder;
     }
 
     SortSequentialKeyOnly()
     {
-        SortSequentialKeyOnly(NULL, 0);
+        SortSequentialKeyOnly(NULL, 0, ORDER_ASC);
     }
 
     ~SortSequentialKeyOnly();
@@ -66,10 +69,15 @@ protected:
 
 public:
     SortSequentialKeyValue(
-        data_t *h_keys, data_t *h_values, uint_t arrayLength
-    ) : SortSequentialKeyOnly(h_keys, arrayLength)
+        data_t *h_keys, data_t *h_values, uint_t arrayLength, order_t sortOrder
+    ) : SortSequentialKeyOnly(h_keys, arrayLength, sortOrder)
     {
         this->h_values = h_values;
+    }
+
+    SortSequentialKeyValue()
+    {
+        SortSequentialKeyValue(NULL, NULL, 0, ORDER_ASC);
     }
 };
 
@@ -87,8 +95,8 @@ protected:
 
 public:
     SortParallelKeyOnly(
-        data_t *h_keys, uint_t arrayLength, bool memoryCopyAfterSort
-    ) : SortSequentialKeyOnly(h_keys, arrayLength)
+        data_t *h_keys, uint_t arrayLength, order_t sortOrder, bool memoryCopyAfterSort
+    ) : SortSequentialKeyOnly(h_keys, arrayLength, sortOrder)
     {
         cudaError_t error;
         this->memoryCopyAfterSort = memoryCopyAfterSort;
@@ -104,9 +112,19 @@ public:
         checkCudaError(error);
     }
 
+    SortParallelKeyOnly(data_t *h_keys, uint_t arrayLength, order_t sortOrder)
+    {
+        SortParallelKeyOnly(h_keys, arrayLength, sortOrder, true);
+    }
+
     SortParallelKeyOnly(data_t *h_keys, uint_t arrayLength)
     {
-        SortParallelKeyOnly(h_keys, arrayLength, true);
+        SortParallelKeyOnly(h_keys, arrayLength, ORDER_ASC, true);
+    }
+
+    SortParallelKeyOnly()
+    {
+        SortParallelKeyOnly(NULL, 0, ORDER_ASC, true);
     }
 
     ~SortParallelKeyOnly()
@@ -154,8 +172,8 @@ protected:
 
 public:
     SortParallelKeyValue(
-        data_t *h_keys, data_t *h_values, uint_t arrayLength, bool memoryCopyAfterSort
-    ) : SortParallelKeyOnly(h_keys, arrayLength, memoryCopyAfterSort)
+        data_t *h_keys, data_t *h_values, uint_t arrayLength, order_t sortOrder, bool memoryCopyAfterSort
+    ) : SortParallelKeyOnly(h_keys, arrayLength, sortOrder, memoryCopyAfterSort)
     {
         cudaError_t error;
         this->h_values = h_values;
@@ -171,9 +189,21 @@ public:
         checkCudaError(error);
     }
 
-    SortParallelKeyValue(data_t *h_keys, data_t *h_values, uint_t arrayLength, bool memoryCopyAfterSort)
+    SortParallelKeyValue(
+        data_t *h_keys, data_t *h_values, uint_t arrayLength, order_t sortOrder
+    )
     {
-        SortParallelKeyValue(h_keys, h_values, arrayLength, true);
+        SortParallelKeyValue(h_keys, h_values, arrayLength, sortOrder, true);
+    }
+
+    SortParallelKeyValue(data_t *h_keys, data_t *h_values, uint_t arrayLength)
+    {
+        SortParallelKeyValue(h_keys, h_values, arrayLength, ORDER_ASC, true);
+    }
+
+    SortParallelKeyValue()
+    {
+        SortParallelKeyValue(NULL, NULL, 0, ORDER_ASC, true);
     }
 
     ~SortParallelKeyValue()
