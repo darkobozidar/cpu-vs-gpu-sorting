@@ -28,9 +28,10 @@ enum SortOrder
 
 enum SortType
 {
-    SORT_PARALLEL,
-    SORT_SEQUENTIAL,
-    SORT_CORRECT
+    SORT_SEQUENTIAL_KEY_ONLY,
+    SORT_SEQUENTIAL_KEY_VALUE,
+    SORT_PARALLEL_KEY_ONLY,
+    SORT_PARALLEL_KEY_VALUE
 };
 
 enum DataDistribution

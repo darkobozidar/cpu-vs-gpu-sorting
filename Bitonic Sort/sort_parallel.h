@@ -5,7 +5,7 @@
 #include "../Utils/sort_interface.h"
 
 
-class BitonicSortParallelKeyOnly : SortParallelKeyOnly
+class BitonicSortParallelKeyOnly : public SortParallelKeyOnly
 {
 private:
     void runBitoicSortKernel();
