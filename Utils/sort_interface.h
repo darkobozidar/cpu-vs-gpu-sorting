@@ -15,9 +15,9 @@
 /*
 Base class for sorting.
 
-For testing purposes memory management methods are public, because data has to be copied from host to device, which
-shouldn't be timed with stopwatch. In practice entire sort can be done with method call sort(), because memory
-management is transparent.
+For testing purposes memory management methods are public, because data has to be copied from host to device,
+which shouldn't be timed with stopwatch. In practice entire sort can be done only with method call sort(), because
+memory management is already implemented in method sort.
 */
 class Sort
 {
@@ -55,9 +55,22 @@ public:
     void memoryDestroy() {}
 
     /*
+    Copies data from host to device. Needed only for parallel sorts.
+    */
+    void memoryCopyHostToDevice(data_t *h_keys, uint_t arrayLength) {}
+    void memoryCopyHostToDevice(data_t *h_keys, data_t *h_values, uint_t arrayLength) {}
+
+    /*
+    Copies data from device to host. Needed only for parallel sorts.
+    */
+    void memoryCopyDeviceToHost(data_t *h_keys, uint_t arrayLength) {}
+    void memoryCopyDeviceToHost(data_t *h_keys, data_t *h_values, uint_t arrayLength) {}
+
+    /*
     Provides a wrapper for private sort.
     */
-    void sort(data_t *h_keys, uint_t arrayLength);
+    void sort(data_t *h_keys, uint_t arrayLength) {}
+    void sort(data_t *h_keys, data_t *h_values, uint_t arrayLength) {}
 };
 
 
@@ -160,7 +173,7 @@ public:
     }
 
     /*
-    Copies data from host to device
+    Copies data from host to device.
     */
     void memoryCopyHostToDevice(data_t *h_keys, uint_t arrayLength)
     {
@@ -252,7 +265,7 @@ public:
     }
 
     /*
-    Copies data from host to device
+    Copies data from host to device.
     */
     void memoryCopyHostToDevice(data_t *h_keys, data_t *h_values, uint_t arrayLength)
     {

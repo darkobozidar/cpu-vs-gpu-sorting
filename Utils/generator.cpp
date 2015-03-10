@@ -150,14 +150,21 @@ void fillArrayKeyOnly(data_t *keys, uint_t tableLen, uint_t interval, data_dist_
 }
 
 /*
+Fills array with sequential (consequently unique) values.
+*/
+void fillArrayValueOnly(data_t *values, uint_t tableLen)
+{
+    for (uint_t i = 0; i < tableLen; i++)
+    {
+        values[i] = i;
+    }
+}
+
+/*
 Fills keys with random numbers and values with consectuive values (for stability test).
 */
 void fillArrayKeyValue(data_t *keys, data_t *values, uint_t tableLen, uint_t interval, data_dist_t distribution)
 {
     fillArrayKeyOnly(keys, tableLen, interval, distribution);
-
-    for (uint_t i = 0; i < tableLen; i++)
-    {
-        values[i] = i;
-    }
+    fillArrayValueOnly(values, tableLen);
 }

@@ -14,7 +14,7 @@ Creates folder if it doesn't already exist.
 */
 bool createFolder(char* folderName)
 {
-    return CreateDirectory(folderName, NULL);;
+    return CreateDirectory(folderName, NULL);
 }
 
 /*
