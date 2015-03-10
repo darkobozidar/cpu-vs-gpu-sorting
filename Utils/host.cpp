@@ -167,3 +167,20 @@ int roundUp(int numToRound, int multiple)
 
     return numToRound + multiple - remainder;
 }
+
+/*
+According to provided distribution returns distribution name.
+*/
+char* getDistributionName(data_dist_t distribution)
+{
+    switch (distribution)
+    {
+        case DISTRIBUTION_UNIFORM: return "uniform";
+        case DISTRIBUTION_GAUSSIAN: return "gaussian";
+        case DISTRIBUTION_ZERO: return "zero";
+        case DISTRIBUTION_BUCKET: return "bucket";
+        case DISTRIBUTION_STAGGERED: return "staggered";
+        case DISTRIBUTION_SORTED_ASC: return "sorted_asc";
+        case DISTRIBUTION_SORTED_DESC: return "sorder_desc";
+    }
+}

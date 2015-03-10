@@ -1,26 +1,49 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <map>
+#include <vector>
+#include <memory>
 
 #include "../Utils/data_types_common.h"
+#include "../Utils/sort_interface.h"
+#include "../Utils/host.h"
 
 
-/*
-Returns dictionary, which maps distribution enums to their names.
-*/
-std::map<data_dist_t, std::string> getDistributionMap()
+void stopwatchSorts()
 {
-    std::map<data_dist_t, std::string> mapDistribution;
-    mapDistribution[DISTRIBUTION_UNIFORM] = "Uniform";
-    mapDistribution[DISTRIBUTION_GAUSSIAN] = "Gaussian";
-    mapDistribution[DISTRIBUTION_ZERO] = "Zero";
-    mapDistribution[DISTRIBUTION_BUCKET] = "Bucket";
-    mapDistribution[DISTRIBUTION_STAGGERED] = "Staggered";
-    mapDistribution[DISTRIBUTION_SORTED_ASC] = "Sorted_asc";
-    mapDistribution[DISTRIBUTION_SORTED_DESC] = "Sorder_desc";
 
-    return mapDistribution;
+}
+
+void testSorts(
+    std::vector<Sort*> sorts, std::vector<data_dist_t> distributions, uint_t arrayLenStart, uint_t arrayLenEnd,
+    uint_t testRepetitions
+)
+{
+    for (std::vector<data_dist_t>::iterator dist = distributions.begin(); dist != distributions.end(); dist++)
+    {
+        for (uint_t arrayLength = arrayLenStart; arrayLength <= arrayLenEnd; arrayLength *= 2)
+        {
+            data_t *keys = (data_t*)malloc(arrayLength * sizeof(*keys));
+            data_t *values = (data_t*)malloc(arrayLength * sizeof(*values));
+
+            for (uint_t iter = 0; iter < testRepetitions; iter++)
+            {
+                printf("> Test repetition: %d\n", iter);
+                printf("> Distribution: %s\n", getDistributionName(*dist));
+                printf("> Array length: %d\n", arrayLength);
+                printf("> Data type: %s\n", typeid(data_t).name());
+
+                for (std::vector<Sort*>::iterator sort = sorts.begin(); sort != sorts.end(); sort++)
+                {
+
+                }
+
+                printf("\n");
+            }
+        }
+
+        printf("\n\n");
+    }
 }
 
 

@@ -14,5 +14,6 @@ bool isPowerOfTwo(uint_t value);
 uint_t nextPowerOf2(uint_t value);
 uint_t previousPowerOf2(uint_t value);
 int roundUp(int numToRound, int multiple);
+char* getDistributionName(data_dist_t distribution);
 
 #endif
