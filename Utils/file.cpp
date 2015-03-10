@@ -18,6 +18,14 @@ bool createFolder(char* folderName)
 }
 
 /*
+Creates folder if it doesn't already exist.
+*/
+bool createFolder(std::string folderName)
+{
+    return CreateDirectory(folderName.c_str(), NULL);
+}
+
+/*
 Reads array from file.
 */
 void readArrayFromFile(char *fileName, data_t *keys, uint_t arrayLength)

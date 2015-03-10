@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 #include <random>
 #include <Windows.h>
 
@@ -183,4 +184,29 @@ char* getDistributionName(data_dist_t distribution)
         case DISTRIBUTION_SORTED_ASC: return "sorted_asc";
         case DISTRIBUTION_SORTED_DESC: return "sorder_desc";
     }
+}
+
+/*
+Capitalizes string.
+*/
+std::string strCapitalize(std::string text)
+{
+    text[0] = toupper(text[0]);
+    return text;
+}
+
+/*
+Replaces specified characters in string.
+*/
+std::string strReplace(std::string text, char from, char to)
+{
+    for (int i = 0; i < text.length(); i++)
+    {
+        if (text[i] == from)
+        {
+            text[i] = to;
+        }
+    }
+
+    return text;
 }

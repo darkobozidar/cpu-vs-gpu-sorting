@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <math.h>
 #include <vector>
 #include <memory>
+#include <string>
 
 #include <cuda.h>
 #include "cuda_runtime.h"
@@ -17,17 +17,30 @@
 #include "constants.h"
 
 
+std::string folderPathDistribution(data_dist_t distribution)
+{
+    std::string distFolderName(FOLDER_SORT_TIMERS);
+    distFolderName += strCapitalize(getDistributionName(distribution));
+    return distFolderName;
+}
+
+std::string folderPathDataType(data_dist_t distribution)
+{
+    std::string distFolderName = folderPathDistribution(distribution);
+    return distFolderName + "/" + strReplace(typeid(data_t).name(), ' ', '_');
+}
+
 void createFolderStructure(std::vector<data_dist_t> distributions)
 {
     createFolder(FOLDER_SORT_ROOT);
     createFolder(FOLDER_SORT_TEMP);
     createFolder(FOLDER_SORT_TIMERS);
 
-    // For every distribution creates a folder
+    // Creates a folder for every distribution, inside which creates a folder for data type.
     for (std::vector<data_dist_t>::iterator dist = distributions.begin(); dist != distributions.end(); dist++)
     {
-        std::string folderName(FOLDER_SORT_TIMERS, strnlen(FOLDER_SORT_TIMERS, 100));
-        //createFolder(folderName + getDistributionName(*dist));
+        createFolder(folderPathDistribution(*dist));
+        createFolder(folderPathDataType(*dist));
     }
 }
 

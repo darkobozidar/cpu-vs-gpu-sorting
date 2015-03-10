@@ -2,6 +2,7 @@
 #define HOST_UTILS_H
 
 #include <windows.h>
+#include <string>
 
 void startStopwatch(LARGE_INTEGER* start);
 double endStopwatch(LARGE_INTEGER start, char* comment);
@@ -15,5 +16,7 @@ uint_t nextPowerOf2(uint_t value);
 uint_t previousPowerOf2(uint_t value);
 int roundUp(int numToRound, int multiple);
 char* getDistributionName(data_dist_t distribution);
+std::string strCapitalize(std::string str);
+std::string strReplace(std::string text, char from, char to);
 
 #endif
