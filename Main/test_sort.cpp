@@ -7,24 +7,34 @@
 #include "../Utils/data_types_common.h"
 #include "../Utils/sort_interface.h"
 #include "../Utils/host.h"
+#include "../Utils/file.h"
+#include "../Utils/generator.h"
+#include "constants.h"
 
 
-void stopwatchSorts()
+void stopwatchSorts(Sort sort, data_dist_t distribution, data_t *keys, data_t *values, uint_t arrayLength)
 {
-
+    readArrayFromFile(FILE_UNSORTED_ARRAY, keys, arrayLength);
 }
 
 void testSorts(
     std::vector<Sort*> sorts, std::vector<data_dist_t> distributions, uint_t arrayLenStart, uint_t arrayLenEnd,
-    uint_t testRepetitions
+    uint_t testRepetitions, uint_t interval
 )
 {
+    createFolder(FOLDER_SORT_STATS);
+    createFolder(FOLDER_SORT_TEMP);
+
     for (std::vector<data_dist_t>::iterator dist = distributions.begin(); dist != distributions.end(); dist++)
     {
         for (uint_t arrayLength = arrayLenStart; arrayLength <= arrayLenEnd; arrayLength *= 2)
         {
             data_t *keys = (data_t*)malloc(arrayLength * sizeof(*keys));
+            checkMallocError(keys);
             data_t *values = (data_t*)malloc(arrayLength * sizeof(*values));
+            checkMallocError(values);
+
+            fillArrayKeyOnly(keys, arrayLength, interval, *dist);
 
             for (uint_t iter = 0; iter < testRepetitions; iter++)
             {
@@ -33,13 +43,18 @@ void testSorts(
                 printf("> Array length: %d\n", arrayLength);
                 printf("> Data type: %s\n", typeid(data_t).name());
 
+                saveArrayToFile(FILE_UNSORTED_ARRAY, keys, arrayLength);
+
                 for (std::vector<Sort*>::iterator sort = sorts.begin(); sort != sorts.end(); sort++)
                 {
-
+                    stopwatchSorts(**sort, *dist, keys, values, arrayLength);
                 }
 
                 printf("\n");
             }
+
+            free(keys);
+            free(values);
         }
 
         printf("\n\n");

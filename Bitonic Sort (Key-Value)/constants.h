@@ -1,5 +1,5 @@
-#ifndef CONSTANTS_H
-#define CONSTANTS_H
+#ifndef BITONIC_KEY_CONSTANTS_H
+#define BITONIC_KEY_CONSTANTS_H
 
 
 /* ---------------- BITONIC SORT KERNEL -------------- */

@@ -19,7 +19,7 @@ uint_t generatorCalls = 0;
 /*
 Fills keys with random numbers.
 */
-void fillTableKeysOnly(data_t *keys, uint_t tableLen, uint_t interval, uint_t bucketSize, data_dist_t distribution)
+void fillArrayKeyOnly(data_t *keys, uint_t tableLen, uint_t interval, uint_t bucketSize, data_dist_t distribution)
 {
     auto seed = chrono::high_resolution_clock::now().time_since_epoch().count() + generatorCalls++;
     auto generator = std::bind(std::uniform_int_distribution<data_t>(0, interval), mt19937_64(seed));
@@ -144,17 +144,17 @@ void fillTableKeysOnly(data_t *keys, uint_t tableLen, uint_t interval, uint_t bu
 /*
 Fills keys with random values on provided interval.
 */
-void fillTableKeysOnly(data_t *keys, uint_t tableLen, uint_t interval, data_dist_t distribution)
+void fillArrayKeyOnly(data_t *keys, uint_t tableLen, uint_t interval, data_dist_t distribution)
 {
-    fillTableKeysOnly(keys, tableLen, interval, getMaxThreadsPerBlock(), distribution);
+    fillArrayKeyOnly(keys, tableLen, interval, getMaxThreadsPerBlock(), distribution);
 }
 
 /*
 Fills keys with random numbers and values with consectuive values (for stability test).
 */
-void fillTableKeyValue(data_t *keys, data_t *values, uint_t tableLen, uint_t interval, data_dist_t distribution)
+void fillArrayKeyValue(data_t *keys, data_t *values, uint_t tableLen, uint_t interval, data_dist_t distribution)
 {
-    fillTableKeysOnly(keys, tableLen, interval, distribution);
+    fillArrayKeyOnly(keys, tableLen, interval, distribution);
 
     for (uint_t i = 0; i < tableLen; i++)
     {
