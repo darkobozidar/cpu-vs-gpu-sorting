@@ -15,7 +15,9 @@
 /*
 Base class for sorting.
 
-For testing purposes memory management methods are public.
+For testing purposes memory management methods are public, because data has to be copied from host to device, which
+shouldn't be timed with stopwatch. In practice entire sort can be done with method call sort(), because memory
+management is transparent.
 */
 class Sort
 {
@@ -26,8 +28,6 @@ protected:
     uint_t arrayLength = 0;
     // Sort order (ascending or descending)
     order_t sortOrder = ORDER_ASC;
-    // Sort type
-    sort_type_t sortType = (sort_type_t) NULL;
 
     /*
     Executes the sort.
@@ -35,6 +35,9 @@ protected:
     void sortPrivate();
 
 public:
+    // Sort type
+    sort_type_t sortType = (sort_type_t)NULL;
+
     Sort(){};
     ~Sort()
     {
@@ -63,6 +66,7 @@ Base class for sequential sort of keys only.
 */
 class SortSequentialKeyOnly : Sort
 {
+public:
     // Sequential sort for keys only
     sort_type_t sortType = SORT_SEQUENTIAL_KEY_ONLY;
 
@@ -94,6 +98,8 @@ class SortSequentialKeyValue : public Sort
 protected:
     // Array of values on host
     data_t *h_values = NULL;
+
+public:
     // Sequential sort for key-value pairs
     sort_type_t sortType = SORT_SEQUENTIAL_KEY_VALUE;
 
@@ -130,10 +136,11 @@ protected:
     bool memoryCopiedToDevice = false;
     // Designates if data should be copied from device to host after the sort is completed
     bool memoryCopyAfterSort = true;
+
+public:
     // Parallel sort for keys only
     sort_type_t sortType = SORT_PARALLEL_KEY_ONLY;
 
-public:
     /*
     Method for allocating memory needed for sort.
     */
