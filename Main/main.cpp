@@ -35,7 +35,7 @@ int main(int argc, char **argv)
     std::vector<Sort*> sortAlgorithms;
     sortAlgorithms.push_back(new BitonicSortParallelKeyOnly());
 
-    testSorts(sortAlgorithms, distributions, arrayLenStart, arrayLenEnd, testRepetitions, interval);
+    testSorts(sortAlgorithms, distributions, arrayLenStart, arrayLenEnd, sortOrder, testRepetitions, interval);
 
     getchar();
     return 0;

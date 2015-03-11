@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string>
 
 #include <cuda.h>
 #include "cuda_runtime.h"
@@ -32,11 +33,13 @@ protected:
     /*
     Executes the sort.
     */
-    void sortPrivate();
+    virtual void sortPrivate() {}
 
 public:
     // Sort type
     sort_type_t sortType = (sort_type_t)NULL;
+    // Name of the sorting algorithm
+    std::string name = "Sort Name";
 
     Sort(){};
     ~Sort()
@@ -47,30 +50,30 @@ public:
     /*
     Method for allocating memory needed for sort.
     */
-    void memoryAllocate(uint_t arrayLength) {}
+    virtual void memoryAllocate(uint_t arrayLength) {}
 
     /*
     Method for destroying memory needed for sort.
     */
-    void memoryDestroy() {}
+    virtual void memoryDestroy() {}
 
     /*
     Copies data from host to device. Needed only for parallel sorts.
     */
-    void memoryCopyHostToDevice(data_t *h_keys, uint_t arrayLength) {}
-    void memoryCopyHostToDevice(data_t *h_keys, data_t *h_values, uint_t arrayLength) {}
+    virtual void memoryCopyHostToDevice(data_t *h_keys, uint_t arrayLength) {}
+    virtual void memoryCopyHostToDevice(data_t *h_keys, data_t *h_values, uint_t arrayLength) {}
 
     /*
     Copies data from device to host. Needed only for parallel sorts.
     */
-    void memoryCopyDeviceToHost(data_t *h_keys, uint_t arrayLength) {}
-    void memoryCopyDeviceToHost(data_t *h_keys, data_t *h_values, uint_t arrayLength) {}
+    virtual void memoryCopyDeviceToHost(data_t *h_keys, uint_t arrayLength) {}
+    virtual void memoryCopyDeviceToHost(data_t *h_keys, data_t *h_values, uint_t arrayLength) {}
 
     /*
     Provides a wrapper for private sort.
     */
-    void sort(data_t *h_keys, uint_t arrayLength) {}
-    void sort(data_t *h_keys, data_t *h_values, uint_t arrayLength) {}
+    virtual void sort(data_t *h_keys, uint_t arrayLength, order_t sortOrder) {}
+    virtual void sort(data_t *h_keys, data_t *h_values, uint_t arrayLength, order_t sortOrder) {}
 };
 
 

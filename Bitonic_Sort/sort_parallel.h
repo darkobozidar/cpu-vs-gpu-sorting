@@ -12,6 +12,9 @@ private:
     void runBitonicMergeGlobalKernel(uint_t phase, uint_t step);
     void runBitoicMergeLocalKernel(uint_t phase, uint_t step);
     void sortPrivate();
+
+public:
+    std::string name = "Bitonic sort parallel key only";
 };
 
 #endif

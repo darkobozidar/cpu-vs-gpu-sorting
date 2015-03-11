@@ -4,6 +4,7 @@
 #include <vector>
 #include <memory>
 #include <string>
+#include <fstream>
 
 #include <cuda.h>
 #include "cuda_runtime.h"
@@ -44,27 +45,36 @@ void createFolderStructure(std::vector<data_dist_t> distributions)
     }
 }
 
-void writeSortTimeToFile(Sort sort, data_dist_t distribution, double time)
+void writeSortTimeToFile(Sort sort, data_dist_t distribution, double time, bool isLastTest)
 {
-    // TODO
+    std::string filePath = folderPathDataType(distribution) + "/" + strReplace(sort.name, ' ', '_') + ".txt";
+    std::fstream file;
+    file.open(filePath, std::fstream::app);
+
+    file << time;
+    file << (isLastTest ? "\n" : "\t");
+
+    file.close();
 }
 
 
-void stopwatchSort(Sort sort, data_dist_t distribution, data_t *keys, data_t *values, uint_t arrayLength)
+double stopwatchSort(
+    Sort *sort, data_dist_t distribution, data_t *keys, data_t *values, uint_t arrayLength, order_t sortOrder
+)
 {
     readArrayFromFile(FILE_UNSORTED_ARRAY, keys, arrayLength);
 
     // Memory management before sort, which shouldn't be timed with stopwatch
-    sort.memoryAllocate(arrayLength);
-    if (sort.sortType == SORT_PARALLEL_KEY_ONLY)
+    sort->memoryAllocate(arrayLength);
+    if (sort->sortType == SORT_PARALLEL_KEY_ONLY)
     {
-        sort.memoryCopyHostToDevice(keys, arrayLength);
+        sort->memoryCopyHostToDevice(keys, arrayLength);
         cudaDeviceSynchronize();
     }
-    else if (sort.sortType == SORT_PARALLEL_KEY_VALUE)
+    else if (sort->sortType == SORT_PARALLEL_KEY_VALUE)
     {
         fillArrayValueOnly(values, arrayLength);
-        sort.memoryCopyHostToDevice(keys, values, arrayLength);
+        sort->memoryCopyHostToDevice(keys, values, arrayLength);
         cudaDeviceSynchronize();
     }
 
@@ -72,31 +82,31 @@ void stopwatchSort(Sort sort, data_dist_t distribution, data_t *keys, data_t *va
     startStopwatch(&timer);
 
     // Sort depending if it sorts only keys or key-value pairs
-    if (sort.sortType == SORT_SEQUENTIAL_KEY_ONLY || sort.sortType == SORT_PARALLEL_KEY_ONLY)
+    if (sort->sortType == SORT_SEQUENTIAL_KEY_ONLY || sort->sortType == SORT_PARALLEL_KEY_ONLY)
     {
-        sort.sort(keys, arrayLength);
+        sort->sort(keys, arrayLength, sortOrder);
     }
     else
     {
-        sort.sort(keys, values, arrayLength);
+        sort->sort(keys, values, arrayLength, sortOrder);
     }
 
     // In case of parallel sort we have to wait for device to finish
-    if (sort.sortType == SORT_PARALLEL_KEY_ONLY || sort.sortType == SORT_PARALLEL_KEY_VALUE)
+    if (sort->sortType == SORT_PARALLEL_KEY_ONLY || sort->sortType == SORT_PARALLEL_KEY_VALUE)
     {
         cudaError_t error = cudaDeviceSynchronize();
         checkCudaError(error);
     }
 
     double time = endStopwatch(timer);
-    writeSortTimeToFile(sort, distribution, time);
+    sort->memoryDestroy();
 
-    sort.memoryDestroy();
+    return time;
 }
 
 void testSorts(
     std::vector<Sort*> sorts, std::vector<data_dist_t> distributions, uint_t arrayLenStart, uint_t arrayLenEnd,
-    uint_t testRepetitions, uint_t interval
+    order_t sortOrder, uint_t testRepetitions, uint_t interval
 )
 {
     createFolderStructure(distributions);
@@ -123,7 +133,8 @@ void testSorts(
 
                 for (std::vector<Sort*>::iterator sort = sorts.begin(); sort != sorts.end(); sort++)
                 {
-                    stopwatchSort(**sort, *dist, keys, values, arrayLength);
+                    double time = stopwatchSort(*sort, *dist, keys, values, arrayLength, sortOrder);
+                    writeSortTimeToFile(**sort, *dist, time, iter == testRepetitions - 1);
                 }
 
                 printf("\n");
