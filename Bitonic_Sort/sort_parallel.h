@@ -1,5 +1,5 @@
-#ifndef SORT_PARALLEL_H
-#define SORT_PARALLEL_H
+#ifndef BITONIC_SORT_PARALLEL_KEY_ONLY_H
+#define BITONIC_SORT_PARALLEL_KEY_ONLY_H
 
 #include "../Utils/data_types_common.h"
 #include "../Utils/sort_interface.h"

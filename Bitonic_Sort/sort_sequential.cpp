@@ -3,24 +3,21 @@
 #include <math.h>
 
 #include "../Utils/data_types_common.h"
-#include "../Utils/host.h"
+#include "sort_sequential.h"
 
 
 /*
 Sorts data sequentially with NORMALIZED bitonic sort.
 */
-double sortSequential(data_t *dataTable, uint_t tableLen, order_t sortOrder)
+void BitonicSortSequentialKeyOnly::sortPrivate()
 {
-    LARGE_INTEGER timer;
-    startStopwatch(&timer);
-
-    for (uint_t subBlockSize = 1; subBlockSize < tableLen; subBlockSize <<= 1)
+    for (uint_t subBlockSize = 1; subBlockSize < this->arrayLength; subBlockSize <<= 1)
     {
         for (uint_t stride = subBlockSize; stride > 0; stride >>= 1)
         {
             bool isFirstStepOfPhase = stride == subBlockSize;
 
-            for (uint_t el = 0; el < tableLen >> 1; el++)
+            for (uint_t el = 0; el < this->arrayLength >> 1; el++)
             {
                 uint_t index = el;
                 uint_t offset = stride;
@@ -35,20 +32,18 @@ double sortSequential(data_t *dataTable, uint_t tableLen, order_t sortOrder)
                 // Calculates index of left and right element, which are candidates for exchange
                 uint_t indexLeft = (index << 1) - (index & (stride - 1));
                 uint_t indexRight = indexLeft + offset;
-                if (indexRight >= tableLen)
+                if (indexRight >= this->arrayLength)
                 {
                     break;
                 }
 
-                if ((dataTable[indexLeft] > dataTable[indexRight]) ^ sortOrder)
+                if ((this->h_keys[indexLeft] > this->h_keys[indexRight]) ^ this->sortOrder)
                 {
-                    data_t temp = dataTable[indexLeft];
-                    dataTable[indexLeft] = dataTable[indexRight];
-                    dataTable[indexRight] = temp;
+                    data_t temp = this->h_keys[indexLeft];
+                    this->h_keys[indexLeft] = this->h_keys[indexRight];
+                    this->h_keys[indexRight] = temp;
                 }
             }
         }
     }
-
-    return endStopwatch(timer);
 }

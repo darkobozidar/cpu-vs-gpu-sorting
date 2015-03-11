@@ -229,7 +229,7 @@ double stopwatchSort(
 Times sort with stopwatch, checks if sort is stable and checks if sort is ordering data correctly, than saves
 this statistics to file.
 */
-void writeStatisticsToFile(
+void generateStatistics(
     Sort *sort, data_dist_t distribution, data_t *keys, data_t *values, uint_t arrayLength, order_t sortOrder,
     bool isLastTestRepetition
 )
@@ -289,7 +289,7 @@ void testSorts(
 
                 for (std::vector<Sort*>::iterator sort = sorts.begin(); sort != sorts.end(); sort++)
                 {
-                    writeStatisticsToFile(
+                    generateStatistics(
                         *sort, *dist, keys, values, arrayLength, sortOrder, iter == testRepetitions - 1
                     );
                 }

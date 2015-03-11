@@ -108,7 +108,7 @@ public:
 /*
 Base class for sequential sort of keys only.
 */
-class SortSequentialKeyOnly : Sort
+class SortSequentialKeyOnly : public Sort
 {
 protected:
     // Sequential sort for keys only
