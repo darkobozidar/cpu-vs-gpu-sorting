@@ -16,6 +16,7 @@
 
 #include "../Bitonic_Sort/sort_parallel.h"
 #include "../Bitonic_Sort/sort_sequential.h"
+#include "../QuicksortKeyValue/sort_parallel.h"
 
 #include "test_sort.h"
 
@@ -34,6 +35,7 @@ int main(int argc, char **argv)
 
     // Sorting algorithms
     std::vector<Sort*> sortAlgorithms;
+    sortAlgorithms.push_back(new QuicksortParallelKeyValue());
     sortAlgorithms.push_back(new BitonicSortSequentialKeyOnly());
     sortAlgorithms.push_back(new BitonicSortParallelKeyOnly());
 

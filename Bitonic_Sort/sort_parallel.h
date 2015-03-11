@@ -8,12 +8,12 @@
 class BitonicSortParallelKeyOnly : public SortParallelKeyOnly
 {
 private:
+    std::string sortName = "Bitonic sort parallel key only";
+
     void runBitoicSortKernel();
     void runBitonicMergeGlobalKernel(uint_t phase, uint_t step);
     void runBitoicMergeLocalKernel(uint_t phase, uint_t step);
     void sortPrivate();
-
-    std::string sortName = "Bitonic sort parallel key only";
 
 public:
     std::string getSortName()

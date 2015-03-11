@@ -216,10 +216,20 @@ double stopwatchSort(
     {
         cudaError_t error = cudaDeviceSynchronize();
         checkCudaError(error);
-        sort->memoryCopyDeviceToHost(keys, arrayLength);
     }
 
     double time = endStopwatch(timer);
+
+    // In parallel sorts data has to be copied from device to host
+    if (sort->getSortType() == SORT_PARALLEL_KEY_ONLY)
+    {
+        sort->memoryCopyDeviceToHost(keys, arrayLength);
+    }
+    else if (sort->getSortType() == SORT_PARALLEL_KEY_VALUE)
+    {
+        sort->memoryCopyDeviceToHost(keys, values, arrayLength);
+    }
+
     sort->memoryDestroy();
 
     return time;

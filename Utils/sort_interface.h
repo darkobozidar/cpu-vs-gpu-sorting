@@ -287,7 +287,7 @@ public:
         // Allocates keys
         SortParallelKeyOnly::memoryAllocate(h_keys, arrayLength);
         // Allocates values
-        cudaError_t error = cudaMalloc((void **)this->d_values, arrayLength * sizeof(*(this->d_values)));
+        cudaError_t error = cudaMalloc((void **)&this->d_values, arrayLength * sizeof(*(this->d_values)));
         checkCudaError(error);
     }
 

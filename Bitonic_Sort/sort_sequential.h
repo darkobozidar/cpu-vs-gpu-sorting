@@ -8,9 +8,9 @@
 class BitonicSortSequentialKeyOnly : public SortSequentialKeyOnly
 {
 private:
-    void sortPrivate();
-
     std::string sortName = "Bitonic sort sequential key only";
+
+    void sortPrivate();
 
 public:
     std::string getSortName()
