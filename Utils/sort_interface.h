@@ -16,7 +16,7 @@
 /*
 Base class for sorting.
 
-For testing purposes memory management methods are public, because data has to be copied from host to device,
+For testing purposes memory management methods were made public, because data has to be copied from host to device,
 which shouldn't be timed with stopwatch. In practice entire sort can be done only with method call sort(), because
 memory management is already implemented in method sort.
 */

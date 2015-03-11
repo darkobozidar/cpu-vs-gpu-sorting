@@ -14,8 +14,8 @@
 #include "../Utils/cuda.h"
 #include "../Utils/sort_interface.h"
 
-#include "../Bitonic_Sort/sort_parallel.h"
-#include "../Bitonic_Sort/sort_sequential.h"
+#include "../BitonicSort/sort_parallel.h"
+#include "../BitonicSort/sort_sequential.h"
 #include "../QuicksortKeyValue/sort_sequential.h"
 #include "../QuicksortKeyValue/sort_parallel.h"
 
@@ -24,8 +24,8 @@
 
 int main(int argc, char **argv)
 {
-    uint_t arrayLenStart = (1 << 5);
-    uint_t arrayLenEnd = (1 << 10);
+    uint_t arrayLenStart = (1 << 20);
+    uint_t arrayLenEnd = (1 << 20);
     uint_t interval = MAX_VAL;
     uint_t testRepetitions = 10;    // How many times are sorts ran
     order_t sortOrder = ORDER_ASC;  // Values: ORDER_ASC, ORDER_DESC
@@ -36,10 +36,10 @@ int main(int argc, char **argv)
 
     // Sorting algorithms
     std::vector<Sort*> sortAlgorithms;
-    sortAlgorithms.push_back(new QuicksortParallelKeyValue());
     sortAlgorithms.push_back(new BitonicSortSequentialKeyOnly());
-    sortAlgorithms.push_back(new QuicksortSequentialKeyValue());
     sortAlgorithms.push_back(new BitonicSortParallelKeyOnly());
+    sortAlgorithms.push_back(new QuicksortSequentialKeyValue());
+    sortAlgorithms.push_back(new QuicksortParallelKeyValue());
 
     // This is needed only for testing puproses, because data transfer from device to host shouldn't be stopwatched.
     for (std::vector<Sort*>::iterator sort = sortAlgorithms.begin(); sort != sortAlgorithms.end(); sort++)

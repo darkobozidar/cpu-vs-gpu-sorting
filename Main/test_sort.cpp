@@ -133,7 +133,7 @@ bool isSortStable(data_t *keys, data_t *values, uint_t arrayLength)
     }
 
     // Generally not needed
-    // checkValuesUniqueness(values, tableLen);
+    // checkValuesUniqueness(values, arrayLength);
 
     for (uint_t i = 1; i < arrayLength; i++)
     {
