@@ -57,9 +57,9 @@ Folder path to specified distribution.
 */
 std::string folderPathDistribution(data_dist_t distribution)
 {
-    std::string distFolderName(FOLDER_SORT_ROOT);
+    std::string distFolderName(FOLDER_SORT_TIMERS);
     distFolderName += strCapitalize(getDistributionName(distribution));
-    return distFolderName;
+    return distFolderName + "/";
 }
 
 /*
@@ -68,7 +68,7 @@ Folder path to data type of specified distribution.
 std::string folderPathDataType(data_dist_t distribution)
 {
     std::string distFolderName = folderPathDistribution(distribution);
-    return distFolderName + "/" + strReplace(typeid(data_t).name(), ' ', '_');
+    return distFolderName + strSlugify(typeid(data_t).name()) + "/";
 }
 
 /*
@@ -78,15 +78,15 @@ void createFolderStructure(std::vector<data_dist_t> distributions)
 {
     createFolder(FOLDER_SORT_ROOT);
     createFolder(FOLDER_SORT_TEMP);
+    createFolder(FOLDER_SORT_TIMERS);
+    createFolder(FOLDER_SORT_CORRECTNESS);
+    createFolder(FOLDER_SORT_STABILITY);
 
     // Creates a folder for every distribution, inside which creates a folder for data type.
     for (std::vector<data_dist_t>::iterator dist = distributions.begin(); dist != distributions.end(); dist++)
     {
         createFolder(folderPathDistribution(*dist));
         createFolder(folderPathDataType(*dist));
-        createFolder(folderPathDataType(*dist) + "/" + FOLDER_SORT_TIMERS);
-        createFolder(folderPathDataType(*dist) + "/" + FOLDER_SORT_CORRECTNESS);
-        createFolder(folderPathDataType(*dist) + "/" + FOLDER_SORT_STABILITY);
     }
 }
 
@@ -148,22 +148,48 @@ bool isSortStable(data_t *keys, data_t *values, uint_t arrayLength)
 }
 
 /*
-Writes number to file. This could be sort time, sort correctness or sort stability.
+Writes the time to file
 */
-void writeNumberToFile(
-    Sort *sort, data_dist_t distribution, std::string folder, double number, bool isLastTestRepetition
-)
+void writeTimeToFile(Sort *sort, data_dist_t distribution, double time, bool isLastTestRepetition)
 {
     std::string folderDataType = folderPathDataType(distribution);
-    std::string folderTimers = folderDataType + "/" + folder;
-    std::string filePath = folderTimers + strSlugify(sort->getSortName()) + FILE_EXTENSION;
+    std::string filePath = folderDataType + strSlugify(sort->getSortName()) + FILE_EXTENSION;
     std::fstream file;
     file.open(filePath, std::fstream::app);
 
-    file << number;
-    file << (isLastTestRepetition ? FILE_NEW_LINE : FILE_SEPARATOR_CHAR);
+    file << time;
+    file << (isLastTestRepetition ? FILE_NEW_LINE_CHAR : FILE_SEPARATOR_CHAR);
 
     file.close();
+}
+
+/*
+Writes bolean to a file. Needed to write sort correctness and sort stability.
+*/
+void writeBoleanToFile(
+    std::string folderName, bool val, Sort *sort, data_dist_t distribution, uint_t arrayLength, order_t sortOrder
+)
+{
+    std::string filePath = folderName + strSlugify(sort->getSortName()) + FILE_EXTENSION;
+    std::fstream file;
+
+    // Outputs bolean
+    file.open(filePath, std::fstream::app);
+    file << val << FILE_SEPARATOR_CHAR;
+    file.close();
+
+    // Prints log in case if bolean is false
+    if (!val)
+    {
+        std::string fileLog = folderName + FILE_LOG_PREFIX + strSlugify(sort->getSortName()) + FILE_EXTENSION;
+
+        file.open(fileLog, std::fstream::app);
+        file << getDistributionName(distribution) << " ";
+        file << arrayLength << " ";
+        file << (sortOrder == ORDER_ASC ? "ASC" : "DESC");
+        file << FILE_NEW_LINE_CHAR;
+        file.close();
+    }
 }
 
 /*
@@ -245,21 +271,21 @@ void generateStatistics(
 )
 {
     double time = stopwatchSort(sort, distribution, keys, values, arrayLength, sortOrder);
-    writeNumberToFile(sort, distribution, FOLDER_SORT_TIMERS, time, isLastTestRepetition);
+    writeTimeToFile(sort, distribution, time, isLastTestRepetition);
 
     // Key-value sort has to be tested for stability
     int_t isStable = -1;
     if (sort->getSortType() == SORT_SEQUENTIAL_KEY_VALUE || sort->getSortType() == SORT_PARALLEL_KEY_VALUE)
     {
         isStable = isSortStable(keys, values, arrayLength);
-        writeNumberToFile(sort, distribution, FOLDER_SORT_STABILITY, isStable, isLastTestRepetition);
+        writeBoleanToFile(FOLDER_SORT_STABILITY, isStable, sort, distribution, arrayLength, sortOrder);
     }
 
     // In order to use less space, array for values is used as container for correctly sorted array
     data_t *correctlySortedKeys = values;
     readArrayFromFile(FILE_SORTED_ARRAY, correctlySortedKeys, arrayLength);
     bool isCorrect = compareArrays(keys, correctlySortedKeys, arrayLength);
-    writeNumberToFile(sort, distribution, FOLDER_SORT_CORRECTNESS, isCorrect, isLastTestRepetition);
+    writeBoleanToFile(FOLDER_SORT_CORRECTNESS, isCorrect, sort, distribution, arrayLength, sortOrder);
 
     printSortStatistics(sort, time, isCorrect, isStable, arrayLength);
 }
