@@ -45,9 +45,9 @@ void createFolderStructure(std::vector<data_dist_t> distributions)
     }
 }
 
-void writeSortTimeToFile(Sort sort, data_dist_t distribution, double time, bool isLastTest)
+void writeSortTimeToFile(Sort *sort, data_dist_t distribution, double time, bool isLastTest)
 {
-    std::string filePath = folderPathDataType(distribution) + "/" + strReplace(sort.name, ' ', '_') + ".txt";
+    std::string filePath = folderPathDataType(distribution) + "/" + strReplace(sort->getSortName(), ' ', '_') + ".txt";
     std::fstream file;
     file.open(filePath, std::fstream::app);
 
@@ -57,21 +57,32 @@ void writeSortTimeToFile(Sort sort, data_dist_t distribution, double time, bool 
     file.close();
 }
 
-
+/*
+Allocates memory, performs sorts and times it with stopwatch, destroys extra memory and returns time.
+*/
 double stopwatchSort(
     Sort *sort, data_dist_t distribution, data_t *keys, data_t *values, uint_t arrayLength, order_t sortOrder
 )
 {
     readArrayFromFile(FILE_UNSORTED_ARRAY, keys, arrayLength);
 
-    // Memory management before sort, which shouldn't be timed with stopwatch
-    sort->memoryAllocate(arrayLength);
-    if (sort->sortType == SORT_PARALLEL_KEY_ONLY)
+    // Allocates memory key only sort OR key-value sort
+    if (sort->getSortType() == SORT_SEQUENTIAL_KEY_ONLY || sort->getSortType() == SORT_PARALLEL_KEY_ONLY)
+    {
+        sort->memoryAllocate(keys, arrayLength);
+    }
+    else
+    {
+        sort->memoryAllocate(keys, values, arrayLength);
+    }
+
+    // Memory data transfer for parallel sorts
+    if (sort->getSortType() == SORT_PARALLEL_KEY_ONLY)
     {
         sort->memoryCopyHostToDevice(keys, arrayLength);
         cudaDeviceSynchronize();
     }
-    else if (sort->sortType == SORT_PARALLEL_KEY_VALUE)
+    else if (sort->getSortType() == SORT_PARALLEL_KEY_VALUE)
     {
         fillArrayValueOnly(values, arrayLength);
         sort->memoryCopyHostToDevice(keys, values, arrayLength);
@@ -82,7 +93,7 @@ double stopwatchSort(
     startStopwatch(&timer);
 
     // Sort depending if it sorts only keys or key-value pairs
-    if (sort->sortType == SORT_SEQUENTIAL_KEY_ONLY || sort->sortType == SORT_PARALLEL_KEY_ONLY)
+    if (sort->getSortType() == SORT_SEQUENTIAL_KEY_ONLY || sort->getSortType() == SORT_PARALLEL_KEY_ONLY)
     {
         sort->sort(keys, arrayLength, sortOrder);
     }
@@ -91,8 +102,8 @@ double stopwatchSort(
         sort->sort(keys, values, arrayLength, sortOrder);
     }
 
-    // In case of parallel sort we have to wait for device to finish
-    if (sort->sortType == SORT_PARALLEL_KEY_ONLY || sort->sortType == SORT_PARALLEL_KEY_VALUE)
+    // Waits for device to finish
+    if (sort->getSortType() == SORT_PARALLEL_KEY_ONLY || sort->getSortType() == SORT_PARALLEL_KEY_VALUE)
     {
         cudaError_t error = cudaDeviceSynchronize();
         checkCudaError(error);
@@ -104,6 +115,9 @@ double stopwatchSort(
     return time;
 }
 
+/*
+Tests all provided sorts for all provided distributions.
+*/
 void testSorts(
     std::vector<Sort*> sorts, std::vector<data_dist_t> distributions, uint_t arrayLenStart, uint_t arrayLenEnd,
     order_t sortOrder, uint_t testRepetitions, uint_t interval
@@ -127,14 +141,14 @@ void testSorts(
                 printf("> Array length: %d\n", arrayLength);
                 printf("> Data type: %s\n", typeid(data_t).name());
 
-                // All the sorts have to sort the same array
+                // All the sort algorithms have to sort the same array
                 fillArrayKeyOnly(keys, arrayLength, interval, *dist);
                 saveArrayToFile(FILE_UNSORTED_ARRAY, keys, arrayLength);
 
                 for (std::vector<Sort*>::iterator sort = sorts.begin(); sort != sorts.end(); sort++)
                 {
                     double time = stopwatchSort(*sort, *dist, keys, values, arrayLength, sortOrder);
-                    writeSortTimeToFile(**sort, *dist, time, iter == testRepetitions - 1);
+                    writeSortTimeToFile(*sort, *dist, time, iter == testRepetitions - 1);
                 }
 
                 printf("\n");

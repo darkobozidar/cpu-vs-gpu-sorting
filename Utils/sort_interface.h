@@ -25,10 +25,18 @@ class Sort
 protected:
     // Array of keys on host
     data_t *h_keys = NULL;
+    // Array of values on host
+    data_t *h_values = NULL;
     // Length of array
     uint_t arrayLength = 0;
     // Sort order (ascending or descending)
     order_t sortOrder = ORDER_ASC;
+    // Designates if data should be copied from device to host after the sort is completed (needed for parallel sort)
+    bool memoryCopyAfterSort = true;
+    // Sort type
+    sort_type_t sortType = (sort_type_t)NULL;
+    // Name of the sorting algorithm
+    std::string sortName = "Sort Name";
 
     /*
     Executes the sort.
@@ -36,21 +44,41 @@ protected:
     virtual void sortPrivate() {}
 
 public:
-    // Sort type
-    sort_type_t sortType = (sort_type_t)NULL;
-    // Name of the sorting algorithm
-    std::string name = "Sort Name";
-
-    Sort(){};
+    Sort() {}
     ~Sort()
     {
         memoryDestroy();
     }
 
+    virtual sort_type_t getSortType()
+    {
+        return this->sortType;
+    }
+
+    virtual std::string getSortName()
+    {
+        return this->sortName;
+    }
+
+    // Needed for testing purposes
+    void setMemoryCopyAfterSort(bool memoryCopyAfterSort)
+    {
+        this->memoryCopyAfterSort = memoryCopyAfterSort;
+    }
+
     /*
     Method for allocating memory needed for sort.
     */
-    virtual void memoryAllocate(uint_t arrayLength) {}
+    virtual void memoryAllocate(data_t *h_keys, uint_t arrayLength)
+    {
+        this->h_keys = h_keys;
+        this->arrayLength = arrayLength;
+    }
+    virtual void memoryAllocate(data_t *h_keys, data_t *h_values, uint_t arrayLength)
+    {
+        memoryAllocate(h_keys, arrayLength);
+        this->h_values = h_values;
+    }
 
     /*
     Method for destroying memory needed for sort.
@@ -82,9 +110,15 @@ Base class for sequential sort of keys only.
 */
 class SortSequentialKeyOnly : Sort
 {
-public:
+protected:
     // Sequential sort for keys only
     sort_type_t sortType = SORT_SEQUENTIAL_KEY_ONLY;
+
+public:
+    sort_type_t getSortType()
+    {
+        return this->sortType;
+    }
 
     /*
     Provides a wrapper for private sort.
@@ -94,13 +128,10 @@ public:
         if (arrayLength > this->arrayLength)
         {
             memoryDestroy();
-            memoryAllocate(arrayLength);
+            memoryAllocate(h_keys, arrayLength);
         }
 
-        this->h_keys = h_keys;
-        this->arrayLength = arrayLength;
         this->sortOrder = sortOrder;
-
         sortPrivate();
     }
 };
@@ -114,10 +145,14 @@ class SortSequentialKeyValue : public Sort
 protected:
     // Array of values on host
     data_t *h_values = NULL;
-
-public:
     // Sequential sort for key-value pairs
     sort_type_t sortType = SORT_SEQUENTIAL_KEY_VALUE;
+
+public:
+    sort_type_t getSortType()
+    {
+        return this->sortType;
+    }
 
     /*
     Provides a wrapper for private sort.
@@ -127,14 +162,10 @@ public:
         if (arrayLength > this->arrayLength)
         {
             memoryDestroy();
-            memoryAllocate(arrayLength);
+            memoryAllocate(h_keys, h_values, arrayLength);
         }
 
-        this->h_keys = h_keys;
-        this->h_values = h_values;
-        this->arrayLength = arrayLength;
         this->sortOrder = sortOrder;
-
         sortPrivate();
     }
 };
@@ -150,19 +181,22 @@ protected:
     data_t *d_keys = NULL;
     // Designates if data has been copied to device
     bool memoryCopiedToDevice = false;
-    // Designates if data should be copied from device to host after the sort is completed
-    bool memoryCopyAfterSort = true;
-
-public:
     // Parallel sort for keys only
     sort_type_t sortType = SORT_PARALLEL_KEY_ONLY;
+
+public:
+    sort_type_t getSortType()
+    {
+        return this->sortType;
+    }
 
     /*
     Method for allocating memory needed for sort.
     */
-    void memoryAllocate(uint_t arrayLength)
+    void memoryAllocate(data_t *h_keys, uint_t arrayLength)
     {
-        cudaError_t error = cudaMalloc((void **)this->d_keys, arrayLength * sizeof(*(this->d_keys)));
+        Sort::memoryAllocate(h_keys, arrayLength);
+        cudaError_t error = cudaMalloc((void **)&this->d_keys, arrayLength * sizeof(*(this->d_keys)));
         checkCudaError(error);
     }
 
@@ -207,17 +241,14 @@ public:
         if (arrayLength > this->arrayLength)
         {
             memoryDestroy();
-            memoryAllocate(arrayLength);
+            memoryAllocate(h_keys, arrayLength);
         }
         if (!memoryCopiedToDevice)
         {
             memoryCopyHostToDevice(h_keys, arrayLength);
         }
 
-        this->h_keys = h_keys;
-        this->arrayLength = arrayLength;
         this->sortOrder = sortOrder;
-
         sortPrivate();
         memoryCopiedToDevice = false;
 
@@ -243,13 +274,18 @@ protected:
     sort_type_t sortType = SORT_PARALLEL_KEY_VALUE;
 
 public:
+    sort_type_t getSortType()
+    {
+        return this->sortType;
+    }
+
     /*
     Method for allocating memory needed for sort.
     */
-    void memoryAllocate(uint_t arrayLength)
+    void memoryAllocate(data_t *h_keys, data_t *h_values, uint_t arrayLength)
     {
         // Allocates keys
-        SortParallelKeyOnly::memoryAllocate(arrayLength);
+        SortParallelKeyOnly::memoryAllocate(h_keys, arrayLength);
         // Allocates values
         cudaError_t error = cudaMalloc((void **)this->d_values, arrayLength * sizeof(*(this->d_values)));
         checkCudaError(error);
@@ -305,18 +341,14 @@ public:
         if (arrayLength > this->arrayLength)
         {
             memoryDestroy();
-            memoryAllocate(arrayLength);
+            memoryAllocate(h_keys, h_values, arrayLength);
         }
         if (!memoryCopiedToDevice)
         {
             memoryCopyHostToDevice(h_keys, h_values, arrayLength);
         }
 
-        this->h_keys = h_keys;
-        this->h_values = h_values;
-        this->arrayLength = arrayLength;
         this->sortOrder = sortOrder;
-
         sortPrivate();
         memoryCopiedToDevice = false;
 

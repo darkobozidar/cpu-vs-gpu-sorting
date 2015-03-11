@@ -13,8 +13,13 @@ private:
     void runBitoicMergeLocalKernel(uint_t phase, uint_t step);
     void sortPrivate();
 
+    std::string sortName = "Bitonic sort parallel key only";
+
 public:
-    std::string name = "Bitonic sort parallel key only";
+    std::string getSortName()
+    {
+        return this->sortName;
+    }
 };
 
 #endif
