@@ -1,9 +1,23 @@
-#ifndef SORT_SEQUENTIAL_H
-#define SORT_SEQUENTIAL_H
+#ifndef QUICKSORT_SEQUENTIAL_KEY_VALUE_H
+#define QUICKSORT_SEQUENTIAL_KEY_VALUE_H
 
 #include "../Utils/data_types_common.h"
+#include "../Utils/sort_interface.h"
+#include "data_types.h"
 
 
-double sortSequential(data_t* dataKeys, data_t *dataValues, uint_t tableLen, order_t sortOrder);
+class QuicksortSequentialKeyValue : public SortSequentialKeyValue
+{
+private:
+    std::string sortName = "Quicksort sequential key value";
+
+    void sortPrivate();
+
+public:
+    std::string getSortName()
+    {
+        return this->sortName;
+    }
+};
 
 #endif

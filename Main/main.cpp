@@ -16,6 +16,7 @@
 
 #include "../Bitonic_Sort/sort_parallel.h"
 #include "../Bitonic_Sort/sort_sequential.h"
+#include "../QuicksortKeyValue/sort_sequential.h"
 #include "../QuicksortKeyValue/sort_parallel.h"
 
 #include "test_sort.h"
@@ -37,6 +38,7 @@ int main(int argc, char **argv)
     std::vector<Sort*> sortAlgorithms;
     sortAlgorithms.push_back(new QuicksortParallelKeyValue());
     sortAlgorithms.push_back(new BitonicSortSequentialKeyOnly());
+    sortAlgorithms.push_back(new QuicksortSequentialKeyValue());
     sortAlgorithms.push_back(new BitonicSortParallelKeyOnly());
 
     // This is needed only for testing puproses, because data transfer from device to host shouldn't be stopwatched.

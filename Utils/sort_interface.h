@@ -143,8 +143,6 @@ Base class for sequential sort of key-value pairs.
 class SortSequentialKeyValue : public Sort
 {
 protected:
-    // Array of values on host
-    data_t *h_values = NULL;
     // Sequential sort for key-value pairs
     sort_type_t sortType = SORT_SEQUENTIAL_KEY_VALUE;
 

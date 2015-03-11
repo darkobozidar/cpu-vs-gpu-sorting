@@ -208,6 +208,7 @@ double stopwatchSort(
     }
     else
     {
+        fillArrayValueOnly(values, arrayLength);
         sort->memoryAllocate(keys, values, arrayLength);
     }
 
@@ -219,7 +220,6 @@ double stopwatchSort(
     }
     else if (sort->getSortType() == SORT_PARALLEL_KEY_VALUE)
     {
-        fillArrayValueOnly(values, arrayLength);
         sort->memoryCopyHostToDevice(keys, values, arrayLength);
         cudaDeviceSynchronize();
     }

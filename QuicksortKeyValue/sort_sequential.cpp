@@ -4,6 +4,7 @@
 
 #include "../Utils/data_types_common.h"
 #include "../Utils/host.h"
+#include "sort_sequential.h"
 
 
 /*
@@ -114,20 +115,17 @@ void quickSort(data_t *dataKeys, data_t *dataValues, uint_t length)
 
 /*
 Sorts data sequentially with quicksort.
-*/
-double sortSequential(data_t* dataKeys, data_t *dataValues, uint_t tableLen, order_t sortOrder)
-{
-    LARGE_INTEGER timer;
-    startStopwatch(&timer);
 
-    if (sortOrder == ORDER_ASC)
+Because of recursion calls static functions.
+*/
+void QuicksortSequentialKeyValue::sortPrivate()
+{
+    if (this->sortOrder == ORDER_ASC)
     {
-        quickSort<ORDER_ASC>(dataKeys, dataValues, tableLen);
+        quickSort<ORDER_ASC>(this->h_keys, this->h_values, this->arrayLength);
     }
     else
     {
-        quickSort<ORDER_DESC>(dataKeys, dataValues, tableLen);
+        quickSort<ORDER_DESC>(this->h_keys, this->h_values, this->arrayLength);
     }
-
-    return endStopwatch(timer);
 }
