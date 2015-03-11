@@ -25,7 +25,7 @@ Prints line in statistics table.
 */
 void printTableLine()
 {
-    printf("================================================================================================\n");
+    printf("==============================================================\n");
 }
 
 /*
@@ -34,20 +34,22 @@ Prints statistics table header.
 void printTableHeader()
 {
     printTableLine();
-    printf("||            SORTING ALGORITHM             ||     TIME    |   SORT RATE  ||   OK   || STABLE ||\n");
+    printf("|| #     ||     TIME    |   SORT RATE  || CORRECT || STABLE ||\n");
     printTableLine();
 }
 
 /*
 Prints sort statistics.
 */
-void printSortStatistics(Sort *sort, double time, int_t isCorrect, int_t isStable, uint_t arrayLength)
+void printSortStatistics(
+    uint_t iteration, double time, uint_t arrayLength, int_t isCorrect, int_t isStable
+)
 {
     char *isCorrectOutput = isCorrect ? "YES" : "NO";
     char *isStableOutput = isStable == -1 ? "/" : (isStable == 1 ? "YES" : "NO");
 
     printf(
-        "|| %40s || %8.2lf ms | %8.2lf M/s ||   %3s  ||   %3s  ||\n", sort->getSortName().c_str(), time,
+        "|| %5d || %8.2lf ms | %8.2lf M/s ||    %3s  ||   %3s  ||\n", iteration, time,
         arrayLength / 1000.0 / time, isCorrectOutput, isStableOutput
     );
 }
@@ -60,15 +62,6 @@ std::string folderPathDistribution(data_dist_t distribution)
     std::string distFolderName(FOLDER_SORT_TIMERS);
     distFolderName += strCapitalize(getDistributionName(distribution));
     return distFolderName + "/";
-}
-
-/*
-Folder path to data type of specified distribution.
-*/
-std::string folderPathDataType(data_dist_t distribution)
-{
-    std::string distFolderName = folderPathDistribution(distribution);
-    return distFolderName + strSlugify(typeid(data_t).name()) + "/";
 }
 
 /*
@@ -86,7 +79,49 @@ void createFolderStructure(std::vector<data_dist_t> distributions)
     for (std::vector<data_dist_t>::iterator dist = distributions.begin(); dist != distributions.end(); dist++)
     {
         createFolder(folderPathDistribution(*dist));
-        createFolder(folderPathDataType(*dist));
+    }
+}
+
+/*
+Generates file name of unsorted array.
+*/
+std::string fileNameUnsortedArr(uint_t iteration)
+{
+    return std::string(FILE_UNSORTED_ARRAY) + "_" + std::to_string(iteration) + FILE_EXTENSION;
+}
+
+/*
+Generates file name of sorted array.
+*/
+std::string fileNameSortedArr(uint_t iteration)
+{
+    return std::string(FILE_SORTED_ARRAY) + '_' + std::to_string(iteration) + FILE_EXTENSION;
+}
+
+/*
+Generates random sequences and sorts them. Also writes sequences to file.
+*/
+void generateAndSortRandomSeq(
+    data_t *keys, uint_t arrayLength, order_t sortOrder, data_dist_t distribution, uint_t testRepetitions,
+    uint_t interval
+)
+{
+    printf("> Distribution: %s\n", getDistributionName(distribution));
+    printf("> Data type: %s\n", typeid(data_t).name());
+    printf("> Array length: %d\n", arrayLength);
+    for (uint_t iter = 0; iter < testRepetitions; iter++)
+    {
+        printf("- Generating and sorting random seqence %d\n", iter);
+        fillArrayKeyOnly(keys, arrayLength, interval, distribution);
+        writeArrayToFile(fileNameUnsortedArr(iter), keys, arrayLength);
+
+        if (!(distribution == DISTRIBUTION_SORTED_ASC && sortOrder == ORDER_ASC ||
+              distribution == DISTRIBUTION_SORTED_DESC && sortOrder == ORDER_DESC)
+        )
+        {
+            sortCorrect(keys, arrayLength, sortOrder);
+        }
+        writeArrayToFile(fileNameSortedArr(iter), keys, arrayLength);
     }
 }
 
@@ -152,8 +187,8 @@ Writes the time to file
 */
 void writeTimeToFile(Sort *sort, data_dist_t distribution, double time, bool isLastTestRepetition)
 {
-    std::string folderDataType = folderPathDataType(distribution);
-    std::string filePath = folderDataType + strSlugify(sort->getSortName()) + FILE_EXTENSION;
+    std::string folderDistribution = folderPathDistribution(distribution);
+    std::string filePath = folderDistribution + strSlugify(sort->getSortName()) + FILE_EXTENSION;
     std::fstream file;
     file.open(filePath, std::fstream::app);
 
@@ -199,19 +234,6 @@ double stopwatchSort(
     Sort *sort, data_dist_t distribution, data_t *keys, data_t *values, uint_t arrayLength, order_t sortOrder
 )
 {
-    readArrayFromFile(FILE_UNSORTED_ARRAY, keys, arrayLength);
-
-    // Allocates memory key only sort OR key-value sort
-    if (sort->getSortType() == SORT_SEQUENTIAL_KEY_ONLY || sort->getSortType() == SORT_PARALLEL_KEY_ONLY)
-    {
-        sort->memoryAllocate(keys, arrayLength);
-    }
-    else
-    {
-        fillArrayValueOnly(values, arrayLength);
-        sort->memoryAllocate(keys, values, arrayLength);
-    }
-
     // Memory data transfer for parallel sorts
     if (sort->getSortType() == SORT_PARALLEL_KEY_ONLY)
     {
@@ -256,8 +278,6 @@ double stopwatchSort(
         sort->memoryCopyDeviceToHost(keys, values, arrayLength);
     }
 
-    sort->memoryDestroy();
-
     return time;
 }
 
@@ -267,11 +287,11 @@ this statistics to file.
 */
 void generateStatistics(
     Sort *sort, data_dist_t distribution, data_t *keys, data_t *values, uint_t arrayLength, order_t sortOrder,
-    bool isLastTestRepetition
+    uint_t iteration, uint_t testRepetitions
 )
 {
     double time = stopwatchSort(sort, distribution, keys, values, arrayLength, sortOrder);
-    writeTimeToFile(sort, distribution, time, isLastTestRepetition);
+    writeTimeToFile(sort, distribution, time, iteration == testRepetitions - 1);
 
     // Key-value sort has to be tested for stability
     int_t isStable = -1;
@@ -283,11 +303,11 @@ void generateStatistics(
 
     // In order to use less space, array for values is used as container for correctly sorted array
     data_t *correctlySortedKeys = values;
-    readArrayFromFile(FILE_SORTED_ARRAY, correctlySortedKeys, arrayLength);
+    readArrayFromFile(fileNameSortedArr(iteration), correctlySortedKeys, arrayLength);
     bool isCorrect = compareArrays(keys, correctlySortedKeys, arrayLength);
     writeBoleanToFile(FOLDER_SORT_CORRECTNESS, isCorrect, sort, distribution, arrayLength, sortOrder);
 
-    printSortStatistics(sort, time, isCorrect, isStable, arrayLength);
+    printSortStatistics(iteration, time, arrayLength, isCorrect, isStable);
 }
 
 /*
@@ -296,7 +316,7 @@ Tests all provided sorts for all provided distributions.
 void testSorts(
     std::vector<Sort*> sorts, std::vector<data_dist_t> distributions, uint_t arrayLenStart, uint_t arrayLenEnd,
     order_t sortOrder, uint_t testRepetitions, uint_t interval
-)
+    )
 {
     createFolderStructure(distributions);
 
@@ -309,26 +329,42 @@ void testSorts(
             data_t *values = (data_t*)malloc(arrayLength * sizeof(*values));
             checkMallocError(values);
 
-            for (uint_t iter = 0; iter < testRepetitions; iter++)
+            // All the sort algorithms have to sort the same array
+            generateAndSortRandomSeq(keys, arrayLength, sortOrder, *dist, testRepetitions, interval);
+            printf("\n");
+
+            for (std::vector<Sort*>::iterator sort = sorts.begin(); sort != sorts.end(); sort++)
             {
                 printf("> Distribution: %s\n", getDistributionName(*dist));
                 printf("> Data type: %s\n", typeid(data_t).name());
                 printf("> Array length: %d\n", arrayLength);
-                printf("> Test iteration: %d\n", iter + 1);
+                printf("> %s\n", (*sort)->getSortName().c_str());
                 printTableHeader();
 
-                // All the sort algorithms have to sort the same array
-                fillArrayKeyOnly(keys, arrayLength, interval, *dist);
-                writeArrayToFile(FILE_UNSORTED_ARRAY, keys, arrayLength);
-                sortCorrect(keys, arrayLength, sortOrder);
-                writeArrayToFile(FILE_SORTED_ARRAY, keys, arrayLength);
-
-                for (std::vector<Sort*>::iterator sort = sorts.begin(); sort != sorts.end(); sort++)
+                // Allocates memory for key only sort OR key-value sort
+                if ((*sort)->getSortType() == SORT_SEQUENTIAL_KEY_ONLY ||
+                    (*sort)->getSortType() == SORT_PARALLEL_KEY_ONLY
+                )
                 {
+                    (*sort)->memoryAllocate(keys, arrayLength);
+                }
+                else
+                {
+                    fillArrayValueOnly(values, arrayLength);
+                    (*sort)->memoryAllocate(keys, values, arrayLength);
+                }
+
+                // Tests sort
+                for (uint_t iter = 0; iter < testRepetitions; iter++)
+                {
+                    // Array for values is filled in test function only if key-value is sorted.
+                    readArrayFromFile(fileNameUnsortedArr(iter), keys, arrayLength);
                     generateStatistics(
-                        *sort, *dist, keys, values, arrayLength, sortOrder, iter == testRepetitions - 1
+                        *sort, *dist, keys, values, arrayLength, sortOrder, iter, testRepetitions
                     );
                 }
+
+                (*sort)->memoryDestroy();
 
                 printTableLine();
                 printf("\n\n");

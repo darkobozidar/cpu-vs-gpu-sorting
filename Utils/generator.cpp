@@ -124,11 +124,19 @@ void fillArrayKeyOnly(data_t *keys, uint_t tableLen, uint_t interval, uint_t buc
         }
         case DISTRIBUTION_SORTED_ASC:
         {
+            for (uint_t i = 0; i < tableLen; i++)
+            {
+                keys[i] = generator();
+            }
             sortCorrect(keys, tableLen, ORDER_ASC);
             break;
         }
         case DISTRIBUTION_SORTED_DESC:
         {
+            for (uint_t i = 0; i < tableLen; i++)
+            {
+                keys[i] = generator();
+            }
             sortCorrect(keys, tableLen, ORDER_DESC);
             break;
         }

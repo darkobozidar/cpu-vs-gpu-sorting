@@ -27,8 +27,8 @@
 // New line character in file
 #define FILE_NEW_LINE_CHAR '\n'
 // File where unsorted array is saved.
-#define FILE_UNSORTED_ARRAY FOLDER_SORT_TEMP "array_unsorted" FILE_EXTENSION
+#define FILE_UNSORTED_ARRAY FOLDER_SORT_TEMP "array_unsorted"
 // File where correctly sorted array is saved.
-#define FILE_SORTED_ARRAY FOLDER_SORT_TEMP "array_correctly_sorted" FILE_EXTENSION
+#define FILE_SORTED_ARRAY FOLDER_SORT_TEMP "array_sorted"
 
 #endif
