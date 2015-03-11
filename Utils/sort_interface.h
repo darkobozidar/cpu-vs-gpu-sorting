@@ -312,7 +312,7 @@ public:
         SortParallelKeyOnly::memoryCopyHostToDevice(h_keys, arrayLength);
         // Copies values
         cudaError_t error = cudaMemcpy(
-            (void *)this->d_keys, h_keys, arrayLength * sizeof(*h_keys), cudaMemcpyHostToDevice
+            (void *)this->d_values, h_values, arrayLength * sizeof(*d_values), cudaMemcpyHostToDevice
         );
         checkCudaError(error);
 
