@@ -13,7 +13,7 @@
 // Folder, where sort correctness statuses are saved.
 #define FOLDER_SORT_CORRECTNESS "Correctness/"
 // Folder, where sort stability statuses are saved.
-#define FOLDER_SORT_STABILITY "Status/"
+#define FOLDER_SORT_STABILITY "Stability/"
 
 
 /* ----------------------- FILES --------------------- */

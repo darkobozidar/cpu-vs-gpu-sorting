@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <fstream>
+#include <iostream>
 
 #include <cuda.h>
 #include "cuda_runtime.h"
@@ -18,6 +19,38 @@
 #include "../Utils/sort_correct.h"
 #include "constants.h"
 
+
+/*
+Prints line in statistics table.
+*/
+void printTableLine()
+{
+    printf("================================================================================================\n");
+}
+
+/*
+Prints statistics table header.
+*/
+void printTableHeader()
+{
+    printTableLine();
+    printf("||            SORTING ALGORITHM             ||     TIME    |   SORT RATE  ||   OK   || STABLE ||\n");
+    printTableLine();
+}
+
+/*
+Prints sort statistics.
+*/
+void printSortStatistics(Sort *sort, double time, int_t isCorrect, int_t isStable, uint_t arrayLength)
+{
+    char *isCorrectOutput = isCorrect ? "YES" : "NO";
+    char *isStableOutput = isStable == -1 ? "/" : (isStable == 1 ? "YES" : "NO");
+
+    printf(
+        "|| %40s || %8.2lf ms | %8.2lf M/s ||   %3s  ||   %3s  ||\n", sort->getSortName().c_str(), time,
+        arrayLength / 1000.0 / time, isCorrectOutput, isStableOutput
+    );
+}
 
 /*
 Folder path to specified distribution.
@@ -205,17 +238,20 @@ void writeStatisticsToFile(
     writeNumberToFile(sort, distribution, FOLDER_SORT_TIMERS, time, isLastTestRepetition);
 
     // Key-value sort has to be tested for stability
+    int_t isStable = -1;
     if (sort->getSortType() == SORT_SEQUENTIAL_KEY_VALUE || sort->getSortType() == SORT_PARALLEL_KEY_VALUE)
     {
-        bool isStable = isSortStable(keys, values, arrayLength);
+        isStable = isSortStable(keys, values, arrayLength);
         writeNumberToFile(sort, distribution, FOLDER_SORT_STABILITY, isStable, isLastTestRepetition);
     }
 
     // In order to use less space, array for values is used as container for correctly sorted array
     data_t *correctlySortedKeys = values;
     readArrayFromFile(FILE_SORTED_ARRAY, correctlySortedKeys, arrayLength);
-    bool isSortingCorrectly = compareArrays(keys, correctlySortedKeys, arrayLength);
-    writeNumberToFile(sort, distribution, FOLDER_SORT_CORRECTNESS, isSortingCorrectly, isLastTestRepetition);
+    bool isCorrect = compareArrays(keys, correctlySortedKeys, arrayLength);
+    writeNumberToFile(sort, distribution, FOLDER_SORT_CORRECTNESS, isCorrect, isLastTestRepetition);
+
+    printSortStatistics(sort, time, isCorrect, isStable, arrayLength);
 }
 
 /*
@@ -239,10 +275,11 @@ void testSorts(
 
             for (uint_t iter = 0; iter < testRepetitions; iter++)
             {
-                printf("> Test iteration: %d\n", iter);
                 printf("> Distribution: %s\n", getDistributionName(*dist));
-                printf("> Array length: %d\n", arrayLength);
                 printf("> Data type: %s\n", typeid(data_t).name());
+                printf("> Array length: %d\n", arrayLength);
+                printf("> Test iteration: %d\n", iter + 1);
+                printTableHeader();
 
                 // All the sort algorithms have to sort the same array
                 fillArrayKeyOnly(keys, arrayLength, interval, *dist);
@@ -257,85 +294,16 @@ void testSorts(
                     );
                 }
 
-                printf("\n");
+                printTableLine();
+                printf("\n\n");
             }
 
             free(keys);
             free(values);
         }
-
-        printf("\n\n");
     }
 }
 
-
-///*
-//Prints out table vertical splitter if only keys are sorted.
-//*/
-//void printTableSplitterKeyOnly()
-//{
-//    printf("===================================================================================================================\n");
-//}
-//
-///*
-//Prints out table header if only keys are sorted.
-//*/
-//void printTableHeaderKeysOnly()
-//{
-//    printTableSplitterKeyOnly();
-//    printf("||     # ||             PARALLEL              ||             SEQUENTIAL            ||            CORRECT         ||\n");
-//    printTableSplitterKeyOnly();
-//    printf("||     # ||     time    |      rate    |  ok  ||     time    |      rate    |  ok  ||     time    |      rate    ||\n");
-//    printTableSplitterKeyOnly();
-//}
-//
-///*
-//Prints out table line with data if only keys are sorted.
-//*/
-//void printTableLineKeysOnly()
-//{
-//
-//}
-
-///*
-//Prints out table vertical splitter if key-value pairs are sorted.
-//*/
-//void printTableSplitterKeyValue()
-//{
-//    printf("=====================================================================================================================================\n");
-//}
-//
-///*
-//Prints out table header if key-value pairs are sorted.
-//*/
-//void printTableHeaderKeyValue()
-//{
-//    printTableSplitterKeyValue();
-//    printf("||     # ||                  PARALLEL                  ||                  SEQUENTIAL                ||            CORRECT         ||\n");
-//    printTableSplitterKeyValue();
-//    printf("||     # ||     time    |      rate    |  ok  | stable ||     time    |      rate    |  ok  | stable ||     time    |      rate    ||\n");
-//    printTableSplitterKeyValue();
-//}
-//
-///*
-//Prints out table line with data if key-value pairs are sorted.
-//*/
-//void printTableLineKeyValue(
-//    double **timers, uint_t iter, uint_t tableLen, bool areEqualParallel, bool areEqualSequential,
-//    bool isStableParallel, bool isStableSequential
-//)
-//{
-//    printf(
-//        "|| %5d || %8.2lf ms | %8.2lf M/s | %s  |   %s  || %8.2lf ms | %8.2lf M/s | %s  |   %s  || %8.2lf ms | %8.2lf M/s ||\n",
-//        iter + 1,
-//        timers[SORT_PARALLEL][iter], tableLen / 1000.0 / timers[SORT_PARALLEL][iter],
-//        areEqualParallel ? "YES" : " NO", isStableParallel ? "YES" : " NO",
-//        timers[SORT_SEQUENTIAL][iter], tableLen / 1000.0 / timers[SORT_SEQUENTIAL][iter],
-//        areEqualSequential ? "YES" : " NO", isStableSequential ? "YES" : " NO",
-//        timers[SORT_CORRECT][iter], tableLen / 1000.0 / timers[SORT_CORRECT][iter]
-//    );
-//}
-//
 ///*
 //Prints out statistics of sort if only keys are sorted.
 //*/
