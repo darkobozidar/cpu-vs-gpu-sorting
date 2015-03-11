@@ -210,3 +210,11 @@ std::string strReplace(std::string text, char from, char to)
 
     return text;
 }
+
+/*
+Replaces all spaces with '_'.
+*/
+std::string strSlugify(std::string text)
+{
+    return strReplace(text, ' ', '_');
+}

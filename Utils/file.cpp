@@ -44,9 +44,17 @@ void readArrayFromFile(char *fileName, data_t *keys, uint_t arrayLength)
 }
 
 /*
+Reads array from file.
+*/
+void readArrayFromFile(std::string fileName, data_t *keys, uint_t arrayLength)
+{
+    readArrayFromFile((char*)fileName.c_str(), keys, arrayLength);
+}
+
+/*
 Saves array to file.
 */
-void saveArrayToFile(char *fileName, data_t *keys, uint_t arrayLength)
+void writeArrayToFile(char *fileName, data_t *keys, uint_t arrayLength)
 {
     std::ofstream file(fileName);
 
@@ -58,4 +66,12 @@ void saveArrayToFile(char *fileName, data_t *keys, uint_t arrayLength)
 
     file << std::endl;
     file.close();
+}
+
+/*
+Saves array to file.
+*/
+void writeArrayToFile(std::string fileName, data_t *keys, uint_t arrayLength)
+{
+    writeArrayToFile((char*)fileName.c_str(), keys, arrayLength);
 }

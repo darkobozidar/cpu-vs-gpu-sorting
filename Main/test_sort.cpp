@@ -15,44 +15,120 @@
 #include "../Utils/host.h"
 #include "../Utils/file.h"
 #include "../Utils/generator.h"
+#include "../Utils/sort_correct.h"
 #include "constants.h"
 
 
+/*
+Folder path to specified distribution.
+*/
 std::string folderPathDistribution(data_dist_t distribution)
 {
-    std::string distFolderName(FOLDER_SORT_TIMERS);
+    std::string distFolderName(FOLDER_SORT_ROOT);
     distFolderName += strCapitalize(getDistributionName(distribution));
     return distFolderName;
 }
 
+/*
+Folder path to data type of specified distribution.
+*/
 std::string folderPathDataType(data_dist_t distribution)
 {
     std::string distFolderName = folderPathDistribution(distribution);
     return distFolderName + "/" + strReplace(typeid(data_t).name(), ' ', '_');
 }
 
+/*
+Creates the folder structure in order to save sort statistics to disc.
+*/
 void createFolderStructure(std::vector<data_dist_t> distributions)
 {
     createFolder(FOLDER_SORT_ROOT);
     createFolder(FOLDER_SORT_TEMP);
-    createFolder(FOLDER_SORT_TIMERS);
 
     // Creates a folder for every distribution, inside which creates a folder for data type.
     for (std::vector<data_dist_t>::iterator dist = distributions.begin(); dist != distributions.end(); dist++)
     {
         createFolder(folderPathDistribution(*dist));
         createFolder(folderPathDataType(*dist));
+        createFolder(folderPathDataType(*dist) + "/" + FOLDER_SORT_TIMERS);
+        createFolder(folderPathDataType(*dist) + "/" + FOLDER_SORT_CORRECTNESS);
+        createFolder(folderPathDataType(*dist) + "/" + FOLDER_SORT_STABILITY);
     }
 }
 
-void writeSortTimeToFile(Sort *sort, data_dist_t distribution, double time, bool isLastTest)
+/*
+Checks if sorted values are unique.
+Not so trivial in some sorts - for example quicksort.
+*/
+void checkValuesUniqueness(data_t *values, uint_t arrayLength)
 {
-    std::string filePath = folderPathDataType(distribution) + "/" + strReplace(sort->getSortName(), ' ', '_') + ".txt";
+    uint_t *uniquenessTable = (uint_t*)malloc(arrayLength * sizeof(*uniquenessTable));
+
+    for (uint_t i = 0; i < arrayLength; i++)
+    {
+        uniquenessTable[i] = 0;
+    }
+
+    for (uint_t i = 0; i < arrayLength; i++)
+    {
+        if (values[i] < 0 || values[i] > arrayLength - 1)
+        {
+            printf("Value out of range: %d\n", values[i]);
+            getchar();
+            exit(EXIT_FAILURE);
+        }
+        else if (++uniquenessTable[values[i]] > 1)
+        {
+            printf("Duplicate value: %d\n", values[i]);
+            getchar();
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    free(uniquenessTable);
+}
+
+/*
+Determines if array is sorted in stable manner.
+*/
+bool isSortStable(data_t *keys, data_t *values, uint_t arrayLength)
+{
+    if (arrayLength == 1)
+    {
+        return true;
+    }
+
+    // Generally not needed
+    // checkValuesUniqueness(values, tableLen);
+
+    for (uint_t i = 1; i < arrayLength; i++)
+    {
+        // For same keys, values have to be ordered in ascending order.
+        if (keys[i - 1] == keys[i] && values[i - 1] > values[i])
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/*
+Writes number to file. This could be sort time, sort correctness or sort stability.
+*/
+void writeNumberToFile(
+    Sort *sort, data_dist_t distribution, std::string folder, double number, bool isLastTestRepetition
+)
+{
+    std::string folderDataType = folderPathDataType(distribution);
+    std::string folderTimers = folderDataType + "/" + folder;
+    std::string filePath = folderTimers + strSlugify(sort->getSortName()) + FILE_EXTENSION;
     std::fstream file;
     file.open(filePath, std::fstream::app);
 
-    file << time;
-    file << (isLastTest ? "\n" : "\t");
+    file << number;
+    file << (isLastTestRepetition ? FILE_NEW_LINE : FILE_SEPARATOR_CHAR);
 
     file.close();
 }
@@ -102,17 +178,44 @@ double stopwatchSort(
         sort->sort(keys, values, arrayLength, sortOrder);
     }
 
-    // Waits for device to finish
+    // Waits for device to finish and transfers result to host
     if (sort->getSortType() == SORT_PARALLEL_KEY_ONLY || sort->getSortType() == SORT_PARALLEL_KEY_VALUE)
     {
         cudaError_t error = cudaDeviceSynchronize();
         checkCudaError(error);
+        sort->memoryCopyDeviceToHost(keys, arrayLength);
     }
 
     double time = endStopwatch(timer);
     sort->memoryDestroy();
 
     return time;
+}
+
+/*
+Times sort with stopwatch, checks if sort is stable and checks if sort is ordering data correctly, than saves
+this statistics to file.
+*/
+void writeStatisticsToFile(
+    Sort *sort, data_dist_t distribution, data_t *keys, data_t *values, uint_t arrayLength, order_t sortOrder,
+    bool isLastTestRepetition
+)
+{
+    double time = stopwatchSort(sort, distribution, keys, values, arrayLength, sortOrder);
+    writeNumberToFile(sort, distribution, FOLDER_SORT_TIMERS, time, isLastTestRepetition);
+
+    // Key-value sort has to be tested for stability
+    if (sort->getSortType() == SORT_SEQUENTIAL_KEY_VALUE || sort->getSortType() == SORT_PARALLEL_KEY_VALUE)
+    {
+        bool isStable = isSortStable(keys, values, arrayLength);
+        writeNumberToFile(sort, distribution, FOLDER_SORT_STABILITY, isStable, isLastTestRepetition);
+    }
+
+    // In order to use less space, array for values is used as container for correctly sorted array
+    data_t *correctlySortedKeys = values;
+    readArrayFromFile(FILE_SORTED_ARRAY, correctlySortedKeys, arrayLength);
+    bool isSortingCorrectly = compareArrays(keys, correctlySortedKeys, arrayLength);
+    writeNumberToFile(sort, distribution, FOLDER_SORT_CORRECTNESS, isSortingCorrectly, isLastTestRepetition);
 }
 
 /*
@@ -143,12 +246,15 @@ void testSorts(
 
                 // All the sort algorithms have to sort the same array
                 fillArrayKeyOnly(keys, arrayLength, interval, *dist);
-                saveArrayToFile(FILE_UNSORTED_ARRAY, keys, arrayLength);
+                writeArrayToFile(FILE_UNSORTED_ARRAY, keys, arrayLength);
+                sortCorrect(keys, arrayLength, sortOrder);
+                writeArrayToFile(FILE_SORTED_ARRAY, keys, arrayLength);
 
                 for (std::vector<Sort*>::iterator sort = sorts.begin(); sort != sorts.end(); sort++)
                 {
-                    double time = stopwatchSort(*sort, *dist, keys, values, arrayLength, sortOrder);
-                    writeSortTimeToFile(*sort, *dist, time, iter == testRepetitions - 1);
+                    writeStatisticsToFile(
+                        *sort, *dist, keys, values, arrayLength, sortOrder, iter == testRepetitions - 1
+                    );
                 }
 
                 printf("\n");
@@ -284,58 +390,3 @@ void testSorts(
 //}
 //
 ///*
-//Checks if sorted values are unique.
-//Not so trivial in some sorts - for example quicksort.
-//*/
-//void checkValuesUniqueness(data_t *values, uint_t tableLen)
-//{
-//    uint_t *uniquenessTable = (uint_t*)malloc(tableLen * sizeof(*uniquenessTable));
-//
-//    for (uint_t i = 0; i < tableLen; i++)
-//    {
-//        uniquenessTable[i] = 0;
-//    }
-//
-//    for (uint_t i = 0; i < tableLen; i++)
-//    {
-//        if (values[i] < 0 || values[i] > tableLen - 1)
-//        {
-//            printf("Value out of range: %d\n", values[i]);
-//            getchar();
-//            exit(EXIT_FAILURE);
-//        }
-//        else if (++uniquenessTable[values[i]] > 1)
-//        {
-//            printf("Duplicate value: %d\n", values[i]);
-//            getchar();
-//            exit(EXIT_FAILURE);
-//        }
-//    }
-//
-//    free(uniquenessTable);
-//}
-//
-///*
-//Determines if array is sorted in stable manner.
-//*/
-//bool isSortStable(data_t *keys, data_t *values, uint_t tableLen)
-//{
-//    if (tableLen == 1)
-//    {
-//        return true;
-//    }
-//
-//    // Generally not needed
-//    // checkValuesUniqueness(values, tableLen);
-//
-//    for (uint_t i = 1; i < tableLen; i++)
-//    {
-//        // For same keys, values have to be ordered in ascending order.
-//        if (keys[i - 1] == keys[i] && values[i - 1] > values[i])
-//        {
-//            return false;
-//        }
-//    }
-//
-//    return true;
-//}

@@ -18,5 +18,6 @@ int roundUp(int numToRound, int multiple);
 char* getDistributionName(data_dist_t distribution);
 std::string strCapitalize(std::string str);
 std::string strReplace(std::string text, char from, char to);
+std::string strSlugify(std::string text);
 
 #endif

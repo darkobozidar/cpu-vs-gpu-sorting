@@ -8,6 +8,8 @@
 bool createFolder(char* folderName);
 bool createFolder(std::string folderName);
 void readArrayFromFile(char *fileName, data_t *keys, uint_t arrayLength);
-void saveArrayToFile(char *fileName, data_t *keys, uint_t arrayLength);
+void readArrayFromFile(std::string fileName, data_t *keys, uint_t arrayLength);
+void writeArrayToFile(char *fileName, data_t *keys, uint_t arrayLength);
+void writeArrayToFile(std::string fileName, data_t *keys, uint_t arrayLength);
 
 #endif
