@@ -30,12 +30,12 @@ protected:
     order_t _sortOrder = ORDER_ASC;
     // Name of the sorting algorithm
     std::string _sortName = "Sort Name";
+    // Denotes if sort is sequential or parallel
+    bool _isSortParallel = false;
     // Time that sort needed for execution.
     double _sortTime = -1;
     // Denotes if sort timing should be executed
     bool _stopwatchEnabled = false;
-    // Denotes if sort is sequential or parallel
-    bool isSortParallel = false;
 
     /*
     Executes the sort.
@@ -98,6 +98,11 @@ public:
         return getSortName() + " key value";
     }
 
+    virtual bool isSortParallel()
+    {
+        return _isSortParallel;
+    }
+
     void stopwatchEnable()
     {
         _stopwatchEnabled = true;
@@ -144,6 +149,8 @@ public:
     */
     virtual void sort(data_t *h_keys, uint_t arrayLength, order_t sortOrder)
     {
+        cudaError_t error;
+
         if (arrayLength > _arrayLength)
         {
             memoryAllocate(h_keys, NULL, arrayLength);
@@ -155,9 +162,10 @@ public:
         LARGE_INTEGER timer;
         if (_stopwatchEnabled)
         {
-            if (isSortParallel)
+            if (isSortParallel())
             {
-                cudaDeviceSynchronize();
+                error = cudaDeviceSynchronize();
+                checkCudaError(error);
             }
 
             startStopwatch(&timer);
@@ -167,9 +175,10 @@ public:
 
         if (_stopwatchEnabled)
         {
-            if (isSortParallel)
+            if (isSortParallel())
             {
-                cudaDeviceSynchronize();
+                error = cudaDeviceSynchronize();
+                checkCudaError(error);
             }
 
             _sortTime = endStopwatch(timer);
@@ -183,6 +192,8 @@ public:
     */
     virtual void sort(data_t *h_keys, data_t *h_values, uint_t arrayLength, order_t sortOrder)
     {
+        cudaError_t error;
+
         if (arrayLength > _arrayLength)
         {
             memoryAllocate(h_keys, h_values, arrayLength);
@@ -194,9 +205,10 @@ public:
         LARGE_INTEGER timer;
         if (_stopwatchEnabled)
         {
-            if (isSortParallel)
+            if (isSortParallel())
             {
-                cudaDeviceSynchronize();
+                error = cudaDeviceSynchronize();
+                checkCudaError(error);
             }
 
             startStopwatch(&timer);
@@ -206,9 +218,10 @@ public:
 
         if (_stopwatchEnabled)
         {
-            if (isSortParallel)
+            if (isSortParallel())
             {
-                cudaDeviceSynchronize();
+                error = cudaDeviceSynchronize();
+                checkCudaError(error);
             }
 
             _sortTime = endStopwatch(timer);
@@ -229,6 +242,8 @@ protected:
     data_t *_d_keys = NULL;
     // Array for values on device
     data_t *_d_values = NULL;
+    // Denotes if sort is sequential or parallel
+    bool _isSortParallel = true;
 
     /*
     Method for allocating memory needed both for key only and key-value sort.
@@ -297,6 +312,11 @@ protected:
     }
 
 public:
+    bool isSortParallel()
+    {
+        return _isSortParallel;
+    }
+
     /*
     Method for destroying memory needed for sort. For sort testing purposes this method is public.
     */
