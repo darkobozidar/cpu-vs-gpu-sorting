@@ -6,7 +6,7 @@
 #include "math_functions.h"
 
 #include "../Utils/data_types_common.h"
-#include "constants.h"
+#include "constants_key_only.h"
 
 
 /*
@@ -32,12 +32,12 @@ __global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen)
 {
     extern __shared__ data_t bitonicSortTile[];
 
-    uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT_KO * ELEMS_PER_THREAD_BITONIC_SORT_KO;
+    uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT * ELEMS_PER_THREAD_BITONIC_SORT;
     uint_t offset = blockIdx.x * elemsPerThreadBlock;
     uint_t dataBlockLength = offset + elemsPerThreadBlock <= tableLen ? elemsPerThreadBlock : tableLen - offset;
 
     // Reads data from global to shared memory.
-    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_BITONIC_SORT_KO)
+    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_BITONIC_SORT)
     {
         bitonicSortTile[tx] = dataTable[offset + tx];
     }
@@ -49,7 +49,7 @@ __global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen)
         // Bitonic merge STEPS
         for (uint_t stride = subBlockSize; stride > 0; stride >>= 1)
         {
-            for (uint_t tx = threadIdx.x; tx < dataBlockLength >> 1; tx += THREADS_PER_BITONIC_SORT_KO)
+            for (uint_t tx = threadIdx.x; tx < dataBlockLength >> 1; tx += THREADS_PER_BITONIC_SORT)
             {
                 uint_t indexThread = tx;
                 uint_t offset = stride;
@@ -79,7 +79,7 @@ __global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen)
     }
 
     // Stores data from shared to global memory
-    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_BITONIC_SORT_KO)
+    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_BITONIC_SORT)
     {
         dataTable[offset + tx] = bitonicSortTile[tx];
     }
@@ -96,12 +96,12 @@ template <order_t sortOrder, bool isFirstStepOfPhase>
 __global__ void bitonicMergeGlobalKernel(data_t *dataTable, uint_t tableLen, uint_t step)
 {
     uint_t stride = 1 << (step - 1);
-    uint_t pairsPerThreadBlock = (THREADS_PER_GLOBAL_MERGE_KO * ELEMS_PER_THREAD_GLOBAL_MERGE_KO) >> 1;
+    uint_t pairsPerThreadBlock = (THREADS_PER_GLOBAL_MERGE * ELEMS_PER_THREAD_GLOBAL_MERGE) >> 1;
     uint_t indexGlobal = blockIdx.x * pairsPerThreadBlock + threadIdx.x;
 
-    for (uint_t i = 0; i < ELEMS_PER_THREAD_GLOBAL_MERGE_KO >> 1; i++)
+    for (uint_t i = 0; i < ELEMS_PER_THREAD_GLOBAL_MERGE >> 1; i++)
     {
-        uint_t indexThread = indexGlobal + i * THREADS_PER_GLOBAL_MERGE_KO;
+        uint_t indexThread = indexGlobal + i * THREADS_PER_GLOBAL_MERGE;
         uint_t offset = stride;
 
         // In normalized bitonic sort, first STEP of every PHASE uses different offset than all other STEPS.
@@ -136,13 +136,13 @@ __global__ void bitonicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint
     extern __shared__ data_t mergeTile[];
     bool firstStepOfPhaseCopy = isFirstStepOfPhase;  // isFirstStepOfPhase is not editable (constant)
 
-    uint_t elemsPerThreadBlock = THREADS_PER_LOCAL_MERGE_KO * ELEMS_PER_THREAD_LOCAL_MERGE_KO;
+    uint_t elemsPerThreadBlock = THREADS_PER_LOCAL_MERGE * ELEMS_PER_THREAD_LOCAL_MERGE;
     uint_t offset = blockIdx.x * elemsPerThreadBlock;
     uint_t dataBlockLength = offset + elemsPerThreadBlock <= tableLen ? elemsPerThreadBlock : tableLen - offset;
     uint_t pairsPerBlockLength = dataBlockLength >> 1;
 
     // Reads data from global to shared memory.
-    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_LOCAL_MERGE_KO)
+    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_LOCAL_MERGE)
     {
         mergeTile[tx] = dataTable[offset + tx];
     }
@@ -151,7 +151,7 @@ __global__ void bitonicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint
     // Bitonic merge
     for (uint_t stride = 1 << (step - 1); stride > 0; stride >>= 1)
     {
-        for (uint_t tx = threadIdx.x; tx < pairsPerBlockLength; tx += THREADS_PER_LOCAL_MERGE_KO)
+        for (uint_t tx = threadIdx.x; tx < pairsPerBlockLength; tx += THREADS_PER_LOCAL_MERGE)
         {
             uint_t indexThread = tx;
             uint_t offset = stride;
@@ -176,7 +176,7 @@ __global__ void bitonicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint
     }
 
     // Stores data from shared to global memory
-    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_LOCAL_MERGE_KO)
+    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += THREADS_PER_LOCAL_MERGE)
     {
         dataTable[offset + tx] = mergeTile[tx];
     }

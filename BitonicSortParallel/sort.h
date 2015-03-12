@@ -12,24 +12,24 @@ private:
 
 	// Key only
     template <order_t sortOrder>
-    void runBitoicSortKernelKeyOnly(data_t *keys, uint_t tableLen);
+    void runBitoicSortKernel(data_t *keys, uint_t tableLen);
     template <order_t sortOrder>
-    void runBitonicMergeGlobalKernelKeyOnly(data_t *d_keys, uint_t arrayLength, uint_t phase, uint_t step);
+    void runBitonicMergeGlobalKernel(data_t *d_keys, uint_t arrayLength, uint_t phase, uint_t step);
     template <order_t sortOrder>
-    void runBitoicMergeLocalKernelKeyOnly(data_t *d_keys, uint_t arrayLength, uint_t phase, uint_t step);
+    void runBitoicMergeLocalKernel(data_t *d_keys, uint_t arrayLength, uint_t phase, uint_t step);
     template <order_t sortOrder>
-    void bitonicSortParallelKeyOnly(data_t *d_keys, uint_t arrayLength);
+    void bitonicSortParallel(data_t *d_keys, uint_t arrayLength);
     void sortKeyOnly();
 
     // Key-value
     template <order_t sortOrder>
-    void runBitoicSortKernelKeyValue(data_t *d_keys, data_t *d_values, uint_t arrayLength);
+    void runBitoicSortKernel(data_t *d_keys, data_t *d_values, uint_t arrayLength);
     template <order_t sortOrder>
-    void runBitonicMergeGlobalKernelKeyValue(data_t *d_keys, data_t *d_values, uint_t arrayLength, uint_t phase, uint_t step);
+    void runBitonicMergeGlobalKernel(data_t *d_keys, data_t *d_values, uint_t arrayLength, uint_t phase, uint_t step);
     template <order_t sortOrder>
-    void runBitoicMergeLocalKernelKeyValue(data_t *d_keys, data_t *values, uint_t arrayLength, uint_t phase, uint_t step);
+    void runBitoicMergeLocalKernel(data_t *d_keys, data_t *values, uint_t arrayLength, uint_t phase, uint_t step);
     template <order_t sortOrder>
-    void bitonicSortParallelKeyValue(data_t *d_keys, data_t *d_values, uint_t arrayLength);
+    void bitonicSortParallel(data_t *d_keys, data_t *d_values, uint_t arrayLength);
     void sortKeyValue();
 
 public:

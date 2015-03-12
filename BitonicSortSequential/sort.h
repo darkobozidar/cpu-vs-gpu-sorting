@@ -12,12 +12,12 @@ private:
 
     // Key only
     template <order_t sortOrder>
-    void bitonicSortSequentialKeyOnly(data_t *h_keys, uint_t arrayLength);
+    void bitonicSortSequential(data_t *h_keys, uint_t arrayLength);
     void sortKeyOnly();
 
     // Key-value
     template <order_t sortOrder>
-    void bitonicSortSequentialKeyValue(data_t *h_keys, data_t *h_values, uint_t arrayLength);
+    void bitonicSortSequential(data_t *h_keys, data_t *h_values, uint_t arrayLength);
     void sortKeyValue();
 
 public:

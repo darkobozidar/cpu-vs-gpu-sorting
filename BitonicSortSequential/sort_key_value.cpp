@@ -11,7 +11,7 @@
 Sorts data sequentially with NORMALIZED bitonic sort.
 */
 template <order_t sortOrder>
-void BitonicSortSequential::bitonicSortSequentialKeyValue(
+void BitonicSortSequential::bitonicSortSequential(
     data_t *h_keys, data_t *h_values, uint_t arrayLength
 )
 {
@@ -64,10 +64,10 @@ void BitonicSortSequential::sortKeyValue()
 {
     if (_sortOrder == ORDER_ASC)
     {
-        bitonicSortSequentialKeyValue<ORDER_ASC>(_h_keys, _h_values, _arrayLength);
+        bitonicSortSequential<ORDER_ASC>(_h_keys, _h_values, _arrayLength);
     }
     else
     {
-        bitonicSortSequentialKeyValue<ORDER_DESC>(_h_keys, _h_values, _arrayLength);
+        bitonicSortSequential<ORDER_DESC>(_h_keys, _h_values, _arrayLength);
     }
 }
