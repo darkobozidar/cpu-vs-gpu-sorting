@@ -183,6 +183,10 @@ char* getDistributionName(data_dist_t distribution)
         case DISTRIBUTION_STAGGERED: return "staggered";
         case DISTRIBUTION_SORTED_ASC: return "sorted_asc";
         case DISTRIBUTION_SORTED_DESC: return "sorder_desc";
+        default:
+            printf("Invalid distribution");
+            exit(EXIT_FAILURE);
+            return "";
     }
 }
 

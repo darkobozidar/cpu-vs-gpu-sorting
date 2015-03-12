@@ -10,7 +10,7 @@
 /*
 Exchanges elements on provided pointer adresses.
 */
-void exchangeElemens(data_t *elem1, data_t *elem2)
+void QuicksortSequentialKeyValue::exchangeElemens(data_t *elem1, data_t *elem2)
 {
     data_t temp = *elem1;
     *elem1 = *elem2;
@@ -21,19 +21,19 @@ void exchangeElemens(data_t *elem1, data_t *elem2)
 Searches for pivot.
 Searches for median of first, middle and last element in array.
 */
-uint_t getPivotIndex(data_t *dataTable, uint_t length)
+uint_t QuicksortSequentialKeyValue::getPivotIndex(data_t *dataArray, uint_t length)
 {
     uint_t index1 = 0;
     uint_t index2 = length / 2;
     uint_t index3 = length - 1;
 
-    if (dataTable[index1] > dataTable[index2])
+    if (dataArray[index1] > dataArray[index2])
     {
-        if (dataTable[index2] > dataTable[index3])
+        if (dataArray[index2] > dataArray[index3])
         {
             return index2;
         }
-        else if (dataTable[index1] > dataTable[index3])
+        else if (dataArray[index1] > dataArray[index3])
         {
             return index3;
         }
@@ -44,11 +44,11 @@ uint_t getPivotIndex(data_t *dataTable, uint_t length)
     }
     else
     {
-        if (dataTable[index1] > dataTable[index3])
+        if (dataArray[index1] > dataArray[index3])
         {
             return index1;
         }
-        else if (dataTable[index2] > dataTable[index3])
+        else if (dataArray[index2] > dataArray[index3])
         {
             return index3;
         }
@@ -62,36 +62,36 @@ uint_t getPivotIndex(data_t *dataTable, uint_t length)
 /*
 Partitions array into 2 partitions - elemens lower and elements greater than pivot.
 */
-template <order_t sortOrder>
-uint_t partitionArray(data_t *dataKeys, data_t *dataValues, uint_t length)
+template <order_t sortOrderTempl>
+uint_t QuicksortSequentialKeyValue::partitionArray(data_t *keys, data_t *values, uint_t length)
 {
-    uint_t pivotIndex = getPivotIndex(dataKeys, length);
-    data_t pivotValue = dataKeys[pivotIndex];
+    uint_t pivotIndex = getPivotIndex(keys, length);
+    data_t pivotValue = keys[pivotIndex];
 
-    exchangeElemens(&dataKeys[pivotIndex], &dataKeys[length - 1]);
-    exchangeElemens(&dataValues[pivotIndex], &dataValues[length - 1]);
+    exchangeElemens(&keys[pivotIndex], &keys[length - 1]);
+    exchangeElemens(&values[pivotIndex], &values[length - 1]);
     uint_t storeIndex = 0;
 
     for (uint_t i = 0; i < length - 1; i++)
     {
-        if (sortOrder ^ (dataKeys[i] < pivotValue))
+        if (sortOrderTempl ^ (keys[i] < pivotValue))
         {
-            exchangeElemens(&dataKeys[i], &dataKeys[storeIndex]);
-            exchangeElemens(&dataValues[i], &dataValues[storeIndex]);
+            exchangeElemens(&keys[i], &keys[storeIndex]);
+            exchangeElemens(&values[i], &values[storeIndex]);
             storeIndex++;
         }
     }
 
-    exchangeElemens(&dataKeys[storeIndex], &dataKeys[length - 1]);
-    exchangeElemens(&dataValues[storeIndex], &dataValues[length - 1]);
+    exchangeElemens(&keys[storeIndex], &keys[length - 1]);
+    exchangeElemens(&values[storeIndex], &values[length - 1]);
     return storeIndex;
 }
 
 /*
 Sorts the array with quicksort.
 */
-template <order_t sortOrder>
-void quickSort(data_t *dataKeys, data_t *dataValues, uint_t length)
+template <order_t sortOrderTempl>
+void QuicksortSequentialKeyValue::quickSort(data_t *keys, data_t *values, uint_t length)
 {
     if (length <= 1)
     {
@@ -99,17 +99,17 @@ void quickSort(data_t *dataKeys, data_t *dataValues, uint_t length)
     }
     else if (length == 2)
     {
-        if (sortOrder ^ (dataKeys[0] > dataKeys[1]))
+        if (sortOrderTempl ^ (keys[0] > keys[1]))
         {
-            exchangeElemens(&dataKeys[0], &dataKeys[1]);
-            exchangeElemens(&dataValues[0], &dataValues[1]);
+            exchangeElemens(&keys[0], &keys[1]);
+            exchangeElemens(&values[0], &values[1]);
         }
         return;
     }
 
-    uint_t partition = partitionArray<sortOrder>(dataKeys, dataValues, length);
-    quickSort<sortOrder>(dataKeys, dataValues, partition);
-    quickSort<sortOrder>(dataKeys + partition + 1, dataValues + partition + 1, length - partition - 1);
+    uint_t partition = partitionArray<sortOrderTempl>(keys, values, length);
+    quickSort<sortOrderTempl>(keys, values, partition);
+    quickSort<sortOrderTempl>(keys + partition + 1, values + partition + 1, length - partition - 1);
 }
 
 
