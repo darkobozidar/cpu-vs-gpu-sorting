@@ -168,7 +168,7 @@ bool isSortStable(data_t *keys, data_t *values, uint_t arrayLength)
     }
 
     // Generally not needed
-    // checkValuesUniqueness(values, arrayLength);
+    checkValuesUniqueness(values, arrayLength);
 
     for (uint_t i = 1; i < arrayLength; i++)
     {
@@ -350,15 +350,19 @@ void testSorts(
                 }
                 else
                 {
-                    fillArrayValueOnly(values, arrayLength);
                     (*sort)->memoryAllocate(keys, values, arrayLength);
                 }
 
                 // Tests sort
                 for (uint_t iter = 0; iter < testRepetitions; iter++)
                 {
-                    // Array for values is filled in test function only if key-value is sorted.
                     readArrayFromFile(fileNameUnsortedArr(iter), keys, arrayLength);
+                    if ((*sort)->getSortType() == SORT_SEQUENTIAL_KEY_VALUE ||
+                        (*sort)->getSortType() == SORT_PARALLEL_KEY_VALUE
+                    )
+                    {
+                        fillArrayValueOnly(values, arrayLength);
+                    }
                     generateStatistics(
                         *sort, *dist, keys, values, arrayLength, sortOrder, iter, testRepetitions
                     );

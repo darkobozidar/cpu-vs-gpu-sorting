@@ -4,23 +4,24 @@
 
 #include "../Utils/data_types_common.h"
 #include "../Utils/host.h"
+#include "sort_sequential.h"
 
 
 /*
 Sorts data sequentially with NORMALIZED bitonic sort.
 */
-double sortSequential(data_t *keys, data_t *values, uint_t tableLen, order_t sortOrder)
+template <order_t sortOrder>
+void BitonicSortSequentialKeyValue::bitonicSortSequentialKeyValue(
+    data_t *h_keys, data_t *h_values, uint_t arrayLength
+)
 {
-    LARGE_INTEGER timer;
-    startStopwatch(&timer);
-
-    for (uint_t subBlockSize = 1; subBlockSize < tableLen; subBlockSize <<= 1)
+    for (uint_t subBlockSize = 1; subBlockSize < arrayLength; subBlockSize <<= 1)
     {
         for (uint_t stride = subBlockSize; stride > 0; stride >>= 1)
         {
             bool isFirstStepOfPhase = stride == subBlockSize;
 
-            for (uint_t el = 0; el < tableLen >> 1; el++)
+            for (uint_t el = 0; el < arrayLength >> 1; el++)
             {
                 uint_t index = el;
                 uint_t offset = stride;
@@ -35,24 +36,38 @@ double sortSequential(data_t *keys, data_t *values, uint_t tableLen, order_t sor
                 // Calculates index of left and right element, which are candidates for exchange
                 uint_t indexLeft = (index << 1) - (index & (stride - 1));
                 uint_t indexRight = indexLeft + offset;
-                if (indexRight >= tableLen)
+                if (indexRight >= arrayLength)
                 {
                     break;
                 }
 
-                if ((keys[indexLeft] > keys[indexRight]) ^ sortOrder)
+                if ((h_keys[indexLeft] > h_keys[indexRight]) ^ sortOrder)
                 {
-                    data_t temp = keys[indexLeft];
-                    keys[indexLeft] = keys[indexRight];
-                    keys[indexRight] = temp;
+                    data_t temp = h_keys[indexLeft];
+                    h_keys[indexLeft] = h_keys[indexRight];
+                    h_keys[indexRight] = temp;
 
-                    temp = values[indexLeft];
-                    values[indexLeft] = values[indexRight];
-                    values[indexRight] = temp;
+                    temp = h_values[indexLeft];
+                    h_values[indexLeft] = h_values[indexRight];
+                    h_values[indexRight] = temp;
                 }
             }
         }
     }
+}
 
-    return endStopwatch(timer);
+/*
+Wrapper for bitonic sort method.
+The code runs faster if arguments are passed to method. If members are accessed directly, code runs slower.
+*/
+void BitonicSortSequentialKeyValue::sortPrivate()
+{
+    if (_sortOrder == ORDER_ASC)
+    {
+        bitonicSortSequentialKeyValue<ORDER_ASC>(_h_keys, _h_values, _arrayLength);
+    }
+    else
+    {
+        bitonicSortSequentialKeyValue<ORDER_DESC>(_h_keys, _h_values, _arrayLength);
+    }
 }

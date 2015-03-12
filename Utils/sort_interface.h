@@ -112,12 +112,12 @@ class SortSequentialKeyOnly : public Sort
 {
 protected:
     // Sequential sort for keys only
-    sort_type_t sortType = SORT_SEQUENTIAL_KEY_ONLY;
+    sort_type_t _sortType = SORT_SEQUENTIAL_KEY_ONLY;
 
 public:
     sort_type_t getSortType()
     {
-        return this->sortType;
+        return this->_sortType;
     }
 
     /*

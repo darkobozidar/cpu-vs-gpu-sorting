@@ -38,6 +38,7 @@ int main(int argc, char **argv)
     std::vector<Sort*> sortAlgorithms;
     sortAlgorithms.push_back(new BitonicSortSequentialKeyOnly());
     sortAlgorithms.push_back(new BitonicSortParallelKeyOnly());
+    sortAlgorithms.push_back(new BitonicSortSequentialKeyValue());
     sortAlgorithms.push_back(new BitonicSortParallelKeyValue());
 
     // This is needed only for testing puproses, because data transfer from device to host shouldn't be stopwatched.
