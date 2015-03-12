@@ -11,10 +11,10 @@
 #include "data_types.h"
 
 
-//////////////////////////// GENERAL UTILS //////////////////////////
+namespace keyValue {
 
-namespace keyOnly
-{
+    //////////////////////////// GENERAL UTILS //////////////////////////
+
     /*
     Calculates median of 3 provided values.
     */
@@ -122,7 +122,7 @@ namespace keyOnly
     {
         extern __shared__ data_t reductionTile[];
         data_t *minValues = reductionTile;
-        data_t *maxValues = reductionTile + THREADS_PER_REDUCTION_KO;
+        data_t *maxValues = reductionTile + THREADS_PER_REDUCTION_KV;
 
         for (uint_t stride = length / 2; stride > 0; stride >>= 1)
         {
@@ -138,19 +138,24 @@ namespace keyOnly
         }
     }
 
+
     ///////////////////////// BITONIC SORT UTILS ////////////////////////
 
     /*
     Compares 2 elements and exchanges them according to sortOrder.
     */
     template <order_t sortOrder>
-    __device__ void compareExchange(data_t *elem1, data_t *elem2)
+    __device__ void compareExchange(data_t *key1, data_t *key2, data_t *val1, data_t *val2)
     {
-        if ((*elem1 > *elem2) ^ sortOrder)
+        if ((*key1 > *key2) ^ sortOrder)
         {
-            data_t temp = *elem1;
-            *elem1 = *elem2;
-            *elem2 = temp;
+            data_t temp = *key1;
+            *key1 = *key2;
+            *key2 = temp;
+
+            temp = *val1;
+            *val1 = *val2;
+            *val2 = temp;
         }
     }
 
@@ -159,14 +164,19 @@ namespace keyOnly
     easy to implement for input sequences of arbitrary size) and outputs them to output array.
     */
     template <order_t sortOrder>
-    __device__ void normalizedBitonicSort(data_t *input, data_t *output, loc_seq_t localParams)
+    __device__ void normalizedBitonicSort(
+        data_t *keysInput, data_t *valuesInput, data_t *keysOutput, data_t *valuesOutput, loc_seq_t localParams
+    )
     {
         extern __shared__ data_t bitonicSortTile[];
+        data_t *keysTile = bitonicSortTile;
+        data_t *valuesTile = bitonicSortTile + THRESHOLD_BITONIC_SORT_LOCAL_KV;
 
         // Read data from global to shared memory.
-        for (uint_t tx = threadIdx.x; tx < localParams.length; tx += THREADS_PER_SORT_LOCAL_KO)
+        for (uint_t tx = threadIdx.x; tx < localParams.length; tx += THREADS_PER_SORT_LOCAL_KV)
         {
-            bitonicSortTile[tx] = input[localParams.start + tx];
+            keysTile[tx] = keysInput[localParams.start + tx];
+            valuesTile[tx] = valuesInput[localParams.start + tx];
         }
         __syncthreads();
 
@@ -176,7 +186,7 @@ namespace keyOnly
             // Bitonic merge STEPS
             for (uint_t stride = subBlockSize; stride > 0; stride >>= 1)
             {
-                for (uint_t tx = threadIdx.x; tx < localParams.length >> 1; tx += THREADS_PER_SORT_LOCAL_KO)
+                for (uint_t tx = threadIdx.x; tx < localParams.length >> 1; tx += THREADS_PER_SORT_LOCAL_KV)
                 {
                     uint_t indexThread = tx;
                     uint_t offset = stride;
@@ -198,7 +208,9 @@ namespace keyOnly
                         break;
                     }
 
-                    compareExchange<sortOrder>(&bitonicSortTile[index], &bitonicSortTile[index + offset]);
+                    compareExchange<sortOrder>(
+                        &keysTile[index], &keysTile[index + offset], &valuesTile[index], &valuesTile[index + offset]
+                        );
                 }
 
                 __syncthreads();
@@ -206,9 +218,10 @@ namespace keyOnly
         }
 
         // Store data from shared to global memory
-        for (uint_t tx = threadIdx.x; tx < localParams.length; tx += THREADS_PER_SORT_LOCAL_KO)
+        for (uint_t tx = threadIdx.x; tx < localParams.length; tx += THREADS_PER_SORT_LOCAL_KV)
         {
-            output[localParams.start + tx] = bitonicSortTile[tx];
+            keysOutput[localParams.start + tx] = keysTile[tx];
+            valuesOutput[localParams.start + tx] = valuesTile[tx];
         }
     }
 
@@ -275,13 +288,14 @@ namespace keyOnly
     TODO try alignment with 32 for coalasced reading
     */
     __global__ void quickSortGlobalKernel(
-        data_t *dataInput, data_t *dataBuffer, d_glob_seq_t *sequences, uint_t *seqIndexes
+        data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, data_t *pivotValues,
+        d_glob_seq_t *sequences, uint_t *seqIndexes
     )
     {
         extern __shared__ data_t globalSortTile[];
 #if USE_REDUCTION_IN_GLOBAL_SORT
         data_t *minValues = globalSortTile;
-        data_t *maxValues = globalSortTile + THREADS_PER_SORT_GLOBAL_KO;
+        data_t *maxValues = globalSortTile + THREADS_PER_SORT_GLOBAL_KV;
         __shared__ uint_t numActiveThreads;
 #endif
 
@@ -291,25 +305,27 @@ namespace keyOnly
         __shared__ uint_t localStart, localLength;
         __shared__ d_glob_seq_t sequence;
 
-        if (threadIdx.x == (THREADS_PER_SORT_GLOBAL_KO - 1))
+        if (threadIdx.x == (THREADS_PER_SORT_GLOBAL_KV - 1))
         {
             seqIdx = seqIndexes[blockIdx.x];
             sequence = sequences[seqIdx];
-            uint_t elemsPerBlock = THREADS_PER_SORT_GLOBAL_KO * ELEMENTS_PER_THREAD_GLOBAL_KO;
             uint_t localBlockIdx = blockIdx.x - sequence.startThreadBlockIdx;
+            uint_t elemsPerBlock = THREADS_PER_SORT_GLOBAL_KV * ELEMENTS_PER_THREAD_GLOBAL_KV;
 
             // Params.threadBlockCounter cannot be used, because it can get modified by other blocks.
             uint_t offset = localBlockIdx * elemsPerBlock;
             localStart = sequence.start + offset;
             localLength = offset + elemsPerBlock <= sequence.length ? elemsPerBlock : sequence.length - offset;
 #if USE_REDUCTION_IN_GLOBAL_SORT
-            numActiveThreads = nextPowerOf2Device(min(THREADS_PER_SORT_GLOBAL_KO, localLength));
+            numActiveThreads = nextPowerOf2Device(min(THREADS_PER_SORT_GLOBAL_KV, localLength));
 #endif
         }
         __syncthreads();
 
-        data_t *primaryArray = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataInput : dataBuffer;
-        data_t *bufferArray = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataInput : dataBuffer;
+        data_t *keysPrimary = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataKeys : bufferKeys;
+        data_t *valuesPrimary = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataValues : bufferValues;
+        data_t *keysBuffer = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataKeys : bufferKeys;
+        data_t *valuesBuffer = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataValues : bufferValues;
 
 #if USE_REDUCTION_IN_GLOBAL_SORT
         // Initializes min/max values.
@@ -320,9 +336,9 @@ namespace keyOnly
         uint_t localLower = 0, localGreater = 0;
 
         // Counts the number of elements lower/greater than pivot and finds min/max
-        for (uint_t tx = threadIdx.x; tx < localLength; tx += THREADS_PER_SORT_GLOBAL_KO)
+        for (uint_t tx = threadIdx.x; tx < localLength; tx += THREADS_PER_SORT_GLOBAL_KV)
         {
-            data_t temp = primaryArray[localStart + tx];
+            data_t temp = keysPrimary[localStart + tx];
             localLower += temp < sequence.pivot;
             localGreater += temp > sequence.pivot;
 
@@ -342,7 +358,7 @@ namespace keyOnly
 
         // Calculates and saves min/max values, before shared memory gets overriden by scan
         minMaxReduction(numActiveThreads);
-        if (threadIdx.x == (THREADS_PER_SORT_GLOBAL_KO - 1))
+        if (threadIdx.x == (THREADS_PER_SORT_GLOBAL_KV - 1))
         {
             atomicMin(&sequences[seqIdx].greaterSeqMinVal, minValues[0]);
             atomicMax(&sequences[seqIdx].lowerSeqMaxVal, maxValues[0]);
@@ -351,40 +367,62 @@ namespace keyOnly
         __syncthreads();
 
         // Calculates number of elements lower/greater than pivot inside whole thread blocks
-        uint_t scanLower = intraBlockScan<THREADS_PER_SORT_GLOBAL_KO>(localLower);
+        uint_t scanLower = intraBlockScan<THREADS_PER_SORT_GLOBAL_KV>(localLower);
         __syncthreads();
-        uint_t scanGreater = intraBlockScan<THREADS_PER_SORT_GLOBAL_KO>(localGreater);
+        uint_t scanGreater = intraBlockScan<THREADS_PER_SORT_GLOBAL_KV>(localGreater);
         __syncthreads();
 
         // Calculates number of elements lower/greater than pivot for all thread blocks processing this sequence
-        __shared__ uint_t globalLower, globalGreater;
-        if (threadIdx.x == (THREADS_PER_SORT_GLOBAL_KO - 1))
+        __shared__ uint_t globalLower, globalGreater, globalOffsetPivotValues;
+        if (threadIdx.x == (THREADS_PER_SORT_GLOBAL_KV - 1))
         {
             globalLower = atomicAdd(&sequences[seqIdx].offsetLower, scanLower);
             globalGreater = atomicAdd(&sequences[seqIdx].offsetGreater, scanGreater);
+            globalOffsetPivotValues = atomicAdd(
+                &sequences[seqIdx].offsetPivotValues, localLength - scanLower - scanGreater
+            );
         }
         __syncthreads();
 
         uint_t indexLower = sequence.start + globalLower + scanLower - localLower;
         uint_t indexGreater = sequence.start + sequence.length - globalGreater - scanGreater;
 
-        // Scatters elements to newly generated left/right subsequences
-        for (uint_t tx = threadIdx.x; tx < localLength; tx += THREADS_PER_SORT_GLOBAL_KO)
-        {
-            data_t temp = primaryArray[localStart + tx];
+        // Last thread that processed "(localLength / THREADS_PER_SORT_GLOBAL) + 1" elements
+        uint_t lastThread = localLength % THREADS_PER_SORT_GLOBAL_KV;
+        // Number of elements processed by previous threads
+        uint_t numElemsPreviousThreads = threadIdx.x * (localLength / THREADS_PER_SORT_GLOBAL_KV) + (
+            threadIdx.x < lastThread ? threadIdx.x : lastThread
+        );
+        uint_t indexPivot = sequence.start + globalOffsetPivotValues + numElemsPreviousThreads - (
+            (scanLower - localLower) + (scanGreater - localGreater)
+        );
 
-            if (temp < sequence.pivot)
+        // Scatters elements to newly generated left/right subsequences
+        for (uint_t tx = threadIdx.x; tx < localLength; tx += THREADS_PER_SORT_GLOBAL_KV)
+        {
+            data_t key = keysPrimary[localStart + tx];
+            data_t value = valuesPrimary[localStart + tx];
+
+            if (key < sequence.pivot)
             {
-                bufferArray[indexLower++] = temp;
+                keysBuffer[indexLower] = key;
+                valuesBuffer[indexLower] = value;
+                indexLower++;
             }
-            else if (temp > sequence.pivot)
+            else if (key > sequence.pivot)
             {
-                bufferArray[indexGreater++] = temp;
+                keysBuffer[indexGreater] = key;
+                valuesBuffer[indexGreater] = value;
+                indexGreater++;
+            }
+            else
+            {
+                pivotValues[indexPivot++] = value;
             }
         }
 
         // Atomic sub has to be executed at the end of the kernel - after scattering of elements has been completed
-        if (threadIdx.x == (THREADS_PER_SORT_GLOBAL_KO - 1))
+        if (threadIdx.x == (THREADS_PER_SORT_GLOBAL_KV - 1))
         {
             sequence.threadBlockCounter = atomicSub(&sequences[seqIdx].threadBlockCounter, 1) - 1;
         }
@@ -393,16 +431,18 @@ namespace keyOnly
         // Last block assigned to current sub-sequence stores pivots
         if (sequence.threadBlockCounter == 0)
         {
-            data_t pivot = sequence.pivot;
-
-            uint_t index = sequence.start + sequences[seqIdx].offsetLower + threadIdx.x;
-            uint_t end = sequence.start + sequence.length - sequences[seqIdx].offsetGreater;
+            uint_t indexOutput = sequence.start + sequences[seqIdx].offsetLower + threadIdx.x;
+            uint_t endOutput = sequence.start + sequence.length - sequences[seqIdx].offsetGreater;
+            uint_t indexPivot = sequence.start + threadIdx.x;
 
             // Pivots have to be stored in output array, because they won't be moved anymore
-            while (index < end)
+            while (indexOutput < endOutput)
             {
-                dataBuffer[index] = pivot;
-                index += THREADS_PER_SORT_GLOBAL_KO;
+                bufferKeys[indexOutput] = sequence.pivot;
+                bufferValues[indexOutput] = pivotValues[indexPivot];
+
+                indexOutput += THREADS_PER_SORT_GLOBAL_KV;
+                indexPivot += THREADS_PER_SORT_GLOBAL_KV;
             }
         }
     }
@@ -415,7 +455,10 @@ namespace keyOnly
     TODO try alignment with 32 for coalasced reading
     */
     template <order_t sortOrder>
-    __global__ void quickSortLocalKernel(data_t *dataInput, data_t *dataBuffer, loc_seq_t *sequences)
+    __global__ void quickSortLocalKernel(
+        data_t *dataKeysGlobal, data_t *dataValuesGlobal, data_t *bufferKeysGlobal, data_t *bufferValuesGlobal,
+        data_t *pivotValues, loc_seq_t *sequences
+    )
     {
         // Explicit stack (instead of recursion), which holds sequences, which need to be processed.
         __shared__ loc_seq_t workstack[32];
@@ -437,23 +480,26 @@ namespace keyOnly
             __syncthreads();
             loc_seq_t sequence = popWorkstack(workstack, workstackCounter);
 
-            if (sequence.length <= THRESHOLD_BITONIC_SORT_LOCAL_KO)
+            if (sequence.length <= THRESHOLD_BITONIC_SORT_LOCAL_KV)
             {
                 // Bitonic sort is executed in-place and sorted data has to be writter to output.
-                data_t *inputTemp = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataInput : dataBuffer;
-                normalizedBitonicSort<sortOrder>(inputTemp, dataBuffer, sequence);
+                data_t *keysInput = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataKeysGlobal : bufferKeysGlobal;
+                data_t *valuesInput = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataValuesGlobal : bufferValuesGlobal;
+                normalizedBitonicSort<sortOrder>(keysInput, valuesInput, bufferKeysGlobal, bufferValuesGlobal, sequence);
 
                 continue;
             }
 
-            data_t *primaryArray = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataInput : dataBuffer;
-            data_t *bufferArray = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataInput : dataBuffer;
+            data_t *keysPrimary = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataKeysGlobal : bufferKeysGlobal;
+            data_t *valuesPrimary = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataValuesGlobal : bufferValuesGlobal;
+            data_t *keysBuffer = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataKeysGlobal : bufferKeysGlobal;
+            data_t *valuesBuffer = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataValuesGlobal : bufferValuesGlobal;
 
             if (threadIdx.x == 0)
             {
                 pivot = getMedian(
-                    primaryArray[sequence.start], primaryArray[sequence.start + (sequence.length / 2)],
-                    primaryArray[sequence.start + sequence.length - 1]
+                    keysPrimary[sequence.start], keysPrimary[sequence.start + (sequence.length / 2)],
+                    keysPrimary[sequence.start + sequence.length - 1]
                 );
             }
             __syncthreads();
@@ -462,39 +508,61 @@ namespace keyOnly
             uint_t localLower = 0, localGreater = 0;
 
             // Every thread counts the number of elements lower/greater than pivot
-            for (uint_t tx = threadIdx.x; tx < sequence.length; tx += THREADS_PER_SORT_LOCAL_KO)
+            for (uint_t tx = threadIdx.x; tx < sequence.length; tx += THREADS_PER_SORT_LOCAL_KV)
             {
-                data_t temp = primaryArray[sequence.start + tx];
+                data_t temp = keysPrimary[sequence.start + tx];
                 localLower += temp < pivot;
                 localGreater += temp > pivot;
             }
 
             // Calculates global offsets for each thread with inclusive scan
-            uint_t globalLower = intraBlockScan<THREADS_PER_SORT_LOCAL_KO>(localLower);
+            uint_t globalLower = intraBlockScan<THREADS_PER_SORT_LOCAL_KV>(localLower);
             __syncthreads();
-            uint_t globalGreater = intraBlockScan<THREADS_PER_SORT_LOCAL_KO>(localGreater);
+            uint_t globalGreater = intraBlockScan<THREADS_PER_SORT_LOCAL_KV>(localGreater);
             __syncthreads();
 
             uint_t indexLower = sequence.start + globalLower - localLower;
             uint_t indexGreater = sequence.start + sequence.length - globalGreater;
 
-            // Scatter elements to newly generated left/right subsequences
-            for (uint_t tx = threadIdx.x; tx < sequence.length; tx += THREADS_PER_SORT_LOCAL_KO)
-            {
-                data_t temp = primaryArray[sequence.start + tx];
+            // Last thread that processed "(localLength / THREADS_PER_SORT_LOCAL) + 1" elements
+            uint_t lastThread = sequence.length % THREADS_PER_SORT_LOCAL_KV;
+            // Number of elements processed by previous threads
+            uint_t numElemsPreviousThreads = threadIdx.x * (sequence.length / THREADS_PER_SORT_LOCAL_KV) + (
+                threadIdx.x < lastThread ? threadIdx.x : lastThread
+            );
+            uint_t indexPivot = sequence.start + numElemsPreviousThreads - (
+                (globalLower - localLower) + (globalGreater - localGreater)
+            );
 
-                if (temp < pivot)
+            // Scatters elements to newly generated left/right subsequences
+            for (uint_t tx = threadIdx.x; tx < sequence.length; tx += THREADS_PER_SORT_LOCAL_KV)
+            {
+                data_t key = keysPrimary[sequence.start + tx];
+                data_t value = valuesPrimary[sequence.start + tx];
+
+                if (key < pivot)
                 {
-                    bufferArray[indexLower++] = temp;
+                    keysBuffer[indexLower] = key;
+                    valuesBuffer[indexLower] = value;
+                    indexLower++;
                 }
-                else if (temp > pivot)
+                else if (key > pivot)
                 {
-                    bufferArray[indexGreater++] = temp;
+                    keysBuffer[indexGreater] = key;
+                    valuesBuffer[indexGreater] = value;
+                    indexGreater++;
+                }
+                else
+                {
+                    // Pivots cannot be stored here, because one thread could write same elements which other thread
+                    // tries to read. Pivots have to be stored in global buffer array (they won't be moved anymore),
+                    // which can be primary local array (50/50 chance).
+                    pivotValues[indexPivot++] = value;
                 }
             }
 
             // Pushes new subsequences on explicit stack and broadcast pivot offsets into shared memory
-            if (threadIdx.x == (THREADS_PER_SORT_LOCAL_KO - 1))
+            if (threadIdx.x == (THREADS_PER_SORT_LOCAL_KV - 1))
             {
                 pushWorkstack(workstack, workstackCounter, sequence, pivot, globalLower, globalGreater);
 
@@ -504,22 +572,28 @@ namespace keyOnly
             __syncthreads();
 
             // Scatters the pivots to output array. Pivots have to be stored in output array, because they
-            // won't be moved anymore
+            // won't be moved anymore.
             uint_t index = sequence.start + pivotLowerOffset + threadIdx.x;
             uint_t end = sequence.start + sequence.length - pivotGreaterOffset;
+            indexPivot = sequence.start + threadIdx.x;
 
             while (index < end)
             {
-                dataBuffer[index] = pivot;
-                index += THREADS_PER_SORT_LOCAL_KO;
+                bufferKeysGlobal[index] = pivot;
+                bufferValuesGlobal[index] = pivotValues[indexPivot];
+
+                indexPivot += THREADS_PER_SORT_LOCAL_KV;
+                index += THREADS_PER_SORT_LOCAL_KV;
             }
         }
     }
 
     template __global__ void quickSortLocalKernel<ORDER_ASC>(
-        data_t *dataInput, data_t *dataBuffer, loc_seq_t *sequences
+        data_t *dataKeysGlobal, data_t *dataValuesGlobal, data_t *bufferKeysGlobal, data_t *bufferValuesGlobal,
+        data_t *pivotValues, loc_seq_t *sequences
     );
     template __global__ void quickSortLocalKernel<ORDER_DESC>(
-        data_t *dataInput, data_t *dataBuffer, loc_seq_t *sequences
+        data_t *dataKeysGlobal, data_t *dataValuesGlobal, data_t *bufferKeysGlobal, data_t *bufferValuesGlobal,
+        data_t *pivotValues, loc_seq_t *sequences
     );
 }

@@ -37,13 +37,15 @@ private:
     void memoryAllocate(data_t *h_keys, data_t *h_values, uint_t arrayLength);
     void memoryDestroy();
     void memoryCopyAfterSort(data_t *h_keys, data_t *h_values, uint_t arrayLength);
-
-    // Key only
-    uint_t runMinMaxReductionKernel(data_t *d_keys, data_t *d_keysBuffer, uint_t tableLen);
-    void QuicksortParallel::minMaxReduction(
+    template <uint_t threadsReduction, uint_t elemsThreadReduction>
+    uint_t runMinMaxReductionKernel(data_t *d_keys, data_t *d_keysBuffer, uint_t arrayLength);
+    template <uint_t thresholdReduction, uint_t threadsReduction, uint_t elemsThreadReduction>
+    void minMaxReduction(
         data_t *h_keys, data_t *d_keys, data_t *d_keysBuffer, data_t *h_minMaxValues, uint_t arrayLength,
         data_t &minVal, data_t &maxVal
     );
+
+    // Key only
     void runQuickSortGlobalKernel(
         data_t *d_keys, data_t *d_keysBuffer, d_glob_seq_t *h_globalSeqDev, d_glob_seq_t *d_globalSeqDev,
         uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes, uint_t numSeqGlobal, uint_t threadBlockCounter
@@ -62,7 +64,25 @@ private:
     void sortKeyOnly();
 
     // Key-value
-    //void sortKeyValue();
+    void runQuickSortGlobalKernel(
+        data_t *d_keys, data_t *d_values, data_t *d_keysBuffer, data_t *d_valuesBuffer, data_t *d_valuesPivot,
+        d_glob_seq_t *h_globalSeqDev, d_glob_seq_t *d_globalSeqDev, uint_t *h_globalSeqIndexes,
+        uint_t *d_globalSeqIndexes, uint_t numSeqGlobal, uint_t threadBlockCounter
+    );
+    template <order_t sortOrder>
+    void runQuickSortLocalKernel(
+        data_t *d_keys, data_t *d_values, data_t *d_keysBuffer, data_t *d_valuesBuffer, data_t *d_valuesPivot,
+        loc_seq_t *h_localSeq, loc_seq_t *d_localSeq, uint_t numThreadBlocks
+    );
+    template <order_t sortOrder>
+    void quicksortParallel(
+        data_t *h_keys, data_t *&d_keys, data_t *&d_values, data_t *&d_keysBuffer, data_t *&d_valuesBuffer,
+        data_t *d_valuesPivot, data_t *h_minMaxValues, h_glob_seq_t *h_globalSeqHost,
+        h_glob_seq_t *h_globalSeqHostBuffer, d_glob_seq_t *h_globalSeqDev, d_glob_seq_t *d_globalSeqDev,
+        uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes, loc_seq_t *h_localSeq, loc_seq_t *d_localSeq,
+        uint_t arrayLength
+    );
+    void sortKeyValue();
 
 public:
     std::string getSortName()

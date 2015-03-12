@@ -11,10 +11,10 @@
 #include "../Utils/host.h"
 #include "constants.h"
 #include "data_types.h"
-#include "kernels_key_only.h"
+#include "kernels_key_value.h"
 #include "sort.h"
 
-using namespace keyOnly;
+using namespace keyValue;
 
 
 /*
@@ -22,8 +22,9 @@ Runs global (multiple thread blocks process one sequence) quicksort and coppies 
 from device.
 */
 void QuicksortParallel::runQuickSortGlobalKernel(
-    data_t *d_keys, data_t *d_keysBuffer, d_glob_seq_t *h_globalSeqDev, d_glob_seq_t *d_globalSeqDev,
-    uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes, uint_t numSeqGlobal, uint_t threadBlockCounter
+    data_t *d_keys, data_t *d_values, data_t *d_keysBuffer, data_t *d_valuesBuffer, data_t *d_valuesPivot,
+    d_glob_seq_t *h_globalSeqDev, d_glob_seq_t *d_globalSeqDev, uint_t *h_globalSeqIndexes,
+    uint_t *d_globalSeqIndexes, uint_t numSeqGlobal, uint_t threadBlockCounter
 )
 {
     cudaError_t error;
@@ -32,10 +33,10 @@ void QuicksortParallel::runQuickSortGlobalKernel(
     // 2. arg: Size of array needed to perform scan of counters for number of elements lower/greater than
     //         pivot ("2" because of intra-warp scan).
     uint_t sharedMemSize = max(
-        2 * THREADS_PER_SORT_GLOBAL_KO * sizeof(data_t), 2 * THREADS_PER_SORT_GLOBAL_KO * sizeof(uint_t)
+        2 * THREADS_PER_SORT_GLOBAL_KV * sizeof(data_t), 2 * THREADS_PER_SORT_GLOBAL_KV * sizeof(uint_t)
     );
     dim3 dimGrid(threadBlockCounter, 1, 1);
-    dim3 dimBlock(THREADS_PER_SORT_GLOBAL_KO, 1, 1);
+    dim3 dimBlock(THREADS_PER_SORT_GLOBAL_KV, 1, 1);
 
     error = cudaMemcpy(
         d_globalSeqDev, h_globalSeqDev, numSeqGlobal * sizeof(*d_globalSeqDev), cudaMemcpyHostToDevice
@@ -48,7 +49,8 @@ void QuicksortParallel::runQuickSortGlobalKernel(
     checkCudaError(error);
 
     quickSortGlobalKernel<<<dimGrid, dimBlock, sharedMemSize>>>(
-        d_keys, d_keysBuffer, d_globalSeqDev, d_globalSeqIndexes
+        d_keys, d_values, d_keysBuffer, d_valuesBuffer, d_valuesPivot, d_globalSeqDev,
+        d_globalSeqIndexes
     );
 
     error = cudaMemcpy(
@@ -62,23 +64,26 @@ Finishes quicksort with local (one thread block processes one block) quicksort.
 */
 template <order_t sortOrder>
 void QuicksortParallel::runQuickSortLocalKernel(
-    data_t *d_keys, data_t *d_keysBuffer, loc_seq_t *h_localSeq, loc_seq_t *d_localSeq, uint_t numThreadBlocks
+    data_t *d_keys, data_t *d_values, data_t *d_keysBuffer, data_t *d_valuesBuffer, data_t *d_valuesPivot,
+    loc_seq_t *h_localSeq, loc_seq_t *d_localSeq, uint_t numThreadBlocks
 )
 {
     cudaError_t error;
 
     // The same shared memory array is used for counting elements greater/lower than pivot and for bitonic sort.
-    // max(intra-block scan array size, array size for bitonic sort)
+    // max(intra-block scan array size, array size for bitonic sort ("2 *" because of key-value pairs))
     uint_t sharedMemSize = max(
-        2 * THREADS_PER_SORT_LOCAL_KO * sizeof(uint_t), THRESHOLD_BITONIC_SORT_LOCAL_KO * sizeof(*d_keys)
+        2 * THREADS_PER_SORT_LOCAL_KV * sizeof(uint_t), 2 * THRESHOLD_BITONIC_SORT_LOCAL_KV * sizeof(*d_keys)
     );
     dim3 dimGrid(numThreadBlocks, 1, 1);
-    dim3 dimBlock(THREADS_PER_SORT_LOCAL_KO, 1, 1);
+    dim3 dimBlock(THREADS_PER_SORT_LOCAL_KV, 1, 1);
 
     error = cudaMemcpy(d_localSeq, h_localSeq, numThreadBlocks * sizeof(*d_localSeq), cudaMemcpyHostToDevice);
     checkCudaError(error);
 
-    quickSortLocalKernel<sortOrder><<<dimGrid, dimBlock, sharedMemSize>>>(d_keys, d_keysBuffer, d_localSeq);
+    quickSortLocalKernel<sortOrder><<<dimGrid, dimBlock, sharedMemSize>>>(
+        d_keys, d_values, d_keysBuffer, d_valuesBuffer, d_valuesPivot, d_localSeq
+    );
 }
 
 /*
@@ -86,10 +91,11 @@ Executes parallel quicksort.
 */
 template <order_t sortOrder>
 void QuicksortParallel::quicksortParallel(
-    data_t *h_keys, data_t *&d_keys, data_t *&d_keysBuffer, data_t *h_minMaxValues,
-    h_glob_seq_t *h_globalSeqHost, h_glob_seq_t *h_globalSeqHostBuffer, d_glob_seq_t *h_globalSeqDev,
-    d_glob_seq_t *d_globalSeqDev, uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes,
-    loc_seq_t *h_localSeq, loc_seq_t *d_localSeq, uint_t arrayLength
+    data_t *h_keys, data_t *&d_keys, data_t *&d_values, data_t *&d_keysBuffer, data_t *&d_valuesBuffer,
+    data_t *d_valuesPivot, data_t *h_minMaxValues, h_glob_seq_t *h_globalSeqHost,
+    h_glob_seq_t *h_globalSeqHostBuffer, d_glob_seq_t *h_globalSeqDev, d_glob_seq_t *d_globalSeqDev,
+    uint_t *h_globalSeqIndexes, uint_t *d_globalSeqIndexes, loc_seq_t *h_localSeq, loc_seq_t *d_localSeq,
+    uint_t arrayLength
 )
 {
     // Because a lot of empty sequences can be generated, this counter is used to keep track of all
@@ -97,13 +103,13 @@ void QuicksortParallel::quicksortParallel(
     uint_t numSeqAll = 1;
     uint_t numSeqGlobal = 1; // Number of sequences for GLOBAL quicksort
     uint_t numSeqLocal = 0;  // Number of sequences for LOCAL quicksort
-    uint_t numSeqLimit = (arrayLength - 1) / THRESHOLD_PARTITION_SIZE_GLOBAL_KO + 1;
-    uint_t elemsPerThreadBlock = THREADS_PER_SORT_GLOBAL_KO * ELEMENTS_PER_THREAD_GLOBAL_KO;
-    bool generateSequences = arrayLength > THRESHOLD_PARTITION_SIZE_GLOBAL_KO;
+    uint_t numSeqLimit = (arrayLength - 1) / THRESHOLD_PARTITION_SIZE_GLOBAL_KV + 1;
+    uint_t elemsPerThreadBlock = THREADS_PER_SORT_GLOBAL_KV * ELEMENTS_PER_THREAD_GLOBAL_KV;
+    bool generateSequences = arrayLength > THRESHOLD_PARTITION_SIZE_GLOBAL_KV;
     data_t minVal, maxVal;
 
     // Searches for min and max value in input array
-    minMaxReduction<THRESHOLD_REDUCTION_KO, THREADS_PER_REDUCTION_KO, ELEMENTS_PER_THREAD_REDUCTION_KO>(
+    minMaxReduction<THRESHOLD_REDUCTION_KV, THREADS_PER_REDUCTION_KV, ELEMENTS_PER_THREAD_REDUCTION_KV>(
         h_keys, d_keys, d_keysBuffer, h_minMaxValues, arrayLength, minVal, maxVal
     );
     // Null/zero distribution
@@ -112,6 +118,10 @@ void QuicksortParallel::quicksortParallel(
         data_t *temp = d_keys;
         d_keys = d_keysBuffer;
         d_keysBuffer = temp;
+
+        temp = d_values;
+        d_values = d_valuesBuffer;
+        d_valuesBuffer = temp;
         return;
     }
     h_globalSeqHost[0].setInitSeq(arrayLength, minVal, maxVal);
@@ -135,8 +145,8 @@ void QuicksortParallel::quicksortParallel(
         }
 
         runQuickSortGlobalKernel(
-            d_keys, d_keysBuffer, h_globalSeqDev, d_globalSeqDev, h_globalSeqIndexes, d_globalSeqIndexes,
-            numSeqGlobal, threadBlockCounter
+            d_keys, d_values, d_keysBuffer, d_valuesBuffer, d_valuesPivot, h_globalSeqDev, d_globalSeqDev,
+            h_globalSeqIndexes, d_globalSeqIndexes, numSeqGlobal, threadBlockCounter
         );
 
         uint_t numSeqGlobalOld = numSeqGlobal;
@@ -151,7 +161,7 @@ void QuicksortParallel::quicksortParallel(
             d_glob_seq_t seqDev = h_globalSeqDev[seqIdx];
 
             // New subsequece (lower)
-            if (seqDev.offsetLower > THRESHOLD_PARTITION_SIZE_GLOBAL_KO && numSeqAll < numSeqLimit)
+            if (seqDev.offsetLower > THRESHOLD_PARTITION_SIZE_GLOBAL_KV && numSeqAll < numSeqLimit)
             {
                 h_globalSeqHostBuffer[numSeqGlobal++].setLowerSeq(seqHost, seqDev);
             }
@@ -161,7 +171,7 @@ void QuicksortParallel::quicksortParallel(
             }
 
             // New subsequece (greater)
-            if (seqDev.offsetGreater > THRESHOLD_PARTITION_SIZE_GLOBAL_KO && numSeqAll < numSeqLimit)
+            if (seqDev.offsetGreater > THRESHOLD_PARTITION_SIZE_GLOBAL_KV && numSeqAll < numSeqLimit)
             {
                 h_globalSeqHostBuffer[numSeqGlobal++].setGreaterSeq(seqHost, seqDev);
             }
@@ -179,35 +189,37 @@ void QuicksortParallel::quicksortParallel(
     }
 
     // If global quicksort was not used, than sequence is initialized for LOCAL quicksort
-    if (arrayLength <= THRESHOLD_PARTITION_SIZE_GLOBAL_KO)
+    if (arrayLength <= THRESHOLD_PARTITION_SIZE_GLOBAL_KV)
     {
         numSeqLocal++;
         h_localSeq[0].setInitSeq(arrayLength);
     }
 
-    runQuickSortLocalKernel<sortOrder>(d_keys, d_keysBuffer, h_localSeq, d_localSeq, numSeqLocal);
+    runQuickSortLocalKernel<sortOrder>(
+        d_keys, d_values, d_keysBuffer, d_valuesBuffer, d_valuesPivot, h_localSeq, d_localSeq, numSeqLocal
+    );
 }
 
 /*
 Wrapper for bitonic sort method.
 The code runs faster if arguments are passed to method. If members are accessed directly, code runs slower.
 */
-void QuicksortParallel::sortKeyOnly()
+void QuicksortParallel::sortKeyValue()
 {
     if (_sortOrder == ORDER_ASC)
     {
         quicksortParallel<ORDER_ASC>(
-            _h_keys, _d_keys, _d_keysBuffer, _h_minMaxValues, _h_globalSeqHost, _h_globalSeqHostBuffer,
-            _h_globalSeqDev, _d_globalSeqDev, _h_globalSeqIndexes, _d_globalSeqIndexes, _h_localSeq, _d_localSeq,
-            _arrayLength
+            _h_keys, _d_keys, _d_values, _d_keysBuffer, _d_valuesBuffer, _d_valuesPivot, _h_minMaxValues,
+            _h_globalSeqHost, _h_globalSeqHostBuffer, _h_globalSeqDev, _d_globalSeqDev, _h_globalSeqIndexes,
+            _d_globalSeqIndexes, _h_localSeq, _d_localSeq, _arrayLength
         );
     }
     else
     {
         quicksortParallel<ORDER_DESC>(
-            _h_keys, _d_keys, _d_keysBuffer, _h_minMaxValues, _h_globalSeqHost, _h_globalSeqHostBuffer,
-            _h_globalSeqDev, _d_globalSeqDev, _h_globalSeqIndexes, _d_globalSeqIndexes, _h_localSeq, _d_localSeq,
-            _arrayLength
+            _h_keys, _d_keys, _d_values, _d_keysBuffer, _d_valuesBuffer, _d_valuesPivot, _h_minMaxValues,
+            _h_globalSeqHost, _h_globalSeqHostBuffer, _h_globalSeqDev, _d_globalSeqDev, _h_globalSeqIndexes,
+            _d_globalSeqIndexes, _h_localSeq, _d_localSeq, _arrayLength
         );
     }
 }
