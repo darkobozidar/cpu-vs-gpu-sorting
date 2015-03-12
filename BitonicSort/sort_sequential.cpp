@@ -5,19 +5,19 @@
 #include "../Utils/data_types_common.h"
 #include "sort_sequential.h"
 
-
 /*
 Sorts data sequentially with NORMALIZED bitonic sort.
 */
-void BitonicSortSequentialKeyOnly::sortPrivate()
+template <order_t sortOrder>
+void BitonicSortSequentialKeyOnly::bitonicSortSequentialKeyOnly(data_t *keys, uint_t arrayLength)
 {
-    for (uint_t subBlockSize = 1; subBlockSize < this->arrayLength; subBlockSize <<= 1)
+    for (uint_t subBlockSize = 1; subBlockSize < arrayLength; subBlockSize <<= 1)
     {
         for (uint_t stride = subBlockSize; stride > 0; stride >>= 1)
         {
             bool isFirstStepOfPhase = stride == subBlockSize;
 
-            for (uint_t el = 0; el < this->arrayLength >> 1; el++)
+            for (uint_t el = 0; el < arrayLength >> 1; el++)
             {
                 uint_t index = el;
                 uint_t offset = stride;
@@ -32,18 +32,34 @@ void BitonicSortSequentialKeyOnly::sortPrivate()
                 // Calculates index of left and right element, which are candidates for exchange
                 uint_t indexLeft = (index << 1) - (index & (stride - 1));
                 uint_t indexRight = indexLeft + offset;
-                if (indexRight >= this->arrayLength)
+                if (indexRight >= arrayLength)
                 {
                     break;
                 }
 
-                if ((this->h_keys[indexLeft] > this->h_keys[indexRight]) ^ this->sortOrder)
+                if ((keys[indexLeft] > keys[indexRight]) ^ sortOrder)
                 {
-                    data_t temp = this->h_keys[indexLeft];
-                    this->h_keys[indexLeft] = this->h_keys[indexRight];
-                    this->h_keys[indexRight] = temp;
+                    data_t temp = keys[indexLeft];
+                    keys[indexLeft] = keys[indexRight];
+                    keys[indexRight] = temp;
                 }
             }
         }
+    }
+}
+
+/*
+Wrapper for bitonic sort method.
+The code runs faster if arguments are passed to method. If members are accessed directly, code runs slower.
+*/
+void BitonicSortSequentialKeyOnly::sortPrivate()
+{
+    if (_sortOrder == ORDER_ASC)
+    {
+        bitonicSortSequentialKeyOnly<ORDER_ASC>(_h_keys, _arrayLength);
+    }
+    else
+    {
+        bitonicSortSequentialKeyOnly<ORDER_DESC>(_h_keys, _arrayLength);
     }
 }
