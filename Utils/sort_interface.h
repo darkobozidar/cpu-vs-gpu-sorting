@@ -15,43 +15,87 @@
 
 
 /*
-Base class for sorting.
+Base class for sorts, which are sorting keys only.
 */
-class Sort
+class SortSequential
 {
 protected:
+    // Array of keys on host
+    data_t *_h_keys = NULL;
+    // Array of values on host
+    data_t *_h_values = NULL;
     // Length of array
     uint_t _arrayLength = 0;
     // Sort order (ascending or descending)
     order_t _sortOrder = ORDER_ASC;
-    // Sort type
-    sort_type_t _sortType = (sort_type_t)NULL;
     // Name of the sorting algorithm
     std::string _sortName = "Sort Name";
     // Time that sort needed for execution.
     double _sortTime = -1;
-    // Denotes if sort timing should be executed.
+    // Denotes if sort timing should be executed
     bool _stopwatchEnabled = false;
+    // Denotes if sort is sequential or parallel
+    bool isSortParallel = false;
 
     /*
     Executes the sort.
     */
-    virtual void sortPrivate() {}
-
-public:
-    ~Sort()
+    virtual void sortKeyOnly()
     {
-        memoryDestroy();
+        printf("Method 'sortKeyOnly' not implemented\n.");
+        exit(EXIT_FAILURE);
+    }
+    virtual void sortKeyValue()
+    {
+        printf("Method 'sortKeyValue' not implemented\n.");
+        exit(EXIT_FAILURE);
     }
 
-    virtual sort_type_t getSortType()
+    /*
+    Sets private variables when sort() is called.
+    */
+    virtual void setPrivateVars(data_t *h_keys, data_t *h_values, uint_t arrayLength, order_t sortOrder)
     {
-        return _sortType;
+        _h_keys = h_keys;
+        _h_values = h_values;
+        _arrayLength = arrayLength;
+        _sortOrder = sortOrder;
+    }
+
+    /*
+    Method for allocating memory needed both for key only and key-value sort.
+    */
+    virtual void memoryAllocate(data_t *h_keys, data_t *h_values, uint_t arrayLength) {}
+
+    /*
+    Memory copy operations needed before sort. If sorting keys only, than "h_values" contains NULL.
+    */
+    virtual void memoryCopyBeforeSort(data_t *h_keys, data_t *h_values, uint_t arrayLength) {}
+
+    /*
+    Memory copy operations needed after sort. If sorting keys only, than "h_values" contains NULL.
+    */
+    virtual void memoryCopyAfterSort(data_t *h_keys, data_t *h_values, uint_t arrayLength) {}
+
+public:
+    ~SortSequential()
+    {
+        memoryDestroy();
     }
 
     virtual std::string getSortName()
     {
         return _sortName;
+    }
+
+    virtual std::string getSortName(bool sortingKeyOnly)
+    {
+        if (sortingKeyOnly)
+        {
+            return getSortName() + " key only";
+        }
+
+        return getSortName() + " key value";
     }
 
     void stopwatchEnable()
@@ -90,46 +134,11 @@ public:
     /*
     Method for destroying memory needed for sort. For sort testing purposes this method is public.
     */
-    virtual void memoryDestroy() {}
-
-    /*
-    Wrapper method, which executes all needed memory management and timing. Also calls private sort.
-    Declared here for testing purposes, so all sorting algorithms can be placed in the same array.
-    */
-    virtual void sort(data_t *h_keys, uint_t arrayLength, order_t sortOrder) {}
-    virtual void sort(data_t *h_keys, data_t *h_values, uint_t arrayLength, order_t sortOrder) {}
-};
-
-
-/*
-Base class for sorts, which are sorting keys only.
-*/
-class SortKeyOnly : public Sort
-{
-protected:
-    // Array of keys on host
-    data_t *_h_keys = NULL;
-
-    /*
-    Method for allocating memory needed for sort.
-    */
-    virtual void memoryAllocate(data_t *h_keys, uint_t arrayLength)
+    virtual void memoryDestroy()
     {
-        _h_keys = h_keys;
-        _arrayLength = arrayLength;
+        _arrayLength = 0;
     }
 
-    /*
-    Memory copy operations needed before sort.
-    */
-    virtual void memoryCopyBeforeSort(data_t *h_keys, uint_t arrayLength) {}
-
-    /*
-    Memory copy operations needed after sort.
-    */
-    virtual void memoryCopyAfterSort(data_t *h_keys, uint_t arrayLength) {}
-
-public:
     /*
     Wrapper method, which executes all needed memory management and timing. Also calls private sort.
     */
@@ -137,16 +146,16 @@ public:
     {
         if (arrayLength > _arrayLength)
         {
-            memoryAllocate(h_keys, arrayLength);
+            memoryAllocate(h_keys, NULL, arrayLength);
         }
 
-        memoryCopyBeforeSort(h_keys, arrayLength);
-        _sortOrder = sortOrder;
+        setPrivateVars(h_keys, NULL, arrayLength, sortOrder);
+        memoryCopyBeforeSort(h_keys, NULL, arrayLength);
 
         LARGE_INTEGER timer;
         if (_stopwatchEnabled)
         {
-            if (getSortType() == SORT_PARALLEL_KEY_ONLY || getSortType() == SORT_PARALLEL_KEY_VALUE)
+            if (isSortParallel)
             {
                 cudaDeviceSynchronize();
             }
@@ -154,11 +163,11 @@ public:
             startStopwatch(&timer);
         }
 
-        sortPrivate();
+        sortKeyOnly();
 
         if (_stopwatchEnabled)
         {
-            if (getSortType() == SORT_PARALLEL_KEY_ONLY || getSortType() == SORT_PARALLEL_KEY_VALUE)
+            if (isSortParallel)
             {
                 cudaDeviceSynchronize();
             }
@@ -166,43 +175,9 @@ public:
             _sortTime = endStopwatch(timer);
         }
 
-        memoryCopyAfterSort(h_keys, arrayLength);
-    }
-};
-
-
-/*
-Base class for sorts, which are sorting key-value pairs.
-*/
-class SortKeyValue : public Sort
-{
-protected:
-    // Array of keys on host
-    data_t *_h_keys = NULL;
-    // Array of values on host
-    data_t *_h_values = NULL;
-
-    /*
-    Method for allocating memory needed for sort.
-    */
-    virtual void memoryAllocate(data_t *h_keys, data_t *h_values, uint_t arrayLength)
-    {
-        _h_keys = h_keys;
-        _arrayLength = arrayLength;
-        _h_values = h_values;
+        memoryCopyAfterSort(h_keys, NULL, arrayLength);
     }
 
-    /*
-    Memory copy operations needed before sort.
-    */
-    virtual void memoryCopyBeforeSort(data_t *h_keys, data_t *h_values, uint_t arrayLength) {}
-
-    /*
-    Memory copy operations needed after sort.
-    */
-    virtual void memoryCopyAfterSort(data_t *h_keys, data_t *h_values, uint_t arrayLength) {}
-
-public:
     /*
     Wrapper method, which executes all needed memory management and timing. Also calls private sort.
     */
@@ -213,13 +188,13 @@ public:
             memoryAllocate(h_keys, h_values, arrayLength);
         }
 
+        setPrivateVars(h_keys, h_values, arrayLength, sortOrder);
         memoryCopyBeforeSort(h_keys, h_values, arrayLength);
-        _sortOrder = sortOrder;
 
         LARGE_INTEGER timer;
         if (_stopwatchEnabled)
         {
-            if (getSortType() == SORT_PARALLEL_KEY_ONLY || getSortType() == SORT_PARALLEL_KEY_VALUE)
+            if (isSortParallel)
             {
                 cudaDeviceSynchronize();
             }
@@ -227,11 +202,11 @@ public:
             startStopwatch(&timer);
         }
 
-        sortPrivate();
+        sortKeyValue();
 
         if (_stopwatchEnabled)
         {
-            if (getSortType() == SORT_PARALLEL_KEY_ONLY || getSortType() == SORT_PARALLEL_KEY_VALUE)
+            if (isSortParallel)
             {
                 cudaDeviceSynchronize();
             }
@@ -244,145 +219,51 @@ public:
 };
 
 
-//////////////////////////////////
-
-/*
-Base class for sequential sort of keys only.
-*/
-class SortSequentialKeyOnly : public SortKeyOnly
-{
-protected:
-    // Sequential sort for keys only
-    sort_type_t _sortType = SORT_SEQUENTIAL_KEY_ONLY;
-
-public:
-    sort_type_t getSortType()
-    {
-        return this->_sortType;
-    }
-};
-
-
-/*
-Base class for sequential sort of key-value pairs.
-*/
-class SortSequentialKeyValue : public SortKeyValue
-{
-protected:
-    // Sequential sort for key-value pairs
-    sort_type_t _sortType = SORT_SEQUENTIAL_KEY_VALUE;
-
-public:
-    sort_type_t getSortType()
-    {
-        return _sortType;
-    }
-};
-
-
-/*
-Base class for parallel sort of keys only.
-*/
-class SortParallelKeyOnly : public SortKeyOnly
-{
-protected:
-    // Array for keys on device
-    data_t *_d_keys = NULL;
-    // Parallel sort for keys only
-    sort_type_t _sortType = SORT_PARALLEL_KEY_ONLY;
-
-    /*
-    Method for allocating memory needed for sort.
-    */
-    void memoryAllocate(data_t *h_keys, uint_t arrayLength)
-    {
-        SortKeyOnly::memoryAllocate(h_keys, arrayLength);
-        cudaError_t error = cudaMalloc((void **)&_d_keys, arrayLength * sizeof(*_d_keys));
-        checkCudaError(error);
-    }
-
-    /*
-    Copies data from host to device.
-    */
-    void memoryCopyBeforeSort(data_t *h_keys, uint_t arrayLength)
-    {
-        SortKeyOnly::memoryCopyBeforeSort(h_keys, arrayLength);
-        cudaError_t error = cudaMemcpy(
-            (void *)_d_keys, h_keys, arrayLength * sizeof(*h_keys), cudaMemcpyHostToDevice
-        );
-        checkCudaError(error);
-    }
-
-    /*
-    Copies data from device to host.
-    */
-    void memoryCopyAfterSort(data_t *h_keys, uint_t arrayLength)
-    {
-        SortKeyOnly::memoryCopyAfterSort(h_keys, arrayLength);
-        cudaError_t error = cudaMemcpy(
-            h_keys, (void *)_d_keys, _arrayLength * sizeof(*_h_keys), cudaMemcpyDeviceToHost
-        );
-        checkCudaError(error);
-    }
-
-public:
-    sort_type_t getSortType()
-    {
-        return _sortType;
-    }
-
-    /*
-    Method for destroying memory needed for sort. For sort testing purposes this method is public.
-    */
-    void memoryDestroy()
-    {
-        SortKeyOnly::memoryDestroy();
-        cudaError_t error = cudaFree(_d_keys);
-        checkCudaError(error);
-    }
-};
-
-
 /*
 Base class for parallel sort of key-value pairs.
 */
-class SortParallelKeyValue : public SortKeyValue
+class SortParallel : public SortSequential
 {
 protected:
     // Array for keys on device
     data_t *_d_keys = NULL;
     // Array for values on device
     data_t *_d_values = NULL;
-    // Parallel sort for key-value pairs
-    sort_type_t _sortType = SORT_PARALLEL_KEY_VALUE;
 
     /*
-    Method for allocating memory needed for sort.
+    Method for allocating memory needed both for key only and key-value sort.
     */
     void memoryAllocate(data_t *h_keys, data_t *h_values, uint_t arrayLength)
     {
         cudaError_t error;
-        SortKeyValue::memoryAllocate(h_keys, h_values, arrayLength);
+        SortSequential::memoryAllocate(h_keys, h_values, arrayLength);
 
         // Allocates keys and values
         error = cudaMalloc((void **)&_d_keys, arrayLength * sizeof(*_d_keys));
-        error = cudaMalloc((void **)&_d_values, _arrayLength * sizeof(*_d_values));
+        error = cudaMalloc((void **)&_d_values, arrayLength * sizeof(*_d_values));
         checkCudaError(error);
     }
 
     /*
-    Copies data from host to device.
+    Memory copy operations needed before sort. If sorting keys only, than "h_values" contains NULL.
     */
     void memoryCopyBeforeSort(data_t *h_keys, data_t *h_values, uint_t arrayLength)
     {
         cudaError_t error;
-        SortKeyValue::memoryCopyBeforeSort(h_keys, h_values, arrayLength);
+        SortSequential::memoryCopyBeforeSort(h_keys, h_values, arrayLength);
 
-        // Copies keys and values
+        // Copies keys
         error = cudaMemcpy(
             (void *)_d_keys, h_keys, arrayLength * sizeof(*h_keys), cudaMemcpyHostToDevice
         );
         checkCudaError(error);
+
+        if (h_values == NULL)
+        {
+            return;
+        }
+
+        // Copies values
         error = cudaMemcpy(
             (void *)_d_values, h_values, arrayLength * sizeof(*_d_values), cudaMemcpyHostToDevice
         );
@@ -390,18 +271,25 @@ protected:
     }
 
     /*
-    Copies data from device to host.
+    Copies data from device to host. If sorting keys only, than "h_values" contains NULL.
     */
     void memoryCopyAfterSort(data_t *h_keys, data_t *h_values, uint_t arrayLength)
     {
         cudaError_t error;
-        SortKeyValue::memoryCopyAfterSort(h_keys, h_values, arrayLength);
+        SortSequential::memoryCopyAfterSort(h_keys, h_values, arrayLength);
 
-        // Copies keys and values
+        // Copies keys
         error = cudaMemcpy(
             h_keys, (void *)_d_keys, _arrayLength * sizeof(*_h_keys), cudaMemcpyDeviceToHost
         );
         checkCudaError(error);
+
+        if (h_values == NULL)
+        {
+            return;
+        }
+
+        // Copies values
         error = cudaMemcpy(
             h_values, (void *)_d_values, arrayLength * sizeof(*h_values), cudaMemcpyDeviceToHost
         );
@@ -409,18 +297,13 @@ protected:
     }
 
 public:
-    sort_type_t getSortType()
-    {
-        return _sortType;
-    }
-
     /*
     Method for destroying memory needed for sort. For sort testing purposes this method is public.
     */
     void memoryDestroy()
     {
         cudaError_t error;
-        SortKeyValue::memoryDestroy();
+        SortSequential::memoryDestroy();
 
         // Destroys keys and values
         error = cudaFree(_d_keys);

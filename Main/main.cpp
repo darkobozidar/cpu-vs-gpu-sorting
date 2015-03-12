@@ -14,10 +14,7 @@
 #include "../Utils/cuda.h"
 #include "../Utils/sort_interface.h"
 
-#include "../BitonicSort/sort_parallel.h"
-#include "../BitonicSort/sort_sequential.h"
-#include "../BitonicSortKeyValue/sort_parallel.h"
-#include "../BitonicSortKeyValue/sort_sequential.h"
+#include "../BitonicSortSequential/sort.h"
 
 #include "test_sort.h"
 
@@ -35,19 +32,16 @@ int main(int argc, char **argv)
     distributions.push_back(DISTRIBUTION_UNIFORM);
 
     // Sorting algorithms
-    std::vector<Sort*> sortAlgorithms;
-    sortAlgorithms.push_back(new BitonicSortSequentialKeyOnly());
-    sortAlgorithms.push_back(new BitonicSortParallelKeyOnly());
-    sortAlgorithms.push_back(new BitonicSortSequentialKeyValue());
-    sortAlgorithms.push_back(new BitonicSortParallelKeyValue());
+    std::vector<SortSequential*> sorts;
+    sorts.push_back(new BitonicSortSequential());
 
     // This is needed only for testing puproses, because data transfer from device to host shouldn't be stopwatched.
-    for (std::vector<Sort*>::iterator sort = sortAlgorithms.begin(); sort != sortAlgorithms.end(); sort++)
+    for (std::vector<SortSequential*>::iterator sort = sorts.begin(); sort != sorts.end(); sort++)
     {
         (*sort)->stopwatchEnable();
     }
 
-    testSorts(sortAlgorithms, distributions, arrayLenStart, arrayLenEnd, sortOrder, testRepetitions, interval);
+    generateStatistics(sorts, distributions, arrayLenStart, arrayLenEnd, sortOrder, testRepetitions, interval);
 
     printf("Finished\n");
     getchar();
