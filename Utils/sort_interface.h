@@ -248,7 +248,7 @@ protected:
     /*
     Method for allocating memory needed both for key only and key-value sort.
     */
-    void memoryAllocate(data_t *h_keys, data_t *h_values, uint_t arrayLength)
+    virtual void memoryAllocate(data_t *h_keys, data_t *h_values, uint_t arrayLength)
     {
         cudaError_t error;
         SortSequential::memoryAllocate(h_keys, h_values, arrayLength);
@@ -262,7 +262,7 @@ protected:
     /*
     Memory copy operations needed before sort. If sorting keys only, than "h_values" contains NULL.
     */
-    void memoryCopyBeforeSort(data_t *h_keys, data_t *h_values, uint_t arrayLength)
+    virtual void memoryCopyBeforeSort(data_t *h_keys, data_t *h_values, uint_t arrayLength)
     {
         cudaError_t error;
         SortSequential::memoryCopyBeforeSort(h_keys, h_values, arrayLength);
@@ -288,7 +288,7 @@ protected:
     /*
     Copies data from device to host. If sorting keys only, than "h_values" contains NULL.
     */
-    void memoryCopyAfterSort(data_t *h_keys, data_t *h_values, uint_t arrayLength)
+    virtual void memoryCopyAfterSort(data_t *h_keys, data_t *h_values, uint_t arrayLength)
     {
         cudaError_t error;
         SortSequential::memoryCopyAfterSort(h_keys, h_values, arrayLength);
