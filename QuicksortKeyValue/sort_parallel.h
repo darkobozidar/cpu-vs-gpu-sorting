@@ -27,7 +27,7 @@ private:
     uint_t *h_globalSeqIndexes, *d_globalSeqIndexes;
     // Sequences metadata for LOCAL quicksort
     loc_seq_t *h_localSeq, *d_localSeq;
-    std::string sortName = "Quicksort parallel key value";
+    std::string _sortName = "Quicksort parallel key value";
 
     void memoryAllocate(data_t *h_keys, data_t *h_values, uint_t arrayLength);
     void memoryDestroy();
@@ -41,7 +41,7 @@ private:
 public:
     std::string getSortName()
     {
-        return this->sortName;
+        return this->_sortName;
     }
 };
 

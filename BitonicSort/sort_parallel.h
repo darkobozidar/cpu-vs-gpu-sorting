@@ -8,7 +8,7 @@
 class BitonicSortParallelKeyOnly : public SortParallelKeyOnly
 {
 private:
-    std::string sortName = "Bitonic sort parallel key only";
+    std::string _sortName = "Bitonic sort parallel key only";
 
     template <order_t sortOrder>
     void runBitoicSortKernel(data_t *keys, uint_t tableLen);
@@ -23,7 +23,7 @@ private:
 public:
     std::string getSortName()
     {
-        return this->sortName;
+        return this->_sortName;
     }
 };
 

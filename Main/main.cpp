@@ -27,7 +27,7 @@ int main(int argc, char **argv)
     uint_t arrayLenStart = (1 << 20);
     uint_t arrayLenEnd = (1 << 20);
     uint_t interval = MAX_VAL;
-    uint_t testRepetitions = 5;    // How many times are sorts ran
+    uint_t testRepetitions = 3;    // How many times are sorts ran
     order_t sortOrder = ORDER_ASC;  // Values: ORDER_ASC, ORDER_DESC
 
     // Input data distributions
@@ -44,7 +44,7 @@ int main(int argc, char **argv)
     // This is needed only for testing puproses, because data transfer from device to host shouldn't be stopwatched.
     for (std::vector<Sort*>::iterator sort = sortAlgorithms.begin(); sort != sortAlgorithms.end(); sort++)
     {
-        (*sort)->setMemoryCopyAfterSort(false);
+        (*sort)->stopwatchEnable();
     }
 
     testSorts(sortAlgorithms, distributions, arrayLenStart, arrayLenEnd, sortOrder, testRepetitions, interval);

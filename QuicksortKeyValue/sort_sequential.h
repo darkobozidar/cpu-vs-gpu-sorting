@@ -9,7 +9,7 @@
 class QuicksortSequentialKeyValue : public SortSequentialKeyValue
 {
 private:
-    std::string sortName = "Quicksort sequential key value";
+    std::string _sortName = "Quicksort sequential key value";
 
     void exchangeElemens(data_t *elem1, data_t *elem2);
     uint_t getPivotIndex(data_t *dataTable, uint_t length);
@@ -22,7 +22,7 @@ private:
 public:
     std::string getSortName()
     {
-        return this->sortName;
+        return this->_sortName;
     }
 };
 

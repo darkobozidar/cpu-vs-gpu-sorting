@@ -228,28 +228,14 @@ void writeBoleanToFile(
 }
 
 /*
-Allocates memory, performs sorts and times it with stopwatch, destroys extra memory and returns time.
+Times sort with stopwatch, checks if sort is stable and checks if sort is ordering data correctly, than saves
+this statistics to file.
 */
-double stopwatchSort(
-    Sort *sort, data_dist_t distribution, data_t *keys, data_t *values, uint_t arrayLength, order_t sortOrder
+void generateStatistics(
+    Sort *sort, data_dist_t distribution, data_t *keys, data_t *values, uint_t arrayLength, order_t sortOrder,
+    uint_t iteration, uint_t testRepetitions
 )
 {
-    // Memory data transfer for parallel sorts
-    if (sort->getSortType() == SORT_PARALLEL_KEY_ONLY)
-    {
-        sort->memoryCopyHostToDevice(keys, arrayLength);
-        cudaDeviceSynchronize();
-    }
-    else if (sort->getSortType() == SORT_PARALLEL_KEY_VALUE)
-    {
-        sort->memoryCopyHostToDevice(keys, values, arrayLength);
-        cudaDeviceSynchronize();
-    }
-
-    LARGE_INTEGER timer;
-    startStopwatch(&timer);
-
-    // Sort depending if it sorts only keys or key-value pairs
     if (sort->getSortType() == SORT_SEQUENTIAL_KEY_ONLY || sort->getSortType() == SORT_PARALLEL_KEY_ONLY)
     {
         sort->sort(keys, arrayLength, sortOrder);
@@ -259,38 +245,7 @@ double stopwatchSort(
         sort->sort(keys, values, arrayLength, sortOrder);
     }
 
-    // Waits for device to finish and transfers result to host
-    if (sort->getSortType() == SORT_PARALLEL_KEY_ONLY || sort->getSortType() == SORT_PARALLEL_KEY_VALUE)
-    {
-        cudaError_t error = cudaDeviceSynchronize();
-        checkCudaError(error);
-    }
-
-    double time = endStopwatch(timer);
-
-    // In parallel sorts data has to be copied from device to host
-    if (sort->getSortType() == SORT_PARALLEL_KEY_ONLY)
-    {
-        sort->memoryCopyDeviceToHost(keys, arrayLength);
-    }
-    else if (sort->getSortType() == SORT_PARALLEL_KEY_VALUE)
-    {
-        sort->memoryCopyDeviceToHost(keys, values, arrayLength);
-    }
-
-    return time;
-}
-
-/*
-Times sort with stopwatch, checks if sort is stable and checks if sort is ordering data correctly, than saves
-this statistics to file.
-*/
-void generateStatistics(
-    Sort *sort, data_dist_t distribution, data_t *keys, data_t *values, uint_t arrayLength, order_t sortOrder,
-    uint_t iteration, uint_t testRepetitions
-)
-{
-    double time = stopwatchSort(sort, distribution, keys, values, arrayLength, sortOrder);
+    double time = sort->getSortTime();
     writeTimeToFile(sort, distribution, time, iteration == testRepetitions - 1);
 
     // Key-value sort has to be tested for stability
@@ -316,7 +271,7 @@ Tests all provided sorts for all provided distributions.
 void testSorts(
     std::vector<Sort*> sorts, std::vector<data_dist_t> distributions, uint_t arrayLenStart, uint_t arrayLenEnd,
     order_t sortOrder, uint_t testRepetitions, uint_t interval
-    )
+)
 {
     createFolderStructure(distributions);
 
@@ -341,18 +296,6 @@ void testSorts(
                 printf("> %s\n", (*sort)->getSortName().c_str());
                 printTableHeader();
 
-                // Allocates memory for key only sort OR key-value sort
-                if ((*sort)->getSortType() == SORT_SEQUENTIAL_KEY_ONLY ||
-                    (*sort)->getSortType() == SORT_PARALLEL_KEY_ONLY
-                )
-                {
-                    (*sort)->memoryAllocate(keys, arrayLength);
-                }
-                else
-                {
-                    (*sort)->memoryAllocate(keys, values, arrayLength);
-                }
-
                 // Tests sort
                 for (uint_t iter = 0; iter < testRepetitions; iter++)
                 {
@@ -363,6 +306,7 @@ void testSorts(
                     {
                         fillArrayValueOnly(values, arrayLength);
                     }
+
                     generateStatistics(
                         *sort, *dist, keys, values, arrayLength, sortOrder, iter, testRepetitions
                     );

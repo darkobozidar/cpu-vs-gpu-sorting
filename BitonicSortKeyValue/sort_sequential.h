@@ -8,7 +8,7 @@
 class BitonicSortSequentialKeyValue : public SortSequentialKeyValue
 {
 private:
-    std::string sortName = "Bitonic sort sequential key value";
+    std::string _sortName = "Bitonic sort sequential key value";
 
     template <order_t sortOrder>
     void bitonicSortSequentialKeyValue(data_t *h_keys, data_t *h_values, uint_t arrayLength);
@@ -17,7 +17,7 @@ private:
 public:
     std::string getSortName()
     {
-        return this->sortName;
+        return this->_sortName;
     }
 };
 
