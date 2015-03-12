@@ -42,12 +42,12 @@ protected:
     */
     virtual void sortKeyOnly()
     {
-        printf("Method 'sortKeyOnly' not implemented\n.");
+        printf("Method sortKeyOnly() not implemented\n.");
         exit(EXIT_FAILURE);
     }
     virtual void sortKeyValue()
     {
-        printf("Method 'sortKeyValue' not implemented\n.");
+        printf("Method sortKeyValue() not implemented\n.");
         exit(EXIT_FAILURE);
     }
 
@@ -322,6 +322,11 @@ public:
     */
     void memoryDestroy()
     {
+        if (_arrayLength == 0)
+        {
+            return;
+        }
+
         cudaError_t error;
         SortSequential::memoryDestroy();
 

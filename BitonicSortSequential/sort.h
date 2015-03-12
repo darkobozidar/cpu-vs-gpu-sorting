@@ -5,6 +5,10 @@
 #include "../Utils/sort_interface.h"
 
 
+/*
+Due to (extreme =)) optimization code for key only and key-value sorts are entirely separated.
+TODO once the testing is done merge common code for key only and key-value sorts.
+*/
 class BitonicSortSequential : public SortSequential
 {
 private:
