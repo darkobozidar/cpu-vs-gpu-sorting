@@ -11,7 +11,7 @@ private:
     std::string sortName = "Bitonic sort sequential key only";
 
     template <order_t sortOrder>
-    void bitonicSortSequentialKeyOnly(data_t *keys, uint_t arrayLength);
+    void bitonicSortSequentialKeyOnly(data_t *h_keys, uint_t arrayLength);
     void sortPrivate();
 
 public:

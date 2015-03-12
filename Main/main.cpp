@@ -27,7 +27,7 @@ int main(int argc, char **argv)
     uint_t arrayLenStart = (1 << 20);
     uint_t arrayLenEnd = (1 << 20);
     uint_t interval = MAX_VAL;
-    uint_t testRepetitions = 10;    // How many times are sorts ran
+    uint_t testRepetitions = 5;    // How many times are sorts ran
     order_t sortOrder = ORDER_ASC;  // Values: ORDER_ASC, ORDER_DESC
 
     // Input data distributions
@@ -37,7 +37,7 @@ int main(int argc, char **argv)
     // Sorting algorithms
     std::vector<Sort*> sortAlgorithms;
     sortAlgorithms.push_back(new BitonicSortSequentialKeyOnly());
-    //sortAlgorithms.push_back(new BitonicSortParallelKeyOnly());
+    sortAlgorithms.push_back(new BitonicSortParallelKeyOnly());
     //sortAlgorithms.push_back(new QuicksortSequentialKeyValue());
     //sortAlgorithms.push_back(new QuicksortParallelKeyValue());
 

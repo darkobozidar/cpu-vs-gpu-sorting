@@ -9,7 +9,7 @@
 Sorts data sequentially with NORMALIZED bitonic sort.
 */
 template <order_t sortOrder>
-void BitonicSortSequentialKeyOnly::bitonicSortSequentialKeyOnly(data_t *keys, uint_t arrayLength)
+void BitonicSortSequentialKeyOnly::bitonicSortSequentialKeyOnly(data_t *h_keys, uint_t arrayLength)
 {
     for (uint_t subBlockSize = 1; subBlockSize < arrayLength; subBlockSize <<= 1)
     {
@@ -37,11 +37,11 @@ void BitonicSortSequentialKeyOnly::bitonicSortSequentialKeyOnly(data_t *keys, ui
                     break;
                 }
 
-                if ((keys[indexLeft] > keys[indexRight]) ^ sortOrder)
+                if ((h_keys[indexLeft] > h_keys[indexRight]) ^ sortOrder)
                 {
-                    data_t temp = keys[indexLeft];
-                    keys[indexLeft] = keys[indexRight];
-                    keys[indexRight] = temp;
+                    data_t temp = h_keys[indexLeft];
+                    h_keys[indexLeft] = h_keys[indexRight];
+                    h_keys[indexRight] = temp;
                 }
             }
         }

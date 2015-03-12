@@ -180,7 +180,7 @@ protected:
     // Designates if data has been copied to device
     bool _memoryCopiedToDevice = false;
     // Parallel sort for keys only
-    sort_type_t sortType = SORT_PARALLEL_KEY_ONLY;
+    sort_type_t _sortType = SORT_PARALLEL_KEY_ONLY;
 
 public:
     sort_type_t getSortType()
