@@ -1,5 +1,5 @@
-#ifndef KERNELS_H
-#define KERNELS_H
+#ifndef KERNELS_KEY_VALUE_BITONIC_PARALLEL_H
+#define KERNELS_KEY_VALUE_BITONIC_PARALLEL_H
 
 #include "cuda_runtime.h"
 
