@@ -14,8 +14,6 @@
 #include "kernels_key_only.h"
 #include "sort.h"
 
-using namespace keyOnly;
-
 
 /*
 Runs global (multiple thread blocks process one sequence) quicksort and coppies required data to and

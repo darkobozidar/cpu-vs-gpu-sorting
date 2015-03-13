@@ -14,8 +14,6 @@
 #include "kernels_key_value.h"
 #include "sort.h"
 
-using namespace keyValue;
-
 
 /*
 Runs global (multiple thread blocks process one sequence) quicksort and coppies required data to and
