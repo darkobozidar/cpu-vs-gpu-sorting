@@ -15,11 +15,11 @@ private:
     std::string _sortName = "Bitonic sort parallel";
 
 	// Key only
-    template <order_t sortOrder>
+    template <order_t sortOrder, uint_t threadsBitonicSort, uint_t elemsThreadBitonicSort>
     void runBitoicSortKernel(data_t *keys, uint_t tableLen);
-    template <order_t sortOrder>
+    template <order_t sortOrder, uint_t threadsMerge, uint_t elemsThreadMerge>
     void runBitonicMergeGlobalKernel(data_t *d_keys, uint_t arrayLength, uint_t phase, uint_t step);
-    template <order_t sortOrder>
+    template <order_t sortOrder, uint_t threadsMerge, uint_t elemsThreadMerge>
     void runBitoicMergeLocalKernel(data_t *d_keys, uint_t arrayLength, uint_t phase, uint_t step);
     template <order_t sortOrder>
     void bitonicSortParallel(data_t *d_keys, uint_t arrayLength);
