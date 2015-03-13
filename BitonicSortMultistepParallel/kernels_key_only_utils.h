@@ -6,21 +6,8 @@
 #include "device_launch_parameters.h"
 
 #include "../Utils/data_types_common.h"
+#include "../Utils/kernel.h"
 
-
-/*
-Compares 2 elements and exchanges them according to sortOrder.
-*/
-template <order_t sortOrder>
-__device__ void compareExchange2(data_t *el1, data_t *el2)
-{
-    if ((*el1 > *el2) ^ sortOrder)
-    {
-        data_t temp = *el1;
-        *el1 = *el2;
-        *el2 = temp;
-    }
-}
 
 /*
 Compares and exchanges elements according to bitonic sort for 4 elements.
@@ -29,12 +16,12 @@ template <order_t sortOrder>
 __device__ void compareExchange4(data_t *el1, data_t *el2, data_t *el3, data_t *el4)
 {
     // Step n + 1
-    compareExchange2<sortOrder>(el1, el2);
-    compareExchange2<sortOrder>(el3, el4);
+    compareExchange<sortOrder>(el1, el2);
+    compareExchange<sortOrder>(el3, el4);
 
     // Step n
-    compareExchange2<sortOrder>(el1, el3);
-    compareExchange2<sortOrder>(el2, el4);
+    compareExchange<sortOrder>(el1, el3);
+    compareExchange<sortOrder>(el2, el4);
 }
 
 /*
@@ -46,10 +33,10 @@ __device__ void compareExchange8(
 )
 {
     // Step n + 2
-    compareExchange2<sortOrder>(el1, el2);
-    compareExchange2<sortOrder>(el3, el4);
-    compareExchange2<sortOrder>(el5, el6);
-    compareExchange2<sortOrder>(el7, el8);
+    compareExchange<sortOrder>(el1, el2);
+    compareExchange<sortOrder>(el3, el4);
+    compareExchange<sortOrder>(el5, el6);
+    compareExchange<sortOrder>(el7, el8);
 
     // Steps n + 1, n
     compareExchange4<sortOrder>(el1, el5, el3, el7);
@@ -66,14 +53,14 @@ __device__ void compareExchange16(
 )
 {
     // Step n + 3
-    compareExchange2<sortOrder>(el1, el2);
-    compareExchange2<sortOrder>(el3, el4);
-    compareExchange2<sortOrder>(el5, el6);
-    compareExchange2<sortOrder>(el7, el8);
-    compareExchange2<sortOrder>(el9, el10);
-    compareExchange2<sortOrder>(el11, el12);
-    compareExchange2<sortOrder>(el13, el14);
-    compareExchange2<sortOrder>(el15, el16);
+    compareExchange<sortOrder>(el1, el2);
+    compareExchange<sortOrder>(el3, el4);
+    compareExchange<sortOrder>(el5, el6);
+    compareExchange<sortOrder>(el7, el8);
+    compareExchange<sortOrder>(el9, el10);
+    compareExchange<sortOrder>(el11, el12);
+    compareExchange<sortOrder>(el13, el14);
+    compareExchange<sortOrder>(el15, el16);
 
     // Steps n + 2, n + 1, n
     compareExchange8<sortOrder>(el1, el9, el3, el11, el5, el13, el7, el15);
@@ -92,22 +79,22 @@ __device__ void compareExchange32(
 )
 {
     // Step n + 4
-    compareExchange2<sortOrder>(el1, el2);
-    compareExchange2<sortOrder>(el3, el4);
-    compareExchange2<sortOrder>(el5, el6);
-    compareExchange2<sortOrder>(el7, el8);
-    compareExchange2<sortOrder>(el9, el10);
-    compareExchange2<sortOrder>(el11, el12);
-    compareExchange2<sortOrder>(el13, el14);
-    compareExchange2<sortOrder>(el15, el16);
-    compareExchange2<sortOrder>(el17, el18);
-    compareExchange2<sortOrder>(el19, el20);
-    compareExchange2<sortOrder>(el21, el22);
-    compareExchange2<sortOrder>(el23, el24);
-    compareExchange2<sortOrder>(el25, el26);
-    compareExchange2<sortOrder>(el27, el28);
-    compareExchange2<sortOrder>(el29, el30);
-    compareExchange2<sortOrder>(el31, el32);
+    compareExchange<sortOrder>(el1, el2);
+    compareExchange<sortOrder>(el3, el4);
+    compareExchange<sortOrder>(el5, el6);
+    compareExchange<sortOrder>(el7, el8);
+    compareExchange<sortOrder>(el9, el10);
+    compareExchange<sortOrder>(el11, el12);
+    compareExchange<sortOrder>(el13, el14);
+    compareExchange<sortOrder>(el15, el16);
+    compareExchange<sortOrder>(el17, el18);
+    compareExchange<sortOrder>(el19, el20);
+    compareExchange<sortOrder>(el21, el22);
+    compareExchange<sortOrder>(el23, el24);
+    compareExchange<sortOrder>(el25, el26);
+    compareExchange<sortOrder>(el27, el28);
+    compareExchange<sortOrder>(el29, el30);
+    compareExchange<sortOrder>(el31, el32);
 
     // Steps n + 3, n + 2, n + 1, n
     compareExchange16<sortOrder>(
@@ -134,38 +121,38 @@ __device__ void compareExchange64(
 )
 {
     // Step n + 5
-    compareExchange2<sortOrder>(el1, el2);
-    compareExchange2<sortOrder>(el3, el4);
-    compareExchange2<sortOrder>(el5, el6);
-    compareExchange2<sortOrder>(el7, el8);
-    compareExchange2<sortOrder>(el9, el10);
-    compareExchange2<sortOrder>(el11, el12);
-    compareExchange2<sortOrder>(el13, el14);
-    compareExchange2<sortOrder>(el15, el16);
-    compareExchange2<sortOrder>(el17, el18);
-    compareExchange2<sortOrder>(el19, el20);
-    compareExchange2<sortOrder>(el21, el22);
-    compareExchange2<sortOrder>(el23, el24);
-    compareExchange2<sortOrder>(el25, el26);
-    compareExchange2<sortOrder>(el27, el28);
-    compareExchange2<sortOrder>(el29, el30);
-    compareExchange2<sortOrder>(el31, el32);
-    compareExchange2<sortOrder>(el33, el34);
-    compareExchange2<sortOrder>(el35, el36);
-    compareExchange2<sortOrder>(el37, el38);
-    compareExchange2<sortOrder>(el39, el40);
-    compareExchange2<sortOrder>(el41, el42);
-    compareExchange2<sortOrder>(el43, el44);
-    compareExchange2<sortOrder>(el45, el46);
-    compareExchange2<sortOrder>(el47, el48);
-    compareExchange2<sortOrder>(el49, el50);
-    compareExchange2<sortOrder>(el51, el52);
-    compareExchange2<sortOrder>(el53, el54);
-    compareExchange2<sortOrder>(el55, el56);
-    compareExchange2<sortOrder>(el57, el58);
-    compareExchange2<sortOrder>(el59, el60);
-    compareExchange2<sortOrder>(el61, el62);
-    compareExchange2<sortOrder>(el63, el64);
+    compareExchange<sortOrder>(el1, el2);
+    compareExchange<sortOrder>(el3, el4);
+    compareExchange<sortOrder>(el5, el6);
+    compareExchange<sortOrder>(el7, el8);
+    compareExchange<sortOrder>(el9, el10);
+    compareExchange<sortOrder>(el11, el12);
+    compareExchange<sortOrder>(el13, el14);
+    compareExchange<sortOrder>(el15, el16);
+    compareExchange<sortOrder>(el17, el18);
+    compareExchange<sortOrder>(el19, el20);
+    compareExchange<sortOrder>(el21, el22);
+    compareExchange<sortOrder>(el23, el24);
+    compareExchange<sortOrder>(el25, el26);
+    compareExchange<sortOrder>(el27, el28);
+    compareExchange<sortOrder>(el29, el30);
+    compareExchange<sortOrder>(el31, el32);
+    compareExchange<sortOrder>(el33, el34);
+    compareExchange<sortOrder>(el35, el36);
+    compareExchange<sortOrder>(el37, el38);
+    compareExchange<sortOrder>(el39, el40);
+    compareExchange<sortOrder>(el41, el42);
+    compareExchange<sortOrder>(el43, el44);
+    compareExchange<sortOrder>(el45, el46);
+    compareExchange<sortOrder>(el47, el48);
+    compareExchange<sortOrder>(el49, el50);
+    compareExchange<sortOrder>(el51, el52);
+    compareExchange<sortOrder>(el53, el54);
+    compareExchange<sortOrder>(el55, el56);
+    compareExchange<sortOrder>(el57, el58);
+    compareExchange<sortOrder>(el59, el60);
+    compareExchange<sortOrder>(el61, el62);
+    compareExchange<sortOrder>(el63, el64);
 
     // Steps n + 4, n + 3, n + 2, n + 1, n
     compareExchange32<sortOrder>(

@@ -12,7 +12,7 @@ TODO once the testing is done merge common code for key only and key-value sorts
 */
 class QuicksortParallel : public SortParallel
 {
-private:
+protected:
     std::string _sortName = "Quicksort parallel";
     // Device buffer for keys and values
     data_t *_d_keysBuffer, *_d_valuesBuffer;

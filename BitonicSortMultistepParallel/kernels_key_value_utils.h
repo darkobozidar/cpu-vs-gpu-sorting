@@ -6,25 +6,7 @@
 #include "device_launch_parameters.h"
 
 #include "../Utils/data_types_common.h"
-
-
-/*
-Compares 2 elements and exchanges them according to sortOrder.
-*/
-template <order_t sortOrder>
-__device__ void compareExchange2(data_t *key1, data_t *key2, data_t *val1, data_t *val2)
-{
-    if ((*key1 > *key2) ^ sortOrder)
-    {
-        data_t temp = *key1;
-        *key1 = *key2;
-        *key2 = temp;
-
-        temp = *val1;
-        *val1 = *val2;
-        *val2 = temp;
-    }
-}
+#include "../Utils/kernel.h"
 
 /*
 Compares and exchanges elements according to bitonic sort for 4 elements.
@@ -35,12 +17,12 @@ __device__ void compareExchange4(
 )
 {
     // Step n + 1
-    compareExchange2<sortOrder>(key1, key2, val1, val2);
-    compareExchange2<sortOrder>(key3, key4, val3, val4);
+    compareExchange<sortOrder>(key1, key2, val1, val2);
+    compareExchange<sortOrder>(key3, key4, val3, val4);
 
     // Step n
-    compareExchange2<sortOrder>(key1, key3, val1, val3);
-    compareExchange2<sortOrder>(key2, key4, val2, val4);
+    compareExchange<sortOrder>(key1, key3, val1, val3);
+    compareExchange<sortOrder>(key2, key4, val2, val4);
 }
 
 /*
@@ -53,10 +35,10 @@ __device__ void compareExchange8(
 )
 {
     // Step n + 2
-    compareExchange2<sortOrder>(key1, key2, val1, val2);
-    compareExchange2<sortOrder>(key3, key4, val3, val4);
-    compareExchange2<sortOrder>(key5, key6, val5, val6);
-    compareExchange2<sortOrder>(key7, key8, val7, val8);
+    compareExchange<sortOrder>(key1, key2, val1, val2);
+    compareExchange<sortOrder>(key3, key4, val3, val4);
+    compareExchange<sortOrder>(key5, key6, val5, val6);
+    compareExchange<sortOrder>(key7, key8, val7, val8);
 
     // Steps n + 1, n
     compareExchange4<sortOrder>(key1, key5, key3, key7, val1, val5, val3, val7);
@@ -76,14 +58,14 @@ __device__ void compareExchange16(
 )
 {
     // Step n + 3
-    compareExchange2<sortOrder>(key1, key2, val1, val2);
-    compareExchange2<sortOrder>(key3, key4, val3, val4);
-    compareExchange2<sortOrder>(key5, key6, val5, val6);
-    compareExchange2<sortOrder>(key7, key8, val7, val8);
-    compareExchange2<sortOrder>(key9, key10, val9, val10);
-    compareExchange2<sortOrder>(key11, key12, val11, val12);
-    compareExchange2<sortOrder>(key13, key14, val13, val14);
-    compareExchange2<sortOrder>(key15, key16, val15, val16);
+    compareExchange<sortOrder>(key1, key2, val1, val2);
+    compareExchange<sortOrder>(key3, key4, val3, val4);
+    compareExchange<sortOrder>(key5, key6, val5, val6);
+    compareExchange<sortOrder>(key7, key8, val7, val8);
+    compareExchange<sortOrder>(key9, key10, val9, val10);
+    compareExchange<sortOrder>(key11, key12, val11, val12);
+    compareExchange<sortOrder>(key13, key14, val13, val14);
+    compareExchange<sortOrder>(key15, key16, val15, val16);
 
     // Steps n + 2, n + 1, n
     compareExchange8<sortOrder>(
@@ -112,22 +94,22 @@ __device__ void compareExchange32(
 )
 {
     // Step n + 4
-    compareExchange2<sortOrder>(key1, key2, val1, val2);
-    compareExchange2<sortOrder>(key3, key4, val3, val4);
-    compareExchange2<sortOrder>(key5, key6, val5, val6);
-    compareExchange2<sortOrder>(key7, key8, val7, val8);
-    compareExchange2<sortOrder>(key9, key10, val9, val10);
-    compareExchange2<sortOrder>(key11, key12, val11, val12);
-    compareExchange2<sortOrder>(key13, key14, val13, val14);
-    compareExchange2<sortOrder>(key15, key16, val15, val16);
-    compareExchange2<sortOrder>(key17, key18, val17, val18);
-    compareExchange2<sortOrder>(key19, key20, val19, val20);
-    compareExchange2<sortOrder>(key21, key22, val21, val22);
-    compareExchange2<sortOrder>(key23, key24, val23, val24);
-    compareExchange2<sortOrder>(key25, key26, val25, val26);
-    compareExchange2<sortOrder>(key27, key28, val27, val28);
-    compareExchange2<sortOrder>(key29, key30, val29, val30);
-    compareExchange2<sortOrder>(key31, key32, val31, val32);
+    compareExchange<sortOrder>(key1, key2, val1, val2);
+    compareExchange<sortOrder>(key3, key4, val3, val4);
+    compareExchange<sortOrder>(key5, key6, val5, val6);
+    compareExchange<sortOrder>(key7, key8, val7, val8);
+    compareExchange<sortOrder>(key9, key10, val9, val10);
+    compareExchange<sortOrder>(key11, key12, val11, val12);
+    compareExchange<sortOrder>(key13, key14, val13, val14);
+    compareExchange<sortOrder>(key15, key16, val15, val16);
+    compareExchange<sortOrder>(key17, key18, val17, val18);
+    compareExchange<sortOrder>(key19, key20, val19, val20);
+    compareExchange<sortOrder>(key21, key22, val21, val22);
+    compareExchange<sortOrder>(key23, key24, val23, val24);
+    compareExchange<sortOrder>(key25, key26, val25, val26);
+    compareExchange<sortOrder>(key27, key28, val27, val28);
+    compareExchange<sortOrder>(key29, key30, val29, val30);
+    compareExchange<sortOrder>(key31, key32, val31, val32);
 
     // Steps n + 3, n + 2, n + 1, n
     compareExchange16<sortOrder>(

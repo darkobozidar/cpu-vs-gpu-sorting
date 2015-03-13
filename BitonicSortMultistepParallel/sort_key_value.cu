@@ -15,25 +15,10 @@
 
 
 /*
-Sorts sub-blocks of input data with bitonic sort.
-*/
-template <order_t sortOrder>
-void BitonicSortMultistepParallel::runBitoicSortKernel(data_t *d_keys, data_t *d_values, uint_t arrayLength)
-{
-    uint_t elemsPerThreadBlock = THREADS_PER_BITONIC_SORT_KV * ELEMS_PER_THREAD_BITONIC_SORT_KV;
-    uint_t sharedMemSize = 2 * elemsPerThreadBlock * sizeof(*d_keys);  // "2 *" becaues of key-value pairs
-
-    dim3 dimGrid((arrayLength - 1) / elemsPerThreadBlock + 1, 1, 1);
-    dim3 dimBlock(THREADS_PER_BITONIC_SORT_KV, 1, 1);
-
-    bitonicSortKernel<sortOrder><<<dimGrid, dimBlock, sharedMemSize>>>(d_keys, d_values, arrayLength);
-}
-
-/*
 Runs bitonic multistep merge kernel, which uses registers. Multistep means, that every thread reads
 multiple elements and sorts them according to bitonic sort exchanges for N steps ahead.
 */
-template <order_t sortOrder>
+template <order_t sortOrder, uint_t threadsMerge>
 void BitonicSortMultistepParallel::runMultiStepKernel(
     data_t *d_keys, data_t *d_values, uint_t arrayLength, uint_t phase, uint_t step, uint_t degree
 )
@@ -54,7 +39,7 @@ void BitonicSortMultistepParallel::runMultiStepKernel(
         partitionSize += min(residueArrayLen, (power2residueArrayLen - 1) / (1 << degree) + 1);
     }
 
-    uint_t threadBlockSize = min(partitionSize, THREADS_PER_MULTISTEP_MERGE_KV);
+    uint_t threadBlockSize = min(partitionSize, threadsMerge);
     dim3 dimGrid((partitionSize - 1) / threadBlockSize + 1, 1, 1);
     dim3 dimBlock(threadBlockSize, 1, 1);
 
@@ -83,53 +68,7 @@ void BitonicSortMultistepParallel::runMultiStepKernel(
 }
 
 /*
-Merges array, if data blocks are larger than shared memory size. Needed because of normalized bitonic sort,
-which uses different access pattern for first step of every phase than in other steps.
-*/
-template <order_t sortOrder>
-void BitonicSortMultistepParallel::runBitonicMergeGlobalKernel(
-    data_t *d_keys, data_t *d_values, uint_t arrayLength, uint_t phase
-)
-{
-    uint_t elemsPerThreadBlock = THREADS_PER_GLOBAL_MERGE_KV * ELEMS_PER_THREAD_GLOBAL_MERGE_KV;
-    dim3 dimGrid((arrayLength - 1) / elemsPerThreadBlock + 1, 1, 1);
-    dim3 dimBlock(THREADS_PER_GLOBAL_MERGE_KV, 1, 1);
-
-    bitonicMergeGlobalKernel<sortOrder><<<dimGrid, dimBlock>>>(d_keys, d_values, arrayLength, phase);
-}
-
-/*
-Merges array when stride is lower than shared memory size. It executes all remaining STEPS of current PHASE.
-*/
-template <order_t sortOrder>
-void BitonicSortMultistepParallel::runBitoicMergeLocalKernel(
-    data_t *d_keys, data_t *d_values, uint_t arrayLength, uint_t phase, uint_t step
-)
-{
-    // Every thread loads and sorts 2 elements
-    uint_t elemsPerThreadBlock = THREADS_PER_LOCAL_MERGE_KV * ELEMS_PER_THREAD_LOCAL_MERGE_KV;
-    // "2 *" becaues of key-value pairs
-    uint_t sharedMemSize = 2 * elemsPerThreadBlock * sizeof(*d_keys);
-    dim3 dimGrid((arrayLength - 1) / elemsPerThreadBlock + 1, 1, 1);
-    dim3 dimBlock(THREADS_PER_LOCAL_MERGE_KV, 1, 1);
-
-    bool isFirstStepOfPhase = phase == step;
-
-    if (isFirstStepOfPhase) {
-        bitonicMergeLocalKernel<sortOrder, true><<<dimGrid, dimBlock, sharedMemSize>>>(
-            d_keys, d_values, arrayLength, step
-        );
-    }
-    else
-    {
-        bitonicMergeLocalKernel<sortOrder, false><<<dimGrid, dimBlock, sharedMemSize>>>(
-            d_keys, d_values, arrayLength, step
-        );
-    }
-}
-
-/*
-Sorts data with NORMALIZED BITONIC SORT.
+Sorts data with NORMALIZED MULTISTEP BITONIC SORT.
 */
 template <order_t sortOrder>
 void BitonicSortMultistepParallel::bitonicSortMultistepParallel(data_t *d_keys, data_t *d_values, uint_t arrayLength)
@@ -143,7 +82,9 @@ void BitonicSortMultistepParallel::bitonicSortMultistepParallel(data_t *d_keys, 
     uint_t phasesMergeLocal = log2((double)min(arrayLengthPower2, elemsPerBlockMergeLocal));
     uint_t phasesAll = log2((double)arrayLengthPower2);
 
-    runBitoicSortKernel<sortOrder>(d_keys, d_values, arrayLength);
+    runBitoicSortKernel<sortOrder, THREADS_PER_BITONIC_SORT_KV, ELEMS_PER_THREAD_BITONIC_SORT_KV>(
+        d_keys, d_values, arrayLength
+    );
 
     // Bitonic merge
     for (uint_t phase = phasesBitonicSort + 1; phase <= phasesAll; phase++)
@@ -154,7 +95,9 @@ void BitonicSortMultistepParallel::bitonicSortMultistepParallel(data_t *d_keys, 
         {
             // Global NORMALIZED bitonic merge for first step of phase, where different pattern of exchanges
             // is used compared to other steps
-            runBitonicMergeGlobalKernel<sortOrder>(d_keys, d_values, arrayLength, phase);
+            runBitonicMergeGlobalKernel<sortOrder, THREADS_PER_GLOBAL_MERGE_KV, ELEMS_PER_THREAD_GLOBAL_MERGE_KV>(
+                d_keys, d_values, arrayLength, phase, step
+            );
             step--;
 
             // Multisteps
@@ -162,12 +105,16 @@ void BitonicSortMultistepParallel::bitonicSortMultistepParallel(data_t *d_keys, 
             {
                 for (; step >= phasesMergeLocal + degree; step -= degree)
                 {
-                    runMultiStepKernel<sortOrder>(d_keys, d_values, arrayLength, phase, step, degree);
+                    runMultiStepKernel<sortOrder, THREADS_PER_MULTISTEP_MERGE_KV>(
+                        d_keys, d_values, arrayLength, phase, step, degree
+                    );
                 }
             }
         }
 
-        runBitoicMergeLocalKernel<sortOrder>(d_keys, d_values, arrayLength, phase, step);
+        runBitoicMergeLocalKernel<sortOrder, THREADS_PER_LOCAL_MERGE_KV, ELEMS_PER_THREAD_LOCAL_MERGE_KV>(
+            d_keys, d_values, arrayLength, phase, step
+        );
     }
 }
 
