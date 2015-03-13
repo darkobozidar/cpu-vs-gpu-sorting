@@ -28,7 +28,21 @@ private:
     void sortKeyOnly();
 
     // Key-value
-    //void sortKeyValue();
+    template <order_t sortOrder>
+    void runBitoicSortKernel(data_t *d_keys, data_t *d_values, uint_t arrayLength);
+    template <order_t sortOrder>
+    void runMultiStepKernel(
+        data_t *d_keys, data_t *d_values, uint_t arrayLength, uint_t phase, uint_t step, uint_t degree
+    );
+    template <order_t sortOrder>
+    void runBitonicMergeGlobalKernel(data_t *d_keys, data_t *d_values, uint_t arrayLength, uint_t phase);
+    template <order_t sortOrder>
+    void runBitoicMergeLocalKernel(
+        data_t *d_keys, data_t *d_values, uint_t arrayLength, uint_t phase, uint_t step
+    );
+    template <order_t sortOrder>
+    void bitonicSortMultistepParallel(data_t *d_keys, data_t *d_values, uint_t arrayLength);
+    void sortKeyValue();
 
 public:
     std::string getSortName()

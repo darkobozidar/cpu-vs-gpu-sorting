@@ -16,6 +16,7 @@
 
 #include "../BitonicSortSequential/sort.h"
 #include "../BitonicSortParallel/sort.h"
+#include "../BitonicSortMultistepParallel/sort.h"
 #include "../QuicksortSequential/sort.h"
 #include "../QuicksortParallel/sort.h"
 
@@ -38,6 +39,7 @@ int main(int argc, char **argv)
     std::vector<SortSequential*> sorts;
     sorts.push_back(new BitonicSortSequential());
     sorts.push_back(new BitonicSortParallel());
+    sorts.push_back(new BitonicSortMultistepParallel());
     sorts.push_back(new QuicksortSequential());
     sorts.push_back(new QuicksortParallel());
 

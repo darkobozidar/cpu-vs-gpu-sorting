@@ -12,7 +12,7 @@
 Compares 2 elements and exchanges them according to sortOrder.
 */
 template <order_t sortOrder>
-inline __device__ void compareExchange2(data_t *el1, data_t *el2)
+__device__ void compareExchange2(data_t *el1, data_t *el2)
 {
     if ((*el1 > *el2) ^ sortOrder)
     {
@@ -26,7 +26,7 @@ inline __device__ void compareExchange2(data_t *el1, data_t *el2)
 Compares and exchanges elements according to bitonic sort for 4 elements.
 */
 template <order_t sortOrder>
-inline __device__ void compareExchange4(data_t *el1, data_t *el2, data_t *el3, data_t *el4)
+__device__ void compareExchange4(data_t *el1, data_t *el2, data_t *el3, data_t *el4)
 {
     // Step n + 1
     compareExchange2<sortOrder>(el1, el2);
@@ -41,7 +41,7 @@ inline __device__ void compareExchange4(data_t *el1, data_t *el2, data_t *el3, d
 Compares and exchanges elements according to bitonic sort for 8 elements.
 */
 template <order_t sortOrder>
-inline __device__ void compareExchange8(
+__device__ void compareExchange8(
     data_t *el1, data_t *el2, data_t *el3, data_t *el4, data_t *el5, data_t *el6, data_t *el7, data_t *el8
 )
 {
@@ -60,7 +60,7 @@ inline __device__ void compareExchange8(
 Compares and exchanges elements according to bitonic sort for 16 elements.
 */
 template <order_t sortOrder>
-inline __device__ void compareExchange16(
+__device__ void compareExchange16(
     data_t *el1, data_t *el2, data_t *el3, data_t *el4, data_t *el5, data_t *el6, data_t *el7, data_t *el8,
     data_t *el9, data_t *el10, data_t *el11, data_t *el12, data_t *el13, data_t *el14, data_t *el15, data_t *el16
 )
@@ -84,7 +84,7 @@ inline __device__ void compareExchange16(
 Compares and exchanges elements according to bitonic sort for 32 elements.
 */
 template <order_t sortOrder>
-inline __device__ void compareExchange32(
+__device__ void compareExchange32(
     data_t *el1, data_t *el2, data_t *el3, data_t *el4, data_t *el5, data_t *el6, data_t *el7, data_t *el8,
     data_t *el9, data_t *el10, data_t *el11, data_t *el12, data_t *el13, data_t *el14, data_t *el15, data_t *el16,
     data_t *el17, data_t *el18, data_t *el19, data_t *el20, data_t *el21, data_t *el22, data_t *el23, data_t *el24,
@@ -122,7 +122,7 @@ inline __device__ void compareExchange32(
 Compares and exchanges elements according to bitonic sort for 32 elements.
 */
 template <order_t sortOrder>
-inline __device__ void compareExchange64(
+__device__ void compareExchange64(
     data_t *el1, data_t *el2, data_t *el3, data_t *el4, data_t *el5, data_t *el6, data_t *el7, data_t *el8,
     data_t *el9, data_t *el10, data_t *el11, data_t *el12, data_t *el13, data_t *el14, data_t *el15, data_t *el16,
     data_t *el17, data_t *el18, data_t *el19, data_t *el20, data_t *el21, data_t *el22, data_t *el23, data_t *el24,
@@ -184,7 +184,7 @@ Loads 2 elements if they are inside table length boundaries. In opposite case MI
 (in order not to influence the sort which follows the load).
 */
 template <order_t sortOrder>
-inline __device__ void load2(data_t *table, data_t *tableEnd, uint_t stride, data_t *el1, data_t *el2)
+__device__ void load2(data_t *table, data_t *tableEnd, uint_t stride, data_t *el1, data_t *el2)
 {
     if (table < tableEnd)
     {
@@ -208,7 +208,7 @@ inline __device__ void load2(data_t *table, data_t *tableEnd, uint_t stride, dat
 /*
 Stores 2 elements if they are inside table length boundaries.
 */
-inline __device__ void store2(data_t *table, data_t *tableEnd, uint_t stride, data_t el1, data_t el2)
+__device__ void store2(data_t *table, data_t *tableEnd, uint_t stride, data_t el1, data_t el2)
 {
     if (table < tableEnd)
     {
@@ -224,7 +224,7 @@ inline __device__ void store2(data_t *table, data_t *tableEnd, uint_t stride, da
 Loads 4 elements according to bitonic sort indexes.
 */
 template <order_t sortOrder>
-inline __device__ void load4(
+__device__ void load4(
     data_t *table, data_t *tableEnd, uint_t tableOffset, uint_t stride, data_t *el1, data_t *el2, data_t *el3,
     data_t *el4
 )
@@ -236,7 +236,7 @@ inline __device__ void load4(
 /*
 Stores 4 elements according to bitonic sort indexes.
 */
-inline __device__ void store4(
+__device__ void store4(
     data_t *table, data_t *tableEnd, uint_t tableOffset, uint_t stride, data_t el1, data_t el2, data_t el3,
     data_t el4
 )
@@ -249,7 +249,7 @@ inline __device__ void store4(
 Loads 8 elements according to bitonic sort indexes.
 */
 template <order_t sortOrder>
-inline __device__ void load8(
+__device__ void load8(
     data_t *table, data_t *tableEnd, uint_t tableOffset, uint_t stride, data_t *el1, data_t *el2, data_t *el3,
     data_t *el4, data_t *el5, data_t *el6, data_t *el7, data_t *el8
 )
@@ -261,7 +261,7 @@ inline __device__ void load8(
 /*
 Stores 8 elements according to bitonic sort indexes.
 */
-inline __device__ void store8(
+__device__ void store8(
     data_t *table, data_t *tableEnd, uint_t tableOffset, uint_t stride, data_t el1, data_t el2, data_t el3,
     data_t el4, data_t el5, data_t el6, data_t el7, data_t el8
 )
@@ -274,7 +274,7 @@ inline __device__ void store8(
 Loads 16 elements according to bitonic sort indexes.
 */
 template <order_t sortOrder>
-inline __device__ void load16(
+__device__ void load16(
     data_t *table, data_t *tableEnd, uint_t tableOffset, uint_t stride, data_t *el1, data_t *el2, data_t *el3,
     data_t *el4, data_t *el5, data_t *el6, data_t *el7, data_t *el8, data_t *el9, data_t *el10, data_t *el11,
     data_t *el12, data_t *el13, data_t *el14, data_t *el15, data_t *el16
@@ -289,7 +289,7 @@ inline __device__ void load16(
 /*
 Stores 16 elements according to bitonic sort indexes.
 */
-inline __device__ void store16(
+__device__ void store16(
     data_t *table, data_t *tableEnd, uint_t tableOffset, uint_t stride, data_t el1, data_t el2, data_t el3,
     data_t el4, data_t el5, data_t el6, data_t el7, data_t el8, data_t el9, data_t el10, data_t el11,
     data_t el12, data_t el13, data_t el14, data_t el15, data_t el16
@@ -305,7 +305,7 @@ inline __device__ void store16(
 Loads 32 elements according to bitonic sort indexes.
 */
 template <order_t sortOrder>
-inline __device__ void load32(
+__device__ void load32(
     data_t *table, data_t *tableEnd, uint_t tableOffset, uint_t stride, data_t *el1, data_t *el2, data_t *el3,
     data_t *el4, data_t *el5, data_t *el6, data_t *el7, data_t *el8, data_t *el9, data_t *el10, data_t *el11,
     data_t *el12, data_t *el13, data_t *el14, data_t *el15, data_t *el16, data_t *el17, data_t *el18, data_t *el19,
@@ -326,7 +326,7 @@ inline __device__ void load32(
 /*
 Stores 32 elements according to bitonic sort indexes.
 */
-inline __device__ void store32(
+__device__ void store32(
     data_t *table, data_t *tableEnd, uint_t tableOffset, uint_t stride, data_t el1, data_t el2, data_t el3,
     data_t el4, data_t el5, data_t el6, data_t el7, data_t el8, data_t el9, data_t el10, data_t el11,
     data_t el12, data_t el13, data_t el14, data_t el15, data_t el16, data_t el17, data_t el18, data_t el19,
@@ -348,7 +348,7 @@ inline __device__ void store32(
 Loads 32 elements according to bitonic sort indexes.
 */
 template <order_t sortOrder>
-inline __device__ void load64(
+__device__ void load64(
     data_t *table, data_t *tableEnd, uint_t tableOffset, uint_t stride, data_t *el1, data_t *el2, data_t *el3,
     data_t *el4, data_t *el5, data_t *el6, data_t *el7, data_t *el8, data_t *el9, data_t *el10, data_t *el11,
     data_t *el12, data_t *el13, data_t *el14, data_t *el15, data_t *el16, data_t *el17, data_t *el18, data_t *el19,
@@ -375,7 +375,7 @@ inline __device__ void load64(
 /*
 Stores 32 elements according to bitonic sort indexes.
 */
-inline __device__ void store64(
+__device__ void store64(
     data_t *table, data_t *tableEnd, uint_t tableOffset, uint_t stride, data_t el1, data_t el2, data_t el3,
     data_t el4, data_t el5, data_t el6, data_t el7, data_t el8, data_t el9, data_t el10, data_t el11,
     data_t el12, data_t el13, data_t el14, data_t el15, data_t el16, data_t el17, data_t el18, data_t el19,
@@ -397,24 +397,6 @@ inline __device__ void store64(
         el41, el42, el43, el44, el45, el46, el47, el48, el49, el50, el51, el52, el53, el54, el55, el56, el57,
         el58, el59, el60, el61, el62, el63, el64
     );
-}
-
-
-/*
-Generates parameters needed for multistep bitonic sort.
-> stride - (gap) between two elements beeing compared
-> threadsPerSubBlocks - how many threads apper per sub-block in current step
-> indexTable - start index, at which thread should start reading elements
-*/
-inline __device__ void getMultiStepParams(
-    uint_t step, uint_t degree, uint_t &stride, uint_t &threadsPerSubBlock, uint_t &indexTable
-)
-{
-    uint_t indexThread = blockIdx.x * blockDim.x + threadIdx.x;
-
-    stride = 1 << (step - 1);
-    threadsPerSubBlock = 1 << (step - degree);
-    indexTable = (indexThread >> (step - degree) << step) + indexThread % threadsPerSubBlock;
 }
 
 #endif

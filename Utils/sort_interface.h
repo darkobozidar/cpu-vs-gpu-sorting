@@ -332,6 +332,7 @@ public:
 
         // Destroys keys and values
         error = cudaFree(_d_keys);
+        checkCudaError(error);
         error = cudaFree(_d_values);
         checkCudaError(error);
     }
