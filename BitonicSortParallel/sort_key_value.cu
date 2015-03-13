@@ -105,8 +105,8 @@ void BitonicSortParallel::bitonicSortParallel(
 )
 {
     uint_t arrayLenPower2 = nextPowerOf2(arrayLength);
-    uint_t elemsPerBlockBitonicSort = THREADS_BITONIC_SORT_KV * ELEMS_THREAD_BITONIC_SORT_KV;
-    uint_t elemsPerBlockMergeLocal = THREADS_LOCAL_MERGE_KV * ELEMS_THREAD_LOCAL_MERGE_KV;
+    uint_t elemsPerBlockBitonicSort = THREADS_BITONIC_SORT_KV_BSP * ELEMS_THREAD_BITONIC_SORT_KV_BSP;
+    uint_t elemsPerBlockMergeLocal = THREADS_LOCAL_MERGE_KV_BSP * ELEMS_THREAD_LOCAL_MERGE_KV_BSP;
 
     // Number of phases, which can be executed in shared memory (stride is lower than shared memory size)
     uint_t phasesBitonicSort = log2((double)min(arrayLenPower2, elemsPerBlockBitonicSort));
@@ -114,7 +114,7 @@ void BitonicSortParallel::bitonicSortParallel(
     uint_t phasesAll = log2((double)arrayLenPower2);
 
     // Sorts blocks of input data with bitonic sort
-    runBitoicSortKernel<sortOrder, THREADS_BITONIC_SORT_KV, ELEMS_THREAD_BITONIC_SORT_KV>(
+    runBitoicSortKernel<sortOrder, THREADS_BITONIC_SORT_KV_BSP, ELEMS_THREAD_BITONIC_SORT_KV_BSP>(
         d_keys, d_values, arrayLength
     );
 
@@ -124,13 +124,13 @@ void BitonicSortParallel::bitonicSortParallel(
         uint_t step = phase;
         while (step > phasesMergeLocal)
         {
-            runBitonicMergeGlobalKernel<sortOrder, THREADS_GLOBAL_MERGE_KV, ELEMS_THREAD_GLOBAL_MERGE_KV>(
+            runBitonicMergeGlobalKernel<sortOrder, THREADS_GLOBAL_MERGE_KV_BSP, ELEMS_THREAD_GLOBAL_MERGE_KV_BSP>(
                 d_keys, d_values, arrayLength, phase, step
             );
             step--;
         }
 
-        runBitoicMergeLocalKernel<sortOrder, THREADS_LOCAL_MERGE_KV, ELEMS_THREAD_LOCAL_MERGE_KV>(
+        runBitoicMergeLocalKernel<sortOrder, THREADS_LOCAL_MERGE_KV_BSP, ELEMS_THREAD_LOCAL_MERGE_KV_BSP>(
             d_keys, d_values, arrayLength, phase, step
         );
     }

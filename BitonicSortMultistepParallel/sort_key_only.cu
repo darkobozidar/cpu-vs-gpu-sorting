@@ -78,15 +78,15 @@ template <order_t sortOrder>
 void BitonicSortMultistepParallel::bitonicSortMultistepParallel(data_t *d_keys, uint_t arrayLength)
 {
     uint_t arrayLengthPower2 = nextPowerOf2(arrayLength);
-    uint_t elemsPerBlockBitonicSort = THREADS_PER_BITONIC_SORT_KO * ELEMS_PER_THREAD_BITONIC_SORT_KO;
-    uint_t elemsPerBlockMergeLocal = THREADS_PER_LOCAL_MERGE_KO * ELEMS_PER_THREAD_LOCAL_MERGE_KO;
+    uint_t elemsPerBlockBitonicSort = THREADS_BITONIC_SORT_KO_MSP * ELEMS_THREAD_BITONIC_SORT_KO_MSP;
+    uint_t elemsPerBlockMergeLocal = THREADS_LOCAL_MERGE_KO_MSP * ELEMS_THREAD_LOCAL_MERGE_KO_MSP;
 
     // Number of phases, which can be executed in shared memory (stride is lower than shared memory size)
     uint_t phasesBitonicSort = log2((double)min(arrayLengthPower2, elemsPerBlockBitonicSort));
     uint_t phasesMergeLocal = log2((double)min(arrayLengthPower2, elemsPerBlockMergeLocal));
     uint_t phasesAll = log2((double)arrayLengthPower2);
 
-    runBitoicSortKernel<sortOrder, THREADS_PER_BITONIC_SORT_KO, ELEMS_PER_THREAD_BITONIC_SORT_KO>(
+    runBitoicSortKernel<sortOrder, THREADS_BITONIC_SORT_KO_MSP, ELEMS_THREAD_BITONIC_SORT_KO_MSP>(
         d_keys, arrayLength
     );
 
@@ -99,24 +99,24 @@ void BitonicSortMultistepParallel::bitonicSortMultistepParallel(data_t *d_keys, 
         {
             // Global NORMALIZED bitonic merge for first step of phase, where different pattern of exchanges
             // is used compared to other steps
-            runBitonicMergeGlobalKernel<sortOrder, THREADS_PER_GLOBAL_MERGE_KO, ELEMS_PER_THREAD_GLOBAL_MERGE_KO>(
+            runBitonicMergeGlobalKernel<sortOrder, THREADS_GLOBAL_MERGE_KO_MSP, ELEMS_THREAD_GLOBAL_MERGE_KO_MSP>(
                 d_keys, arrayLength, phase, step
             );
             step--;
 
             // Multisteps
-            for (uint_t degree = min(MAX_MULTI_STEP_KO, step - phasesMergeLocal); degree > 0; degree--)
+            for (uint_t degree = min(MAX_MULTI_STEP_KO_MSP, step - phasesMergeLocal); degree > 0; degree--)
             {
                 for (; step >= phasesMergeLocal + degree; step -= degree)
                 {
-                    runMultiStepKernel<sortOrder, THREADS_PER_MULTISTEP_MERGE_KO>(
+                    runMultiStepKernel<sortOrder, THREADS_MULTISTEP_MERGE_KO_MSP>(
                         d_keys, arrayLength, phase, step, degree
                     );
                 }
             }
         }
 
-        runBitoicMergeLocalKernel<sortOrder, THREADS_PER_LOCAL_MERGE_KO, ELEMS_PER_THREAD_LOCAL_MERGE_KO>(
+        runBitoicMergeLocalKernel<sortOrder, THREADS_LOCAL_MERGE_KO_MSP, ELEMS_THREAD_LOCAL_MERGE_KO_MSP>(
             d_keys, arrayLength, phase, step
         );
     }

@@ -48,29 +48,29 @@ public:
 /* BITONIC SORT MULTISTEP PARALLEL KEY ONLY */
 
 template void BitonicSortParallel::runBitoicSortKernel
-    <ORDER_ASC, THREADS_PER_BITONIC_SORT_KO, ELEMS_PER_THREAD_BITONIC_SORT_KO>(
+    <ORDER_ASC, THREADS_BITONIC_SORT_KO_MSP, ELEMS_THREAD_BITONIC_SORT_KO_MSP>(
     data_t *d_keys, uint_t arrayLength
 );
 template void BitonicSortParallel::runBitoicSortKernel
-    <ORDER_DESC, THREADS_PER_BITONIC_SORT_KO, ELEMS_PER_THREAD_BITONIC_SORT_KO>(
+    <ORDER_DESC, THREADS_BITONIC_SORT_KO_MSP, ELEMS_THREAD_BITONIC_SORT_KO_MSP>(
     data_t *d_keys, uint_t arrayLength
 );
 
 template void BitonicSortParallel::runBitonicMergeGlobalKernel
-    <ORDER_ASC, THREADS_PER_GLOBAL_MERGE_KO, ELEMS_PER_THREAD_GLOBAL_MERGE_KO>(
+    <ORDER_ASC, THREADS_GLOBAL_MERGE_KO_MSP, ELEMS_THREAD_GLOBAL_MERGE_KO_MSP>(
     data_t *d_keys, uint_t arrayLength, uint_t phase, uint_t step
 );
 template void BitonicSortParallel::runBitonicMergeGlobalKernel
-    <ORDER_DESC, THREADS_PER_GLOBAL_MERGE_KO, ELEMS_PER_THREAD_GLOBAL_MERGE_KO>(
+    <ORDER_DESC, THREADS_GLOBAL_MERGE_KO_MSP, ELEMS_THREAD_GLOBAL_MERGE_KO_MSP>(
     data_t *d_keys, uint_t arrayLength, uint_t phase, uint_t step
 );
 
 template void BitonicSortParallel::runBitoicMergeLocalKernel
-    <ORDER_ASC, THREADS_PER_LOCAL_MERGE_KO, ELEMS_PER_THREAD_LOCAL_MERGE_KO>(
+    <ORDER_ASC, THREADS_LOCAL_MERGE_KO_MSP, ELEMS_THREAD_LOCAL_MERGE_KO_MSP>(
     data_t *d_keys, uint_t arrayLength, uint_t phase, uint_t step
 );
 template void BitonicSortParallel::runBitoicMergeLocalKernel
-    <ORDER_DESC, THREADS_PER_LOCAL_MERGE_KO, ELEMS_PER_THREAD_LOCAL_MERGE_KO>(
+    <ORDER_DESC, THREADS_LOCAL_MERGE_KO_MSP, ELEMS_THREAD_LOCAL_MERGE_KO_MSP>(
     data_t *d_keys, uint_t arrayLength, uint_t phase, uint_t step
 );
 
@@ -78,29 +78,29 @@ template void BitonicSortParallel::runBitoicMergeLocalKernel
 /* BITONIC SORT MULTISTEP PARALLEL KEY VALUE */
 
 template void BitonicSortParallel::runBitoicSortKernel
-    <ORDER_ASC, THREADS_PER_BITONIC_SORT_KV, ELEMS_PER_THREAD_BITONIC_SORT_KV>(
+    <ORDER_ASC, THREADS_BITONIC_SORT_KV_MSP, ELEMS_THREAD_BITONIC_SORT_KV_MSP>(
     data_t *d_keys, data_t *values, uint_t arrayLength
 );
 template void BitonicSortParallel::runBitoicSortKernel
-    <ORDER_DESC, THREADS_PER_BITONIC_SORT_KV, ELEMS_PER_THREAD_BITONIC_SORT_KV>(
+    <ORDER_DESC, THREADS_BITONIC_SORT_KV_MSP, ELEMS_THREAD_BITONIC_SORT_KV_MSP>(
     data_t *d_keys, data_t *values, uint_t arrayLength
 );
 
 template void BitonicSortParallel::runBitonicMergeGlobalKernel
-    <ORDER_ASC, THREADS_PER_GLOBAL_MERGE_KV, ELEMS_PER_THREAD_GLOBAL_MERGE_KV>(
+    <ORDER_ASC, THREADS_GLOBAL_MERGE_KV_MSP, ELEMS_THREAD_GLOBAL_MERGE_KV_MSP>(
     data_t *d_keys, data_t *values, uint_t arrayLength, uint_t phase, uint_t step
 );
 template void BitonicSortParallel::runBitonicMergeGlobalKernel
-    <ORDER_DESC, THREADS_PER_GLOBAL_MERGE_KV, ELEMS_PER_THREAD_GLOBAL_MERGE_KV>(
+    <ORDER_DESC, THREADS_GLOBAL_MERGE_KV_MSP, ELEMS_THREAD_GLOBAL_MERGE_KV_MSP>(
     data_t *d_keys, data_t *values, uint_t arrayLength, uint_t phase, uint_t step
 );
 
 template void BitonicSortParallel::runBitoicMergeLocalKernel
-    <ORDER_ASC, THREADS_PER_LOCAL_MERGE_KV, ELEMS_PER_THREAD_LOCAL_MERGE_KV>(
+    <ORDER_ASC, THREADS_LOCAL_MERGE_KV_MSP, ELEMS_THREAD_LOCAL_MERGE_KV_MSP>(
     data_t *d_keys, data_t *values, uint_t arrayLength, uint_t phase, uint_t step
 );
 template void BitonicSortParallel::runBitoicMergeLocalKernel
-    <ORDER_DESC, THREADS_PER_LOCAL_MERGE_KV, ELEMS_PER_THREAD_LOCAL_MERGE_KV>(
+    <ORDER_DESC, THREADS_LOCAL_MERGE_KV_MSP, ELEMS_THREAD_LOCAL_MERGE_KV_MSP>(
     data_t *d_keys, data_t *values, uint_t arrayLength, uint_t phase, uint_t step
 );
 
