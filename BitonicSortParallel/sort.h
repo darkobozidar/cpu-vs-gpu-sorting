@@ -26,11 +26,11 @@ private:
     void sortKeyOnly();
 
     // Key-value
-    template <order_t sortOrder>
+    template <order_t sortOrder, uint_t threadsBitonicSort, uint_t elemsThreadBitonicSort>
     void runBitoicSortKernel(data_t *d_keys, data_t *d_values, uint_t arrayLength);
-    template <order_t sortOrder>
+    template <order_t sortOrder, uint_t threadsMerge, uint_t elemsThreadMerge>
     void runBitonicMergeGlobalKernel(data_t *d_keys, data_t *d_values, uint_t arrayLength, uint_t phase, uint_t step);
-    template <order_t sortOrder>
+    template <order_t sortOrder, uint_t threadsMerge, uint_t elemsThreadMerge>
     void runBitoicMergeLocalKernel(data_t *d_keys, data_t *values, uint_t arrayLength, uint_t phase, uint_t step);
     template <order_t sortOrder>
     void bitonicSortParallel(data_t *d_keys, data_t *d_values, uint_t arrayLength);

@@ -77,13 +77,15 @@ void BitonicSortParallel::runBitoicMergeLocalKernel(
 
     if (isFirstStepOfPhase)
     {
-        bitonicMergeLocalKernel<sortOrder, true, threadsMerge, elemsThreadMerge><<<dimGrid, dimBlock, sharedMemSize>>>(
+        bitonicMergeLocalKernel
+            <sortOrder, true, threadsMerge, elemsThreadMerge><<<dimGrid, dimBlock, sharedMemSize>>>(
             d_keys, arrayLength, step
         );
     }
     else
     {
-        bitonicMergeLocalKernel<sortOrder, false, threadsMerge, elemsThreadMerge><<<dimGrid, dimBlock, sharedMemSize>>>(
+        bitonicMergeLocalKernel
+            <sortOrder, false, threadsMerge, elemsThreadMerge><<<dimGrid, dimBlock, sharedMemSize>>>(
             d_keys, arrayLength, step
         );
     }
@@ -96,15 +98,15 @@ template <order_t sortOrder>
 void BitonicSortParallel::bitonicSortParallel(data_t *d_keys, uint_t arrayLength)
 {
     uint_t arrayLenPower2 = nextPowerOf2(arrayLength);
-    uint_t elemsPerBlockBitonicSort = THREADS_PER_BITONIC_SORT_KO * ELEMS_PER_THREAD_BITONIC_SORT_KO;
-    uint_t elemsPerBlockMergeLocal = THREADS_PER_LOCAL_MERGE_KO * ELEMS_PER_THREAD_LOCAL_MERGE_KO;
+    uint_t elemsPerBlockBitonicSort = THREADS_BITONIC_SORT_KO * ELEMS_THREAD_BITONIC_SORT_KO;
+    uint_t elemsPerBlockMergeLocal = THREADS_LOCAL_MERGE_KO * ELEMS_THREAD_LOCAL_MERGE_KO;
 
     // Number of phases, which can be executed in shared memory (stride is lower than shared memory size)
     uint_t phasesBitonicSort = log2((double)min(arrayLenPower2, elemsPerBlockBitonicSort));
     uint_t phasesMergeLocal = log2((double)min(arrayLenPower2, elemsPerBlockMergeLocal));
     uint_t phasesAll = log2((double)arrayLenPower2);
 
-    runBitoicSortKernel<sortOrder, THREADS_PER_BITONIC_SORT_KO, ELEMS_PER_THREAD_BITONIC_SORT_KO>(
+    runBitoicSortKernel<sortOrder, THREADS_BITONIC_SORT_KO, ELEMS_THREAD_BITONIC_SORT_KO>(
         d_keys, arrayLength
     );
 
@@ -114,13 +116,13 @@ void BitonicSortParallel::bitonicSortParallel(data_t *d_keys, uint_t arrayLength
         uint_t step = phase;
         while (step > phasesMergeLocal)
         {
-            runBitonicMergeGlobalKernel<sortOrder, THREADS_PER_GLOBAL_MERGE_KO, ELEMS_PER_THREAD_GLOBAL_MERGE_KO>(
+            runBitonicMergeGlobalKernel<sortOrder, THREADS_GLOBAL_MERGE_KO, ELEMS_THREAD_GLOBAL_MERGE_KO>(
                 d_keys, arrayLength, phase, step
             );
             step--;
         }
 
-        runBitoicMergeLocalKernel<sortOrder, THREADS_PER_LOCAL_MERGE_KO, ELEMS_PER_THREAD_LOCAL_MERGE_KO>(
+        runBitoicMergeLocalKernel<sortOrder, THREADS_LOCAL_MERGE_KO, ELEMS_THREAD_LOCAL_MERGE_KO>(
             d_keys, arrayLength, phase, step
         );
     }
