@@ -1,5 +1,5 @@
-#ifndef KERNELS_H
-#define KERNELS_H
+#ifndef KERNELS_KEY_ONLY_H
+#define KERNELS_KEY_ONLY_H
 
 
 __global__ void  quickSortGlobalKernel(

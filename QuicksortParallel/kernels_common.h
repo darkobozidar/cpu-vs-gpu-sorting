@@ -1,5 +1,5 @@
-#ifndef KERNELS_H
-#define KERNELS_H
+#ifndef KERNELS_COMMON_H
+#define KERNELS_COMMON_H
 
 #include <cuda.h>
 #include "cuda_runtime.h"

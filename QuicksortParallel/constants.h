@@ -1,5 +1,5 @@
-#ifndef CONSTANTS_QUICKSORT_H
-#define CONSTANTS_QUICKSORT_H
+#ifndef CONSTANTS_H
+#define CONSTANTS_H
 
 
 /*
