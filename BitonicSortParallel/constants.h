@@ -1,7 +1,6 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
-
 /*
 _KO: Key-only
 _KV: Key-value
