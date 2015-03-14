@@ -2,7 +2,7 @@
 #define BITONIC_SORT_MULTISTEP_PARALLEL_H
 
 #include "../Utils/data_types_common.h"
-#include "../BitonicSortParallel/sort.h"
+#include "../BitonicSort/sort_parallel.h"
 
 
 /*

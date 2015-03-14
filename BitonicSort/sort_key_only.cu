@@ -8,7 +8,7 @@
 #include "../Utils/data_types_common.h"
 #include "../Utils/host.h"
 #include "constants.h"
-#include "sort.h"
+#include "sort_parallel.h"
 #include "kernels_key_only.h"
 
 
