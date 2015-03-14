@@ -16,6 +16,7 @@
 
 #include "../BitonicSort/sort_sequential.h"
 #include "../BitonicSort/sort_parallel.h"
+#include "../BitonicSortMultistep/sort_parallel.h"
 
 #include "test_sort.h"
 
@@ -36,7 +37,7 @@ int main(int argc, char **argv)
     std::vector<SortSequential*> sorts;
     sorts.push_back(new BitonicSortSequential());
     sorts.push_back(new BitonicSortParallel());
-    //sorts.push_back(new BitonicSortMultistepParallel());
+    sorts.push_back(new BitonicSortMultistepParallel());
     //sorts.push_back(new QuicksortSequential());
     //sorts.push_back(new QuicksortParallel());
 
@@ -46,7 +47,7 @@ int main(int argc, char **argv)
         (*sort)->stopwatchEnable();
     }
 
-    generateStatistics(sorts, distributions, arrayLenStart, arrayLenEnd, sortOrder, testRepetitions, interval);
+    //generateStatistics(sorts, distributions, arrayLenStart, arrayLenEnd, sortOrder, testRepetitions, interval);
 
     printf("Finished\n");
     getchar();

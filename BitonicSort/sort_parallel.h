@@ -20,7 +20,7 @@
 
 
 /*
-Base class for bitonic sort parallel.
+Base class for parallel bitonic sort.
 Needed for template specialization.
 
 Template params:
@@ -280,6 +280,7 @@ public:
         return this->_sortName;
     }
 };
+
 
 /*
 Class for parallel bitonic sort.

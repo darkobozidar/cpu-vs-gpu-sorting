@@ -1,5 +1,5 @@
-#ifndef CONSTANTS_H
-#define CONSTANTS_H
+#ifndef CONSTANTS_BITONIC_SORT_H
+#define CONSTANTS_BITONIC_SORT_H
 
 /*
 _KO: Key-only
