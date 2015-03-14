@@ -18,7 +18,7 @@ protected:
     /*
     Sorts data sequentially with NORMALIZED bitonic sort.
     */
-    template <order_t sortOrder, bool sortingKeyVal>
+    template <order_t sortOrder, bool sortingKeyOnly>
     void bitonicSortSequential(data_t *h_keys, data_t *h_values, uint_t arrayLength)
     {
         for (uint_t subBlockSize = 1; subBlockSize < arrayLength; subBlockSize <<= 1)
@@ -53,7 +53,7 @@ protected:
                         h_keys[indexLeft] = h_keys[indexRight];
                         h_keys[indexRight] = temp;
 
-                        if (sortingKeyVal)
+                        if (!sortingKeyOnly)
                         {
                             temp = h_values[indexLeft];
                             h_values[indexLeft] = h_values[indexRight];
@@ -73,11 +73,11 @@ protected:
     {
         if (_sortOrder == ORDER_ASC)
         {
-            bitonicSortSequential<ORDER_ASC, false>(_h_keys, NULL, _arrayLength);
+            bitonicSortSequential<ORDER_ASC, true>(_h_keys, NULL, _arrayLength);
         }
         else
         {
-            bitonicSortSequential<ORDER_DESC, false>(_h_keys, NULL, _arrayLength);
+            bitonicSortSequential<ORDER_DESC, true>(_h_keys, NULL, _arrayLength);
         }
     }
 
@@ -89,11 +89,11 @@ protected:
     {
         if (_sortOrder == ORDER_ASC)
         {
-            bitonicSortSequential<ORDER_ASC, true>(_h_keys, _h_values, _arrayLength);
+            bitonicSortSequential<ORDER_ASC, false>(_h_keys, _h_values, _arrayLength);
         }
         else
         {
-            bitonicSortSequential<ORDER_DESC, true>(_h_keys, _h_values, _arrayLength);
+            bitonicSortSequential<ORDER_DESC, false>(_h_keys, _h_values, _arrayLength);
         }
     }
 

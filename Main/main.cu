@@ -16,8 +16,6 @@
 
 #include "../BitonicSort/sort_sequential.h"
 #include "../BitonicSort/sort_parallel.h"
-#include "../QuicksortSequential/sort.h"
-#include "../QuicksortParallel/sort.h"
 
 #include "test_sort.h"
 
