@@ -47,7 +47,7 @@ int main(int argc, char **argv)
         (*sort)->stopwatchEnable();
     }
 
-    //generateStatistics(sorts, distributions, arrayLenStart, arrayLenEnd, sortOrder, testRepetitions, interval);
+    generateStatistics(sorts, distributions, arrayLenStart, arrayLenEnd, sortOrder, testRepetitions, interval);
 
     printf("Finished\n");
     getchar();

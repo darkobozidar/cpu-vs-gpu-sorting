@@ -1,5 +1,5 @@
-#ifndef KERNEL_KEY_VALUE_UTILS_H
-#define KERNEL_KEY_VALUE_UTILS_H
+#ifndef KERNEL_KEY_VALUE_UTILS_BITONIC_SORT_H
+#define KERNEL_KEY_VALUE_UTILS_BITONIC_SORT_H
 
 #include <cuda.h>
 #include "cuda_runtime.h"

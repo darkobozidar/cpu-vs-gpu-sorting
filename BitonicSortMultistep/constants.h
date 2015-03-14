@@ -27,6 +27,7 @@ _KV:  Key-value
 // How much is the biggest allowed multistep - how many elements are sorted by one thread.
 // Min value is 1, max value is 6.
 #define MAX_MULTI_STEP_KO 5
+// Min value is 1, max value is 5.
 #define MAX_MULTI_STEP_KV 4
 
 

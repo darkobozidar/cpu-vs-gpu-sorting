@@ -1,5 +1,5 @@
-#ifndef KERNELS_KEY_VALUE_H
-#define KERNELS_KEY_VALUE_H
+#ifndef KERNELS_KEY_VALUE_BITONIC_SORT_H
+#define KERNELS_KEY_VALUE_BITONIC_SORT_H
 
 #include <stdio.h>
 
