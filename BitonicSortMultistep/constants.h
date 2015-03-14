@@ -4,7 +4,6 @@
 /*
 _KO:  Key-only
 _KV:  Key-value
-: Bitonic sort multistep parallel
 */
 
 /* ---------------- BITONIC SORT KERNEL -------------- */

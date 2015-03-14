@@ -9,8 +9,8 @@
 #include "math_functions.h"
 
 #include "../Utils/data_types_common.h"
-#include "constants.h"
 #include "data_types.h"
+#include "kernels_common_utils.h"
 
 
 /*
@@ -91,11 +91,11 @@ inline __device__ void generateIntervals(
             // Finds q - an index, where exchanges begin in bitonic sequences being merged.
             if (orderAsc)
             {
-                q = binarySearch<ORDER_ASC>(table, interval, subBlockHalfSize);
+                q = binarySearchInterval<ORDER_ASC>(table, interval, subBlockHalfSize);
             }
             else
             {
-                q = binarySearch<ORDER_DESC>(table, interval, subBlockHalfSize);
+                q = binarySearchInterval<ORDER_DESC>(table, interval, subBlockHalfSize);
             }
 
             // Output indexes of newly generated intervals
