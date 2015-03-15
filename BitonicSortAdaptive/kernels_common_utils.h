@@ -16,7 +16,7 @@
 /*
 From provided interval and index returns element in table. Index can't be higher than interval span.
 */
-inline __device__ data_t getTableElement(data_t *table, interval_t interval, uint_t index)
+__device__ data_t getArrayKey(data_t *table, interval_t interval, uint_t index)
 {
     bool useInterval1 = index >= interval.length0;
     uint_t offset = useInterval1 ? interval.offset1 : interval.offset0;
@@ -25,6 +25,24 @@ inline __device__ data_t getTableElement(data_t *table, interval_t interval, uin
     index -= useInterval1 && index >= interval.length1 ? interval.length1 : 0;
 
     return table[offset + index];
+}
+
+/*
+From provided interval and index returns element in table. Index can't be higher than interval span.
+*/
+__device__ void getArrayKeyValue(
+    data_t *keys, data_t *values, interval_t interval, uint_t index, data_t *key, data_t *value
+    )
+{
+    bool useInterval1 = index >= interval.length0;
+    uint_t offset = useInterval1 ? interval.offset1 : interval.offset0;
+
+    index -= useInterval1 ? interval.length0 : 0;
+    index -= useInterval1 && index >= interval.length1 ? interval.length1 : 0;
+    index += offset;
+
+    *key = keys[index];
+    *value = values[index];
 }
 
 /*
@@ -43,8 +61,8 @@ inline __device__ int_t binarySearchInterval(data_t* table, interval_t interval,
     while (indexStart < indexEnd)
     {
         int index = indexStart + (indexEnd - indexStart) / 2;
-        data_t el0 = getTableElement(table, interval, index);
-        data_t el1 = getTableElement(table, interval, index + subBlockHalfLen);
+        data_t el0 = getArrayKey(table, interval, index);
+        data_t el1 = getArrayKey(table, interval, index + subBlockHalfLen);
 
         if ((el0 > el1) ^ sortOrder)
         {

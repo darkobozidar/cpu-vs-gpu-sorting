@@ -17,7 +17,8 @@
 
 #define __CUDA_INTERNAL_COMPILATION__
 #include "kernels_common.h"
-//#include "kernels_key_value.h"
+#include "kernels_key_only.h"
+#include "kernels_key_value.h"
 #undef __CUDA_INTERNAL_COMPILATION__
 
 
@@ -50,6 +51,10 @@ class BitonicSortAdaptiveParallelBase : public BitonicSortParallelBase<
 {
 protected:
     std::string _sortName = "Bitonic sort multistep parallel";
+    // Device buffer for keys and values
+    data_t *_d_keysBuffer, *_k_valuesBuffer;
+    // Stores intervals of bitonic subsequences
+    interval_t *_d_intervals, *_d_intervalsBuffer;
 
     /*
     Adds padding of MAX/MIN values to input table, deppending if sort order is ascending or descending. This is
@@ -183,6 +188,51 @@ protected:
         }
     }
 
+    /*
+    Runs kernel, whic performs bitonic merge from provided intervals.
+    */
+    template <order_t sortOrder, bool sortingKeyOnly>
+    void runBitoicMergeIntervalsKernel(
+        data_t *d_keys, data_t *d_values, data_t *d_keysBuffer, data_t *d_valuesBuffer, interval_t *intervals,
+        uint_t arrayLength, uint_t phasesBitonicMerge, uint_t phase
+    )
+    {
+        // If table length is not power of 2, than table is padded to the next power of 2. In that case it is not
+        // necessary for entire padded table to be merged. It is only necessary that table is merged to the next
+        // multiple of phase stride.
+        uint_t arrayLenRoundedUp = roundUp(arrayLength, 1 << phase);
+        uint_t elemsPerThreadBlock, sharedMemSize;
+
+        if (sortingKeyOnly)
+        {
+            elemsPerThreadBlock = threadsLocalMergeKo * elemsLocalMergeKo;
+            sharedMemSize = elemsPerThreadBlock * sizeof(*d_keys);
+        }
+        else
+        {
+            elemsPerThreadBlock = threadsLocalMergeKv * elemsLocalMergeKv;
+            sharedMemSize = 2 * elemsPerThreadBlock * sizeof(*d_keys);
+        }
+
+        dim3 dimGrid((arrayLenRoundedUp - 1) / elemsPerThreadBlock + 1, 1, 1);
+        dim3 dimBlock(sortingKeyOnly ? threadsLocalMergeKo : threadsLocalMergeKv, 1, 1);
+
+        if (sortingKeyOnly)
+        {
+            bitonicMergeIntervalsKernel<threadsLocalMergeKo, elemsLocalMergeKo, sortOrder>
+                <<<dimGrid, dimBlock, sharedMemSize>>>(
+                d_keys, d_keysBuffer, intervals, phase
+            );
+        }
+        else
+        {
+            bitonicMergeIntervalsKernel<threadsLocalMergeKv, elemsLocalMergeKv, sortOrder>
+                <<<dimGrid, dimBlock, sharedMemSize>>>(
+                d_keys, d_values, d_keysBuffer, d_valuesBuffer, intervals, phase
+            );
+        }
+    }
+
     template <order_t sortOrder, bool sortingKeyOnly>
     void bitonicSortAdaptiveParallel(
         data_t *h_keys, data_t *h_values, data_t *d_keys, data_t *d_values, data_t *d_keysBuffer,
@@ -213,45 +263,76 @@ protected:
         runAddPaddingKernel<sortOrder>(d_keys, d_keysBuffer, arrayLength);
         runBitoicSortKernel<sortOrder, sortingKeyOnly>(d_keys, d_values, arrayLength);
 
-        //for (uint_t phase = phasesBitonicSort + 1; phase <= phasesAll; phase++)
-        //{
-        //    uint_t stepStart = phase;
-        //    uint_t stepEnd = max((double)phasesBitonicMerge, (double)phase - phasesInitIntervals);
-        //    runInitIntervalsKernel(
-        //        d_keys, d_intervals, arrayLenPower2, phasesAll, stepStart, stepEnd, sortOrder
-        //        );
+        for (uint_t phase = phasesBitonicSort + 1; phase <= phasesAll; phase++)
+        {
+            uint_t stepStart = phase;
+            uint_t stepEnd = max((double)phasesBitonicMerge, (double)phase - phasesInitIntervals);
+            runInitIntervalsKernel<sortOrder, sortingKeyOnly>(
+                d_keys, d_intervals, arrayLenPower2, phasesAll, stepStart, stepEnd
+            );
 
-        //    // After initial intervals were generated intervals have to be evolved to the end step
-        //    while (stepEnd > phasesBitonicMerge)
-        //    {
-        //        interval_t *tempIntervals = d_intervals;
-        //        d_intervals = d_intervalsBuffer;
-        //        d_intervalsBuffer = tempIntervals;
+            // After initial intervals were generated intervals have to be evolved to the end step
+            while (stepEnd > phasesBitonicMerge)
+            {
+                interval_t *tempIntervals = d_intervals;
+                d_intervals = d_intervalsBuffer;
+                d_intervalsBuffer = tempIntervals;
 
-        //        stepStart = stepEnd;
-        //        stepEnd = max((double)phasesBitonicMerge, (double)stepStart - phasesGenerateIntervals);
-        //        runGenerateIntervalsKernel(
-        //            d_keys, d_intervalsBuffer, d_intervals, arrayLenPower2, phasesAll, phase, stepStart,
-        //            stepEnd, sortOrder
-        //        );
-        //    }
+                stepStart = stepEnd;
+                stepEnd = max((double)phasesBitonicMerge, (double)stepStart - phasesGenerateIntervals);
+                runGenerateIntervalsKernel<sortOrder, sortingKeyOnly>(
+                    d_keys, d_intervalsBuffer, d_intervals, arrayLenPower2, phasesAll, phase, stepStart, stepEnd
+                );
+            }
 
-        //    // Global merge with intervals
-        //    runBitoicMergeKernel(
-        //        d_keys, d_values, d_keysBuffer, d_valuesBuffer, d_intervals, arrayLength, phasesBitonicMerge,
-        //        phase, sortOrder
-        //    );
+            // Global merge with intervals
+            runBitoicMergeKernel<sortOrder, sortingKeyOnly>(
+                d_keys, d_values, d_keysBuffer, d_valuesBuffer, d_intervals, arrayLength, phasesBitonicMerge, phase
+            );
 
-        //    // Exchanges keys
-        //    data_t *tempTable = d_keys;
-        //    d_keys = d_keysBuffer;
-        //    d_keysBuffer = tempTable;
-        //    // Exchanges values
-        //    tempTable = d_values;
-        //    d_values = d_valuesBuffer;
-        //    d_valuesBuffer = tempTable;
-        //}
+            // Exchanges keys
+            data_t *tempTable = d_keys;
+            d_keys = d_keysBuffer;
+            d_keysBuffer = tempTable;
+
+            // Exchanges values
+            tempTable = d_values;
+            d_values = d_valuesBuffer;
+            d_valuesBuffer = tempTable;
+        }
     }
+
+    ///*
+    //Wrapper for bitonic sort method.
+    //The code runs faster if arguments are passed to method. If members are accessed directly, code runs slower.
+    //*/
+    //void sortKeyOnly()
+    //{
+    //    if (_sortOrder == ORDER_ASC)
+    //    {
+    //        bitonicSortParallel<ORDER_ASC, true>(_d_keys, NULL, _arrayLength);
+    //    }
+    //    else
+    //    {
+    //        bitonicSortParallel<ORDER_DESC, true>(_d_keys, NULL, _arrayLength);
+    //    }
+    //}
+
+    ///*
+    //wrapper for bitonic sort method.
+    //the code runs faster if arguments are passed to method. if members are accessed directly, code runs slower.
+    //*/
+    //void sortKeyValue()
+    //{
+    //    if (_sortOrder == ORDER_ASC)
+    //    {
+    //        bitonicSortParallel<ORDER_ASC, false>(_d_keys, _d_values, _arrayLength);
+    //    }
+    //    else
+    //    {
+    //        bitonicSortParallel<ORDER_DESC, false>(_d_keys, _d_values, _arrayLength);
+    //    }
+    //}
 
 
 public:
