@@ -64,7 +64,7 @@ inline __device__ int_t binarySearchInterval(data_t* table, interval_t interval,
         data_t el0 = getArrayKey(table, interval, index);
         data_t el1 = getArrayKey(table, interval, index + subBlockHalfLen);
 
-        if ((el0 > el1) ^ sortOrder)
+        if ((sortOrder == ORDER_ASC) ? (el0 > el1) : (el0 < el1))
         {
             indexStart = index + 1;
         }

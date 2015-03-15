@@ -20,13 +20,12 @@ template <uint_t threadsBitonicSort, uint_t elemsBitonicSort, order_t sortOrder>
 __global__ void bitonicSortRegularKernel(data_t *dataTable, uint_t tableLen)
 {
     extern __shared__ data_t sortTile[];
-    uint_t elemsPerThreadBlock = threadsBitonicSort * elemsBitonicSort;
-    uint_t offset = blockIdx.x * elemsPerThreadBlock;
-    uint_t dataBlockLength = offset + elemsPerThreadBlock <= tableLen ? elemsPerThreadBlock : tableLen - offset;
+    uint_t offset, dataBlockLength;
+    calcDataBlockLength<threadsBitonicSort, elemsBitonicSort>(offset, dataBlockLength, tableLen);
 
     // If shared memory size is lower than table length, than adjecent blocks have to be ordered in opposite
     // direction in order to create bitonic sequences.
-    bool blockDirection = sortOrder ^ (blockIdx.x & 1);
+    bool blockDirection = (sortOrder == ORDER_ASC) ^ (blockIdx.x & 1);
 
     // Loads data into shared memory
     for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += threadsBitonicSort)
@@ -47,11 +46,11 @@ __global__ void bitonicSortRegularKernel(data_t *dataTable, uint_t tableLen)
 
                 if (direction)
                 {
-                    compareExchange<ORDER_DESC>(&sortTile[index], &sortTile[index + stride]);
+                    compareExchange<ORDER_ASC>(&sortTile[index], &sortTile[index + stride]);
                 }
                 else
                 {
-                    compareExchange<ORDER_ASC>(&sortTile[index], &sortTile[index + stride]);
+                    compareExchange<ORDER_DESC>(&sortTile[index], &sortTile[index + stride]);
                 }
             }
         }
@@ -70,9 +69,7 @@ Global bitonic merge for sections, where stride IS GREATER OR EQUAL than max sha
 Executes regular bitonic merge (not normalized merge). Reads data from provided intervals.
 */
 template <uint_t threadsMerge, uint_t elemsMerge, order_t sortOrder>
-__global__ void bitonicMergeIntervalsKernel(
-    data_t *keys, data_t *keysBuffer, interval_t *intervals, uint_t phase
-)
+__global__ void bitonicMergeIntervalsKernel(data_t *keys, data_t *keysBuffer, interval_t *intervals, uint_t phase)
 {
     extern __shared__ data_t mergeTile[];
     interval_t interval = intervals[blockIdx.x];
@@ -80,7 +77,7 @@ __global__ void bitonicMergeIntervalsKernel(
     // Elements inside same sub-block have to be ordered in same direction
     uint_t elemsPerThreadBlock = threadsMerge * elemsMerge;
     uint_t offset = blockIdx.x * elemsPerThreadBlock;
-    bool orderAsc = !sortOrder ^ ((offset >> phase) & 1);
+    bool orderAsc = (sortOrder == ORDER_ASC) ^ ((offset >> phase) & 1);
 
     // Loads data from global to shared memory
     for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += threadsMerge)

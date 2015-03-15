@@ -20,16 +20,15 @@ template <uint_t threadsBitonicSort, uint_t elemsBitonicSort, order_t sortOrder>
 __global__ void bitonicSortRegularKernel(data_t *keys, data_t *values, uint_t tableLen)
 {
     extern __shared__ data_t sortTile[];
-    uint_t elemsPerThreadBlock = threadsBitonicSort * elemsBitonicSort;
-    uint_t offset = blockIdx.x * elemsPerThreadBlock;
-    uint_t dataBlockLength = offset + elemsPerThreadBlock <= tableLen ? elemsPerThreadBlock : tableLen - offset;
+    uint_t offset, dataBlockLength;
+    calcDataBlockLength<threadsBitonicSort, elemsBitonicSort>(offset, dataBlockLength, tableLen);
 
     data_t *keysTile = sortTile;
-    data_t *valuesTile = sortTile + elemsPerThreadBlock;
+    data_t *valuesTile = sortTile + threadsBitonicSort * elemsBitonicSort;
 
     // If shared memory size is lower than table length, than adjecent blocks have to be ordered in opposite
     // direction in order to create bitonic sequences.
-    bool blockDirection = sortOrder ^ (blockIdx.x & 1);
+    bool blockDirection = (sortOrder == ORDER_ASC) ^ (blockIdx.x & 1);
 
     // Loads data into shared memory
     for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += threadsBitonicSort)
@@ -52,13 +51,13 @@ __global__ void bitonicSortRegularKernel(data_t *keys, data_t *values, uint_t ta
 
                 if (direction)
                 {
-                    compareExchange<ORDER_DESC>(
+                    compareExchange<ORDER_ASC>(
                         &keysTile[index], &keysTile[index + stride], &valuesTile[index], &valuesTile[index + stride]
                     );
                 }
                 else
                 {
-                    compareExchange<ORDER_ASC>(
+                    compareExchange<ORDER_DESC>(
                         &keysTile[index], &keysTile[index + stride], &valuesTile[index], &valuesTile[index + stride]
                     );
                 }
@@ -91,7 +90,7 @@ __global__ void bitonicMergeIntervalsKernel(
     // Elements inside same sub-block have to be ordered in same direction
     uint_t elemsPerThreadBlock = threadsMerge * elemsMerge;
     uint_t offset = blockIdx.x * elemsPerThreadBlock;
-    bool orderAsc = !sortOrder ^ ((offset >> phase) & 1);
+    bool orderAsc = (sortOrder == ORDER_ASC) ^ ((offset >> phase) & 1);
 
     data_t *keysTile = mergeTile;
     data_t *valuesTile = mergeTile + elemsPerThreadBlock;

@@ -10,6 +10,7 @@
 #include "device_launch_parameters.h"
 
 #include "../Utils/data_types_common.h"
+#include "../Utils/kernels_classes.h"
 #include "../Utils/cuda.h"
 #include "../Utils/host.h"
 #include "constants.h"
@@ -47,7 +48,7 @@ class BitonicSortAdaptiveParallelBase : public BitonicSortParallelBase<
     threadsBitonicSortKo, elemsBitonicSortKo, threadsBitonicSortKv, elemsBitonicSortKv,
     threadsGlobalMergeKo, elemsGlobalMergeKo, threadsGlobalMergeKv, elemsGlobalMergeKv,
     threadsLocalMergeKo, elemsLocalMergeKo, threadsLocalMergeKv, elemsLocalMergeKv
->
+>, public AddPaddingBase <threadsPadding, elemsPadding>
 {
 protected:
     std::string _sortName = "Bitonic sort multistep parallel";
@@ -61,10 +62,11 @@ protected:
     */
     virtual void memoryAllocate(data_t *h_keys, data_t *h_values, uint_t arrayLength)
     {
-        cudaError_t error;
-        BitonicSortParallelBase::memoryAllocate(h_keys, h_values, arrayLength);
-
         uint_t arrayLenPower2 = nextPowerOf2(arrayLength);
+        cudaError_t error;
+
+        BitonicSortParallelBase::memoryAllocate(h_keys, h_values, arrayLenPower2);
+
         uint_t phasesAll = log2((double)arrayLenPower2);
         uint_t phasesBitonicMerge = log2((double)2 * min(threadsLocalMergeKo, threadsLocalMergeKv));
         uint_t intervalsLen = 1 << (phasesAll - phasesBitonicMerge);
@@ -111,34 +113,9 @@ protected:
     needed, if table length is not power of 2. In order for bitonic sort to work, table length has to be power of 2.
     */
     template <order_t sortOrder>
-    void runAddPaddingKernel(data_t *d_keys, data_t *d_keysBuffer, uint_t arrayLength)
+    void addPadding(data_t *d_keys, data_t *d_keysBuffer, uint_t arrayLength)
     {
-        uint_t arrayLenPower2 = nextPowerOf2(arrayLength);
-
-        // If table length is already power of 2, than no padding is needed
-        if (arrayLength == arrayLenPower2)
-        {
-            return;
-        }
-
-        uint_t paddingLength = arrayLenPower2 - arrayLength;
-        uint_t elemsPerThreadBlock = elemsPerThreadBlock = threadsPadding * elemsPadding;
-        dim3 dimGrid((paddingLength - 1) / elemsPerThreadBlock + 1, 1, 1);
-        dim3 dimBlock(threadsPadding, 1, 1);
-
-        // Depending on sort order different value is used for padding.
-        if (sortOrder == ORDER_ASC)
-        {
-            addPaddingKernel<MAX_VAL, threadsPadding, elemsPadding><<<dimGrid, dimBlock>>>(
-                d_keys, d_keysBuffer, arrayLength, paddingLength
-            );
-        }
-        else
-        {
-            addPaddingKernel<MIN_VAL, threadsPadding, elemsPadding><<<dimGrid, dimBlock>>>(
-                d_keys, d_keysBuffer, arrayLength, paddingLength
-            );
-        }
+        runAddPaddingKernel<sortOrder>(d_keys, d_keysBuffer, arrayLength, nextPowerOf2(arrayLength));
     }
 
     /*
@@ -370,29 +347,44 @@ protected:
         uint_t phasesAll = log2((double)arrayLenPower2);
         uint_t phasesBitonicSort = log2((double)min(arrayLenPower2, elemsPerBlockBitonicSort));
 
-        runAddPaddingKernel<sortOrder>(d_keys, d_keysBuffer, arrayLength);
+        if (phasesBitonicMerge < phasesBitonicSort)
+        {
+            printf(
+                "\nNumber of phases executed in bitonic merge has to be lower than number of phases "
+                "executed in initial bitonic sort. This is due to the fact, that regular bitonic sort is "
+                "used (not normalized). This way the sort direction for entire thread block can be computed "
+                "when executing bitonic merge, which is much more efficient.\n"
+            );
+            exit(EXIT_FAILURE);
+        }
+
+        addPadding<sortOrder>(d_keys, d_keysBuffer, arrayLength);
         runBitoicSortRegularKernel<sortOrder, sortingKeyOnly>(d_keys, d_values, arrayLength);
 
         for (uint_t phase = phasesBitonicSort + 1; phase <= phasesAll; phase++)
         {
             uint_t stepStart = phase;
             uint_t stepEnd = max((double)phasesBitonicMerge, (double)phase - phasesInitIntervals);
-            runInitIntervalsKernel<sortOrder, sortingKeyOnly>(
-                d_keys, d_intervals, arrayLenPower2, phasesAll, stepStart, stepEnd
-            );
 
-            // After initial intervals were generated intervals have to be evolved to the end step
-            while (stepEnd > phasesBitonicMerge)
+            if (phase > phasesBitonicMerge)
             {
-                interval_t *tempIntervals = d_intervals;
-                d_intervals = d_intervalsBuffer;
-                d_intervalsBuffer = tempIntervals;
-
-                stepStart = stepEnd;
-                stepEnd = max((double)phasesBitonicMerge, (double)stepStart - phasesGenerateIntervals);
-                runGenerateIntervalsKernel<sortOrder, sortingKeyOnly>(
-                    d_keys, d_intervalsBuffer, d_intervals, arrayLenPower2, phasesAll, phase, stepStart, stepEnd
+                runInitIntervalsKernel<sortOrder, sortingKeyOnly>(
+                    d_keys, d_intervals, arrayLenPower2, phasesAll, stepStart, stepEnd
                 );
+
+                // After initial intervals were generated intervals have to be evolved to the end step
+                while (stepEnd > phasesBitonicMerge)
+                {
+                    interval_t *tempIntervals = d_intervals;
+                    d_intervals = d_intervalsBuffer;
+                    d_intervalsBuffer = tempIntervals;
+
+                    stepStart = stepEnd;
+                    stepEnd = max((double)phasesBitonicMerge, (double)stepStart - phasesGenerateIntervals);
+                    runGenerateIntervalsKernel<sortOrder, sortingKeyOnly>(
+                        d_keys, d_intervalsBuffer, d_intervals, arrayLenPower2, phasesAll, phase, stepStart, stepEnd
+                    );
+                }
             }
 
             // Global merge with intervals
@@ -462,7 +454,6 @@ public:
         return this->_sortName;
     }
 };
-
 
 
 /*
