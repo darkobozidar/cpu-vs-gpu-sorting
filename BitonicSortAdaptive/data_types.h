@@ -28,7 +28,7 @@ element's original position in array. This is why this structure contains proper
 struct Node
 {
     data_t key;    // Holds value from array
-    int_t value;   // Holds an index of element in original (not sorted) array
+    data_t value;   // Holds an index of element in original (not sorted) array
     node_t *left;
     node_t *right;
 
@@ -46,15 +46,6 @@ struct Node
     Node(data_t key) : Node(key, key, NULL, NULL) {}
 
     Node() : Node(NULL, NULL, NULL, NULL) {}
-
-    /*
-    Determines if node represents "dummy subtree". Dummy nodes are represented with negative "value"s.
-    Dummy node represents "dummy subtree", if both of it's pointers are NULL.
-    */
-    bool isDummyNode()
-    {
-        return this->value < 0 && this->left == NULL && this->right == NULL;
-    }
 };
 
 #endif

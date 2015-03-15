@@ -19,6 +19,28 @@ class BitonicSortAdaptiveSequential : public SortSequential
 {
 protected:
     std::string _sortName = "Bitonic sort adaptive sequential";
+    // Root node of bitonic tree
+    node_t _root = NULL;
+    // Spare node of bitonic tree (right most element of array)
+    node_t _spare = NULL;
+
+    /*
+    Method for allocating memory needed both for key only and key-value sort.
+    */
+    virtual void memoryAllocate(data_t *h_keys, data_t *h_values, uint_t arrayLength)
+    {
+        cudaError_t error;
+        SortSequential::memoryAllocate(h_keys, h_values, arrayLength);
+    }
+
+    /*
+    Memory copy operations needed before sort. If sorting keys only, than "h_values" contains NULL.
+    */
+    virtual void memoryCopyBeforeSort(data_t *h_keys, data_t *h_values, uint_t arrayLength)
+    {
+        cudaError_t error;
+        SortSequential::memoryCopyBeforeSort(h_keys, h_values, arrayLength);
+    }
 
     /*
     For debugging purposes prints out bitonic tree. Not to be called directly - bottom method calls it.
@@ -35,7 +57,7 @@ protected:
             printf("  ");
         }
 
-        printf("|%d\n", node->value);
+        printf("|%d\n", node->key);
 
         level++;
         printBitonicTree(node->left, level);
@@ -54,35 +76,49 @@ protected:
     Converts bitonic tree to array of keys. Doesn't put value of spare node into array.
     Not to be called directly - bottom function calls it.
     */
-    void bitonicTreeToArrayKeyOnly(data_t *output, node_t *node, uint_t stride)
+    void bitonicTreeToArrayKeyOnly(data_t *h_keys, node_t *node, uint_t arrayLength, uint_t index, uint_t stride)
     {
-        output[0] = node->key;
+        if (index < arrayLength)
+        {
+            h_keys[index] = node->key;
+        }
 
-        if (stride == 0 || node->isDummyNode())
+        if (stride == 0)
         {
             return;
         }
 
-        bitonicTreeToArrayKeyOnly(output - stride, node->left, stride / 2);
-        bitonicTreeToArrayKeyOnly(output + stride, node->right, stride / 2);
+        bitonicTreeToArrayKeyOnly(h_keys, node->left, arrayLength, index - stride, stride / 2);
+        if (index < arrayLength)
+        {
+            bitonicTreeToArrayKeyOnly(h_keys, node->right, arrayLength, index + stride, stride / 2);
+        }
     }
 
     /*
     Converts bitonic tree to array of keys and values. Doesn't put value of spare node into array.
     Not to be called directly - bottom function calls it.
     */
-    void bitonicTreeToArrayKeyValue(data_t *keys, data_t *values, node_t *node, uint_t stride)
+    void bitonicTreeToArrayKeyValue(
+        data_t *keys, data_t *values, node_t *node, uint_t arrayLength, uint_t index, uint_t stride
+    )
     {
-        keys[0] = node->key;
-        values[0] = node->value;
+        if (index < arrayLength)
+        {
+            keys[index] = node->key;
+            values[index] = node->value;
+        }
 
-        if (stride == 0 || node->isDummyNode())
+        if (stride == 0)
         {
             return;
         }
 
-        bitonicTreeToArrayKeyValue(keys - stride, values - stride, node->left, stride / 2);
-        bitonicTreeToArrayKeyValue(keys + stride, values + stride, node->right, stride / 2);
+        bitonicTreeToArrayKeyValue(keys, values, node->left, arrayLength, index - stride, stride / 2);
+        if (index < arrayLength)
+        {
+            bitonicTreeToArrayKeyValue(keys, values, node->right, arrayLength, index + stride, stride / 2);
+        }
     }
 
     /*
@@ -99,18 +135,21 @@ protected:
         }
 
         uint_t tableLenPower2 = nextPowerOf2(tableLen);
-        uint_t padding = tableLenPower2 - tableLen;
 
         if (sortingKeyOnly)
         {
-            bitonicTreeToArrayKeyOnly(keys + tableLenPower2 / 2 - 1 - padding, root, tableLenPower2 / 4);
+            bitonicTreeToArrayKeyOnly(keys, root, tableLen, tableLenPower2 / 2 - 1, tableLenPower2 / 4);
         }
         else
         {
             bitonicTreeToArrayKeyValue(
-                keys + tableLenPower2 / 2 - 1 - padding, values + tableLenPower2 / 2 - 1 - padding, root,
-                tableLenPower2 / 4
+                keys, values, root, tableLen, tableLenPower2 / 2 - 1, tableLenPower2 / 4
             );
+        }
+
+        if (tableLen < tableLenPower2)
+        {
+            return;
         }
 
         // Inserts spare node
@@ -243,7 +282,8 @@ protected:
     Constructs bitonic tree from provided array of keys.
     Requires root node and stride (at beggining this is "<array_length> / 4").
     */
-    void constructBitonicTreeKeyOnly(data_t *keys, node_t *parent, int_t stride)
+    template <data_t dummyValue>
+    void constructBitonicTreeKeyOnly(data_t *keys, node_t *parent, uint_t arrayLength, int_t stride)
     {
         if (stride == 0)
         {
@@ -251,19 +291,20 @@ protected:
         }
 
         int_t newIndex = parent->value - stride;
-        parent->left = new node_t(keys[newIndex], newIndex);
+        parent->left = new node_t(newIndex < arrayLength ? keys[newIndex] : dummyValue, newIndex);
         newIndex = parent->value + stride;
-        parent->right = new node_t(keys[newIndex], newIndex);
+        parent->right = new node_t(newIndex < arrayLength ? keys[newIndex] : dummyValue, newIndex);
 
-        constructBitonicTreeKeyOnly(keys, parent->left, stride / 2);
-        constructBitonicTreeKeyOnly(keys, parent->right, stride / 2);
+        constructBitonicTreeKeyOnly<dummyValue>(keys, parent->left, arrayLength, stride / 2);
+        constructBitonicTreeKeyOnly<dummyValue>(keys, parent->right, arrayLength, stride / 2);
     }
 
     /*
     Constructs bitonic tree from provided array of keys and values.
     Requires root node and stride (at beggining this is "<array_length> / 4").
     */
-    void constructBitonicTreeKeyValue(data_t *keys, data_t *values, node_t *parent, int_t stride)
+    template <data_t dummyValue>
+    void constructBitonicTreeKeyValue(data_t *keys, data_t *values, node_t *parent, uint_t arrayLength, int_t stride)
     {
         if (stride == 0)
         {
@@ -271,12 +312,18 @@ protected:
         }
 
         int_t newIndex = parent->value - stride;
-        parent->left = new node_t(keys[newIndex], values[newIndex]);
+        parent->left = new node_t(
+            newIndex < arrayLength ? keys[newIndex] : dummyValue,
+            newIndex < arrayLength ? values[newIndex] : newIndex
+        );
         newIndex = parent->value + stride;
-        parent->right = new node_t(keys[newIndex], values[newIndex]);
+        parent->right = new node_t(
+            newIndex < arrayLength ? keys[newIndex] : dummyValue,
+            newIndex < arrayLength ? values[newIndex] : newIndex
+        );
 
-        constructBitonicTreeKeyValue(keys, values, parent->left, stride / 2);
-        constructBitonicTreeKeyValue(keys, values, parent->right, stride / 2);
+        constructBitonicTreeKeyValue<dummyValue>(keys, values, parent->left, arrayLength, stride / 2);
+        constructBitonicTreeKeyValue<dummyValue>(keys, values, parent->right, arrayLength, stride / 2);
     }
 
     /*
@@ -302,29 +349,60 @@ protected:
     }
 
     /*
+    Deletes bitonic tree.
+    */
+    void deleteBitonicTree(node_t *node)
+    {
+        if (node == NULL)
+        {
+            return;
+        }
+
+        deleteBitonicTree(node->left);
+        deleteBitonicTree(node->right);
+        delete node;
+    }
+
+    /*
     Constructs bitonic tree and sorts data sequentially with adaptive bitonic sort.
     */
     template <order_t sortOrder, bool sortingKeyOnly>
     void adaptiveBitonicSortWrapper(data_t* keys, data_t *values, uint_t tableLen)
     {
         uint_t tableLenPower2 = nextPowerOf2(tableLen);
-        uint_t padding = tableLenPower2 - tableLen;
-        uint_t rootIndex = tableLenPower2 / 2 - 1 - padding;
+        uint_t rootIndex = tableLenPower2 / 2 - 1;
 
         node_t *root = new node_t(keys[rootIndex], sortingKeyOnly ? rootIndex : values[rootIndex]);
-        node_t *spare = new node_t(keys[tableLen - 1], sortingKeyOnly ? tableLen - 1 : values[tableLen - 1]);
+        node_t *spare;
 
-        if (sortingKeyOnly)
+        if (tableLen == tableLenPower2)
         {
-            constructBitonicTreeKeyOnly(keys, root, tableLenPower2 / 4);
+            spare = new node_t(
+                keys[tableLenPower2 - 1], sortingKeyOnly ? tableLen - 1 : values[tableLen - 1]
+            );
         }
         else
         {
-            constructBitonicTreeKeyValue(keys, values, root, tableLenPower2 / 4);
+            spare = new node_t(sortOrder == ORDER_ASC ? MAX_VAL : MIN_VAL, tableLenPower2);
+        }
+
+        if (sortingKeyOnly)
+        {
+            constructBitonicTreeKeyOnly<sortOrder == ORDER_ASC ? MAX_VAL : MIN_VAL>(
+                keys, root, tableLen, tableLenPower2 / 4
+            );
+        }
+        else
+        {
+            constructBitonicTreeKeyValue<sortOrder == ORDER_ASC ? MAX_VAL : MIN_VAL>(
+                keys, values, root, tableLen, tableLenPower2 / 4
+            );
         }
 
         bitonicSortAdaptiveSequential<sortOrder>(root, spare);
         bitonicTreeToArray<sortingKeyOnly>(keys, values, root, spare, tableLen);
+
+        deleteBitonicTree(root);
     };
 
     /*
