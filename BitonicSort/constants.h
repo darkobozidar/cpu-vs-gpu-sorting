@@ -11,8 +11,8 @@ _KV: Key-value
 
 // How many threads are used per one thread block for bitonic sort, which is performed entirely
 // in shared memory. Has to be power of 2.
-#define THREADS_BITONIC_SORT_KO 512
-#define THREADS_BITONIC_SORT_KV 256
+#define THREADS_BITONIC_SORT_KO 128
+#define THREADS_BITONIC_SORT_KV 128
 // How many elements are processed by one thread in bitonic sort kernel. Min value is 2.
 // Has to be divisable by 2.
 #define ELEMS_THREAD_BITONIC_SORT_KO 4

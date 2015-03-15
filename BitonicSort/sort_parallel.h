@@ -236,9 +236,7 @@ protected:
                 step--;
             }
 
-            runBitoicMergeLocalKernel<sortOrder, sortingKeyOnly>(
-                d_keys, d_values, arrayLength, phase, step
-            );
+            runBitoicMergeLocalKernel<sortOrder, sortingKeyOnly>(d_keys, d_values, arrayLength, phase, step);
         }
     }
 
