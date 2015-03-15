@@ -41,7 +41,7 @@ template <
     uint_t threadsInitIntervalsKo, uint_t elemsInitIntervalsKo,
     uint_t threadsInitIntervalsKv, uint_t elemsInitIntervalsKv,
     uint_t threadsGenIntervalsKo, uint_t elemsGenIntervalsKo,
-    uint_t threadsGenIntervalsKv, uint_t elemsGenintervalsKv
+    uint_t threadsGenIntervalsKv, uint_t elemsGenIntervalsKv
 >
 class BitonicSortAdaptiveParallelBase : public BitonicSortParallelBase<
     threadsBitonicSortKo, elemsBitonicSortKo, threadsBitonicSortKv, elemsBitonicSortKv,
@@ -52,9 +52,59 @@ class BitonicSortAdaptiveParallelBase : public BitonicSortParallelBase<
 protected:
     std::string _sortName = "Bitonic sort multistep parallel";
     // Device buffer for keys and values
-    data_t *_d_keysBuffer, *_k_valuesBuffer;
+    data_t *_d_keysBuffer, *_d_valuesBuffer;
     // Stores intervals of bitonic subsequences
     interval_t *_d_intervals, *_d_intervalsBuffer;
+
+    /*
+    Method for allocating memory needed both for key only and key-value sort.
+    */
+    virtual void memoryAllocate(data_t *h_keys, data_t *h_values, uint_t arrayLength)
+    {
+        cudaError_t error;
+        BitonicSortParallelBase::memoryAllocate(h_keys, h_values, arrayLength);
+
+        uint_t arrayLenPower2 = nextPowerOf2(arrayLength);
+        uint_t phasesAll = log2((double)arrayLenPower2);
+        uint_t phasesBitonicMerge = log2((double)2 * min(threadsLocalMergeKo, threadsLocalMergeKv));
+        uint_t intervalsLen = 1 << (phasesAll - phasesBitonicMerge);
+
+        // Allocates buffer for keys and values
+        error = cudaMalloc((void **)&_d_keysBuffer, arrayLenPower2 * sizeof(*_d_keysBuffer));
+        checkCudaError(error);
+        error = cudaMalloc((void **)&_d_valuesBuffer, arrayLenPower2 * sizeof(*_d_valuesBuffer));
+        checkCudaError(error);
+
+        // Memory needed for storing intervals
+        error = cudaMalloc((void **)&_d_intervals, intervalsLen * sizeof(*_d_intervals));
+        checkCudaError(error);
+        error = cudaMalloc((void **)&_d_intervalsBuffer, intervalsLen * sizeof(*_d_intervalsBuffer));
+        checkCudaError(error);
+    }
+
+    /*
+    Method for destroying memory needed for sort. For sort testing purposes this method is public.
+    */
+    void memoryDestroy()
+    {
+        if (_arrayLength == 0)
+        {
+            return;
+        }
+
+        cudaError_t error;
+        BitonicSortParallelBase::memoryDestroy();
+
+        error = cudaFree(_d_keysBuffer);
+        checkCudaError(error);
+        error = cudaFree(_d_valuesBuffer);
+        checkCudaError(error);
+
+        error = cudaFree(_d_intervals);
+        checkCudaError(error);
+        error = cudaFree(_d_intervalsBuffer);
+        checkCudaError(error);
+    }
 
     /*
     Adds padding of MAX/MIN values to input table, deppending if sort order is ascending or descending. This is
@@ -79,13 +129,13 @@ protected:
         // Depending on sort order different value is used for padding.
         if (sortOrder == ORDER_ASC)
         {
-            addPaddingKernel<MAX_VAL, elemsPadding><<<dimGrid, dimBlock>>>(
+            addPaddingKernel<MAX_VAL, threadsPadding, elemsPadding><<<dimGrid, dimBlock>>>(
                 d_keys, d_keysBuffer, arrayLength, paddingLength
             );
         }
         else
         {
-            addPaddingKernel<MIN_VAL, elemsPadding><<<dimGrid, dimBlock>>>(
+            addPaddingKernel<MIN_VAL, threadsPadding, elemsPadding><<<dimGrid, dimBlock>>>(
                 d_keys, d_keysBuffer, arrayLength, paddingLength
             );
         }
@@ -109,14 +159,14 @@ protected:
             threadBlockSize = min((intervalsLen - 1) / elemsIntervalsKo + 1, threadsIntervalsKo);
             numThreadBlocks = (intervalsLen - 1) / (elemsIntervalsKo * threadBlockSize) + 1;
             // "2 *" because of BUFFER MEMORY for intervals
-            sharedMemSize = 2 * elemsIntervalsKo * threadBlockSize * sizeof(*intervals);
+            sharedMemSize = 2 * elemsIntervalsKo * threadBlockSize * sizeof(interval_t);
         }
         else
         {
             threadBlockSize = min((intervalsLen - 1) / elemsIntervalsKv + 1, threadsIntervalsKv);
             numThreadBlocks = (intervalsLen - 1) / (elemsIntervalsKv * threadBlockSize) + 1;
             // "2 *" because of BUFFER MEMORY for intervals
-            sharedMemSize = 2 * elemsIntervalsKv * threadBlockSize * sizeof(*intervals);
+            sharedMemSize = 2 * elemsIntervalsKv * threadBlockSize * sizeof(interval_t);
         }
     }
 
@@ -233,10 +283,13 @@ protected:
         }
     }
 
+    /*
+    Sorts data with parallel adaptive bitonic sort.
+    */
     template <order_t sortOrder, bool sortingKeyOnly>
     void bitonicSortAdaptiveParallel(
-        data_t *h_keys, data_t *h_values, data_t *d_keys, data_t *d_values, data_t *d_keysBuffer,
-        data_t *d_valuesBuffer, interval_t *d_intervals, interval_t *d_intervalsBuffer, uint_t arrayLength
+        data_t *d_keys, data_t *d_values, data_t *d_keysBuffer, data_t *d_valuesBuffer,
+        interval_t *d_intervals, interval_t *d_intervalsBuffer, uint_t arrayLength
     )
     {
         uint_t arrayLenPower2 = nextPowerOf2(arrayLength);
@@ -261,6 +314,7 @@ protected:
         uint_t phasesBitonicSort = log2((double)min(arrayLenPower2, elemsPerBlockBitonicSort));
 
         runAddPaddingKernel<sortOrder>(d_keys, d_keysBuffer, arrayLength);
+        // TODO provide correct array length, sort with regular bitonic sort
         runBitoicSortKernel<sortOrder, sortingKeyOnly>(d_keys, d_values, arrayLength);
 
         for (uint_t phase = phasesBitonicSort + 1; phase <= phasesAll; phase++)
@@ -286,7 +340,7 @@ protected:
             }
 
             // Global merge with intervals
-            runBitoicMergeKernel<sortOrder, sortingKeyOnly>(
+            runBitoicMergeIntervalsKernel<sortOrder, sortingKeyOnly>(
                 d_keys, d_values, d_keysBuffer, d_valuesBuffer, d_intervals, arrayLength, phasesBitonicMerge, phase
             );
 
@@ -295,44 +349,55 @@ protected:
             d_keys = d_keysBuffer;
             d_keysBuffer = tempTable;
 
-            // Exchanges values
-            tempTable = d_values;
-            d_values = d_valuesBuffer;
-            d_valuesBuffer = tempTable;
+            if (!sortingKeyOnly)
+            {
+                // Exchanges values
+                tempTable = d_values;
+                d_values = d_valuesBuffer;
+                d_valuesBuffer = tempTable;
+            }
         }
     }
 
-    ///*
-    //Wrapper for bitonic sort method.
-    //The code runs faster if arguments are passed to method. If members are accessed directly, code runs slower.
-    //*/
-    //void sortKeyOnly()
-    //{
-    //    if (_sortOrder == ORDER_ASC)
-    //    {
-    //        bitonicSortParallel<ORDER_ASC, true>(_d_keys, NULL, _arrayLength);
-    //    }
-    //    else
-    //    {
-    //        bitonicSortParallel<ORDER_DESC, true>(_d_keys, NULL, _arrayLength);
-    //    }
-    //}
+    /*
+    Wrapper for bitonic sort method.
+    The code runs faster if arguments are passed to method. If members are accessed directly, code runs slower.
+    */
+    void sortKeyOnly()
+    {
+        if (_sortOrder == ORDER_ASC)
+        {
+            bitonicSortAdaptiveParallel<ORDER_ASC, true>(
+                _d_keys, _d_values, NULL, NULL, _d_intervals, _d_intervalsBuffer, _arrayLength
+            );
+        }
+        else
+        {
+            bitonicSortAdaptiveParallel<ORDER_DESC, true>(
+                _d_keys, _d_values, NULL, NULL, _d_intervals, _d_intervalsBuffer, _arrayLength
+            );
+        }
+    }
 
-    ///*
-    //wrapper for bitonic sort method.
-    //the code runs faster if arguments are passed to method. if members are accessed directly, code runs slower.
-    //*/
-    //void sortKeyValue()
-    //{
-    //    if (_sortOrder == ORDER_ASC)
-    //    {
-    //        bitonicSortParallel<ORDER_ASC, false>(_d_keys, _d_values, _arrayLength);
-    //    }
-    //    else
-    //    {
-    //        bitonicSortParallel<ORDER_DESC, false>(_d_keys, _d_values, _arrayLength);
-    //    }
-    //}
+    /*
+    wrapper for bitonic sort method.
+    the code runs faster if arguments are passed to method. if members are accessed directly, code runs slower.
+    */
+    void sortKeyValue()
+    {
+        if (_sortOrder == ORDER_ASC)
+        {
+            bitonicSortAdaptiveParallel<ORDER_ASC, false>(
+                _d_keys, _d_values, _d_keysBuffer, _d_valuesBuffer, _d_intervals, _d_intervalsBuffer, _arrayLength
+            );
+        }
+        else
+        {
+            bitonicSortAdaptiveParallel<ORDER_DESC, false>(
+                _d_keys, _d_values, _d_keysBuffer, _d_valuesBuffer, _d_intervals, _d_intervalsBuffer, _arrayLength
+            );
+        }
+    }
 
 
 public:

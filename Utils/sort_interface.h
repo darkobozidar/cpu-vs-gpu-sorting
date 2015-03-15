@@ -255,6 +255,7 @@ protected:
 
         // Allocates keys and values
         error = cudaMalloc((void **)&_d_keys, arrayLength * sizeof(*_d_keys));
+        checkCudaError(error);
         error = cudaMalloc((void **)&_d_values, arrayLength * sizeof(*_d_values));
         checkCudaError(error);
     }

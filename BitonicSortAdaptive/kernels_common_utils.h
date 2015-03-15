@@ -32,7 +32,7 @@ From provided interval and index returns element in table. Index can't be higher
 */
 __device__ void getArrayKeyValue(
     data_t *keys, data_t *values, interval_t interval, uint_t index, data_t *key, data_t *value
-    )
+)
 {
     bool useInterval1 = index >= interval.length0;
     uint_t offset = useInterval1 ? interval.offset1 : interval.offset0;

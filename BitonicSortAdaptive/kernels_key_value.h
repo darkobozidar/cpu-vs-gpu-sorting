@@ -12,6 +12,7 @@
 #include "data_types.h"
 #include "kernels_common_utils.h"
 
+
 /*
 Global bitonic merge for sections, where stride IS GREATER OR EQUAL than max shared memory.
 Executes regular bitonic merge (not normalized merge). Reads data from provided intervals.
