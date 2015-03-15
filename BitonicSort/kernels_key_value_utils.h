@@ -6,7 +6,7 @@
 #include "device_launch_parameters.h"
 
 #include "../Utils/data_types_common.h"
-#include "../Utils/kernel.h"
+#include "../Utils/kernels_utils.h"
 
 
 template <order_t sortOrder, uint_t threadsKernel, uint_t elemsKernel, bool isFirstStepOfPhase>
@@ -52,10 +52,8 @@ inline __device__ void normalizedBitonicSort(
 )
 {
     extern __shared__ data_t bitonicSortTile[];
-
-    uint_t elemsPerThreadBlock = threadsBitonicSort * elemsBitonicSort;
-    uint_t offset = blockIdx.x * elemsPerThreadBlock;
-    uint_t dataBlockLength = offset + elemsPerThreadBlock <= tableLen ? elemsPerThreadBlock : tableLen - offset;
+    uint_t offset, dataBlockLength;
+    calcDataBlockLength<threadsBitonicSort, elemsBitonicSort>(offset, dataBlockLength, tableLen);
 
     data_t *keysTile = bitonicSortTile;
     data_t *valuesTile = bitonicSortTile + dataBlockLength;
@@ -107,10 +105,8 @@ inline __device__ void bitonicMergeLocal(data_t *keys, data_t *values, uint_t ta
 {
     extern __shared__ data_t mergeTile[];
     bool isFirstStepOfPhaseCopy = isFirstStepOfPhase;  // isFirstStepOfPhase is not editable (constant)
-
-    uint_t elemsPerThreadBlock = threadsMerge * elemsMerge;
-    uint_t offset = blockIdx.x * elemsPerThreadBlock;
-    uint_t dataBlockLength = offset + elemsPerThreadBlock <= tableLen ? elemsPerThreadBlock : tableLen - offset;
+    uint_t offset, dataBlockLength;
+    calcDataBlockLength<threadsMerge, elemsMerge>(offset, dataBlockLength, tableLen);
 
     data_t *keysTile = mergeTile;
     data_t *valuesTile = mergeTile + dataBlockLength;

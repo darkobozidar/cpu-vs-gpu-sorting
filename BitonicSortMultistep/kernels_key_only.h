@@ -10,7 +10,6 @@
 #include "math_functions.h"
 
 #include "../Utils/data_types_common.h"
-#include "../Utils/kernel.h"
 #include "kernels_common_utils.h"
 #include "kernels_key_only_utils.h"
 
