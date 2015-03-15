@@ -142,6 +142,63 @@ protected:
     }
 
     /*
+    Sorts sub-blocks of input data with REGULAR bitonic sort (not NORMALIZED bitonic sort).
+    */
+    template <order_t sortOrder, bool sortingKeyOnly>
+    void runBitoicSortRegularKernel(data_t *d_keys, data_t *d_values, uint_t arrayLength)
+    {
+        uint_t elemsPerThreadBlock, sharedMemSize;
+
+        if (sortingKeyOnly)
+        {
+            elemsPerThreadBlock = threadsBitonicSortKo * elemsBitonicSortKo;
+            sharedMemSize = elemsPerThreadBlock * sizeof(*d_keys);
+        }
+        else
+        {
+            elemsPerThreadBlock = threadsBitonicSortKv * elemsBitonicSortKv;
+            sharedMemSize = 2 * elemsPerThreadBlock * sizeof(*d_keys);
+        }
+
+        // If table length is not power of 2, than table is padded to the next power of 2. In that case it is not
+        // necessary for entire padded table to be ordered. It is only necessary that table is ordered to the next
+        // multiple of number of elements processed by one thread block. This ensures that bitonic sequences get
+        // created for entire original table length (padded elemens are MIN/MAX values and sorting would't change
+        // anything).
+        uint_t arrayLenRoundedUp;
+        if (arrayLength > elemsPerThreadBlock)
+        {
+            arrayLenRoundedUp = roundUp(arrayLength, elemsPerThreadBlock);
+        }
+        // For sequences shorter than "arrayLenRoundedUp" only bitonic sort kernel is needed to sort them (whithout
+        // any other kernels). In that case table size can be rounded to next power of 2.
+        else
+        {
+            arrayLenRoundedUp = nextPowerOf2(arrayLength);
+        }
+
+        dim3 dimGrid((arrayLenRoundedUp - 1) / elemsPerThreadBlock + 1, 1, 1);
+        dim3 dimBlock(sortingKeyOnly ? threadsBitonicSortKo : threadsBitonicSortKv, 1, 1);
+
+        if (sortingKeyOnly)
+        {
+            bitonicSortRegularKernel
+                <threadsBitonicSortKo, elemsBitonicSortKo, sortOrder>
+                <<<dimGrid, dimBlock, sharedMemSize>>>(
+                d_keys, arrayLenRoundedUp
+            );
+        }
+        else
+        {
+            bitonicSortRegularKernel
+                <threadsBitonicSortKo, elemsBitonicSortKo, sortOrder>
+                <<<dimGrid, dimBlock, sharedMemSize>>>(
+                d_keys, d_values, arrayLenRoundedUp
+            );
+        }
+    }
+
+    /*
     Generates thread block size, number of thread blocks and size of shared memory for intervals kernel.
     */
     template <
@@ -244,7 +301,7 @@ protected:
     template <order_t sortOrder, bool sortingKeyOnly>
     void runBitoicMergeIntervalsKernel(
         data_t *d_keys, data_t *d_values, data_t *d_keysBuffer, data_t *d_valuesBuffer, interval_t *intervals,
-        uint_t arrayLength, uint_t phasesBitonicMerge, uint_t phase
+        uint_t arrayLength, uint_t phase
     )
     {
         // If table length is not power of 2, than table is padded to the next power of 2. In that case it is not
@@ -288,7 +345,7 @@ protected:
     */
     template <order_t sortOrder, bool sortingKeyOnly>
     void bitonicSortAdaptiveParallel(
-        data_t *d_keys, data_t *d_values, data_t *d_keysBuffer, data_t *d_valuesBuffer,
+        data_t *&d_keys, data_t *&d_values, data_t *&d_keysBuffer, data_t *&d_valuesBuffer,
         interval_t *d_intervals, interval_t *d_intervalsBuffer, uint_t arrayLength
     )
     {
@@ -314,8 +371,7 @@ protected:
         uint_t phasesBitonicSort = log2((double)min(arrayLenPower2, elemsPerBlockBitonicSort));
 
         runAddPaddingKernel<sortOrder>(d_keys, d_keysBuffer, arrayLength);
-        // TODO provide correct array length, sort with regular bitonic sort
-        runBitoicSortKernel<sortOrder, sortingKeyOnly>(d_keys, d_values, arrayLength);
+        runBitoicSortRegularKernel<sortOrder, sortingKeyOnly>(d_keys, d_values, arrayLength);
 
         for (uint_t phase = phasesBitonicSort + 1; phase <= phasesAll; phase++)
         {
@@ -341,7 +397,7 @@ protected:
 
             // Global merge with intervals
             runBitoicMergeIntervalsKernel<sortOrder, sortingKeyOnly>(
-                d_keys, d_values, d_keysBuffer, d_valuesBuffer, d_intervals, arrayLength, phasesBitonicMerge, phase
+                d_keys, d_values, d_keysBuffer, d_valuesBuffer, d_intervals, arrayLength, phase
             );
 
             // Exchanges keys
@@ -368,13 +424,13 @@ protected:
         if (_sortOrder == ORDER_ASC)
         {
             bitonicSortAdaptiveParallel<ORDER_ASC, true>(
-                _d_keys, _d_values, NULL, NULL, _d_intervals, _d_intervalsBuffer, _arrayLength
+                _d_keys, _d_values, _d_keysBuffer, _d_valuesBuffer, _d_intervals, _d_intervalsBuffer, _arrayLength
             );
         }
         else
         {
             bitonicSortAdaptiveParallel<ORDER_DESC, true>(
-                _d_keys, _d_values, NULL, NULL, _d_intervals, _d_intervalsBuffer, _arrayLength
+                _d_keys, _d_values, _d_keysBuffer, _d_valuesBuffer, _d_intervals, _d_intervalsBuffer, _arrayLength
             );
         }
     }

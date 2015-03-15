@@ -14,6 +14,69 @@
 
 
 /*
+Sorts sub-blocks of input data with REGULAR bitonic sort (not NORMALIZED bitonic sort).
+*/
+template <uint_t threadsBitonicSort, uint_t elemsBitonicSort, order_t sortOrder>
+__global__ void bitonicSortRegularKernel(data_t *keys, data_t *values, uint_t tableLen)
+{
+    extern __shared__ data_t sortTile[];
+    uint_t elemsPerThreadBlock = threadsBitonicSort * elemsBitonicSort;
+    uint_t offset = blockIdx.x * elemsPerThreadBlock;
+    uint_t dataBlockLength = offset + elemsPerThreadBlock <= tableLen ? elemsPerThreadBlock : tableLen - offset;
+
+    data_t *keysTile = sortTile;
+    data_t *valuesTile = sortTile + elemsPerThreadBlock;
+
+    // If shared memory size is lower than table length, than adjecent blocks have to be ordered in opposite
+    // direction in order to create bitonic sequences.
+    bool blockDirection = sortOrder ^ (blockIdx.x & 1);
+
+    // Loads data into shared memory
+    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += threadsBitonicSort)
+    {
+        uint_t index = offset + tx;
+        keysTile[tx] = keys[index];
+        valuesTile[tx] = values[index];
+    }
+
+    // Bitonic sort
+    for (uint_t subBlockSize = 1; subBlockSize < dataBlockLength; subBlockSize <<= 1)
+    {
+        for (uint_t stride = subBlockSize; stride > 0; stride >>= 1)
+        {
+            __syncthreads();
+            for (uint_t tx = threadIdx.x; tx < dataBlockLength >> 1; tx += threadsBitonicSort)
+            {
+                bool direction = blockDirection ^ ((tx & subBlockSize) != 0);
+                uint_t index = 2 * tx - (tx & (stride - 1));
+
+                if (direction)
+                {
+                    compareExchange<ORDER_DESC>(
+                        &keysTile[index], &keysTile[index + stride], &valuesTile[index], &valuesTile[index + stride]
+                    );
+                }
+                else
+                {
+                    compareExchange<ORDER_ASC>(
+                        &keysTile[index], &keysTile[index + stride], &valuesTile[index], &valuesTile[index + stride]
+                    );
+                }
+            }
+        }
+    }
+
+    // Stores sorted elements from shared to global memory
+    __syncthreads();
+    for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += threadsBitonicSort)
+    {
+        uint_t index = offset + tx;
+        keys[index] = keysTile[tx];
+        values[index] = valuesTile[tx];
+    }
+}
+
+/*
 Global bitonic merge for sections, where stride IS GREATER OR EQUAL than max shared memory.
 Executes regular bitonic merge (not normalized merge). Reads data from provided intervals.
 */
