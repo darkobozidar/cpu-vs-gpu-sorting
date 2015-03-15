@@ -17,6 +17,7 @@
 #include "../BitonicSort/sort_sequential.h"
 #include "../BitonicSort/sort_parallel.h"
 #include "../BitonicSortMultistep/sort_parallel.h"
+#include "../BitonicSortAdaptive/sort_sequential.h"
 #include "../BitonicSortAdaptive/sort_parallel.h"
 
 #include "test_sort.h"
@@ -36,10 +37,11 @@ int main(int argc, char **argv)
 
     // Sorting algorithms
     std::vector<SortSequential*> sorts;
-    sorts.push_back(new BitonicSortSequential());
-    sorts.push_back(new BitonicSortParallel());
-    sorts.push_back(new BitonicSortMultistepParallel());
-    sorts.push_back(new BitonicSortAdaptiveParallel());
+    //sorts.push_back(new BitonicSortSequential());
+    //sorts.push_back(new BitonicSortParallel());
+    //sorts.push_back(new BitonicSortMultistepParallel());
+    sorts.push_back(new BitonicSortAdaptiveSequential());
+    //sorts.push_back(new BitonicSortAdaptiveParallel());
     //sorts.push_back(new QuicksortSequential());
     //sorts.push_back(new QuicksortParallel());
 

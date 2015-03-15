@@ -10,6 +10,9 @@
 #include "../Utils/host.h"
 
 
+/*
+Base class for sequential bitonic sort.
+*/
 class BitonicSortSequential : public SortSequential
 {
 protected:
