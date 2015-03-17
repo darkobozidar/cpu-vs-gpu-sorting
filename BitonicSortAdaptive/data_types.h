@@ -1,5 +1,5 @@
-#ifndef DATA_TYPES_H
-#define DATA_TYPES_H
+#ifndef DATA_TYPES_BITONIC_SORT_ADAPTIVE_H
+#define DATA_TYPES_BITONIC_SORT_ADAPTIVE_H
 
 #include <stdint.h>
 
