@@ -72,6 +72,55 @@ protected:
     }
 
     /*
+    In case if number of phases in global merge is even, than merged array is locaded in primary array, else
+    it is located in buffer array.
+    Generally this memory copy wouldn't be needed and the same result could be achieved with, if the references
+    to memory were passed by reference, but this way sort works little faster.
+    */
+    virtual void memoryCopyAfterSort(data_t *h_keys, data_t *h_values, uint_t arrayLength)
+    {
+        uint_t elemsPerInitMergeSort;
+
+        if (h_values == NULL)
+        {
+            elemsPerInitMergeSort = threadsMergeSortKo * elemsMergeSortKo;
+        }
+        else
+        {
+            elemsPerInitMergeSort = threadsMergeSortKv * elemsMergeSortKv;
+        }
+
+        uint_t arrayLenRoundedUp = max(nextPowerOf2(arrayLength), elemsPerInitMergeSort);
+        uint_t numMergePhases = log2((double)arrayLenRoundedUp) - log2((double)elemsPerInitMergeSort);
+
+        if (numMergePhases % 2 == 0)
+        {
+            SortParallel::memoryCopyAfterSort(h_keys, h_values, arrayLength);
+        }
+        else
+        {
+            cudaError_t error;
+
+            // Copies keys
+            error = cudaMemcpy(
+                h_keys, (void *)_d_keysBuffer, _arrayLength * sizeof(*h_keys), cudaMemcpyDeviceToHost
+            );
+            checkCudaError(error);
+
+            if (h_values == NULL)
+            {
+                return;
+            }
+
+            // Copies values
+            error = cudaMemcpy(
+                h_values, (void *)_d_valuesBuffer, arrayLength * sizeof(*h_values), cudaMemcpyDeviceToHost
+            );
+            checkCudaError(error);
+        }
+    }
+
+    /*
     Method for destroying memory needed for sort. For sort testing purposes this method is public.
     */
     void memoryDestroy()
@@ -313,7 +362,7 @@ protected:
     */
     template <order_t sortOrder, bool sortingKeyOnly>
     void mergeSortParallel(
-        data_t *&d_keys, data_t *&d_values, data_t *&d_keysBuffer, data_t *&d_valuesBuffer, uint_t *d_ranksEven,
+        data_t *d_keys, data_t *d_values, data_t *d_keysBuffer, data_t *d_valuesBuffer, uint_t *d_ranksEven,
         uint_t *d_ranksOdd, uint_t arrayLength
     )
     {
@@ -377,13 +426,13 @@ protected:
         if (_sortOrder == ORDER_ASC)
         {
             mergeSortParallel<ORDER_ASC, true>(
-                _d_keys, _d_values, _d_keysBuffer, _d_valuesBuffer, _d_ranksEven, _d_ranksOdd, _arrayLength
+                _d_keys, NULL, _d_keysBuffer, NULL, _d_ranksEven, _d_ranksOdd, _arrayLength
             );
         }
         else
         {
             mergeSortParallel<ORDER_DESC, true>(
-                _d_keys, _d_values, _d_keysBuffer, _d_valuesBuffer, _d_ranksEven, _d_ranksOdd, _arrayLength
+                _d_keys, NULL, _d_keysBuffer, NULL, _d_ranksEven, _d_ranksOdd, _arrayLength
             );
         }
     }
