@@ -15,15 +15,15 @@
 /*
 Sorts sub blocks of input data with merge sort. Sort is stable.
 */
-template <uint_t elemsMergeSort, order_t sortOrder>
-__global__ void mergeSortKernel(data_t *keys)
+template <uint_t elemsThreadMerge, order_t sortOrder>
+__global__ void mergeSortKernel(data_t *dataTable)
 {
     extern __shared__ data_t mergeSortTile[];
 
     // Var blockDim.x needed in case there array contains less elements than one thread block in
     // this kernel can sort
-    uint_t elemsPerThreadBlock = blockDim.x * elemsMergeSort;
-    data_t *globalKeys = keys + blockIdx.x * elemsPerThreadBlock;
+    uint_t elemsPerThreadBlock = blockDim.x * elemsThreadMerge;
+    data_t *globalDataTable = dataTable + blockIdx.x * elemsPerThreadBlock;
 
     // Buffer array is needed in case every thread sorts more than 2 elements
     data_t *mergeTile = mergeSortTile;
@@ -32,7 +32,7 @@ __global__ void mergeSortKernel(data_t *keys)
     // Reads data from global to shared memory.
     for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += blockDim.x)
     {
-        mergeTile[tx] = globalKeys[tx];
+        mergeTile[tx] = globalDataTable[tx];
     }
 
     // Stride - length of sorted blocks
@@ -72,7 +72,7 @@ __global__ void mergeSortKernel(data_t *keys)
     // Stores data from shared to global memory
     for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += blockDim.x)
     {
-        globalKeys[tx] = mergeTile[tx];
+        globalDataTable[tx] = mergeTile[tx];
     }
 }
 
