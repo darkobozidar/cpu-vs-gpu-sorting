@@ -15,6 +15,9 @@
 #include "constants.h"
 
 #define __CUDA_INTERNAL_COMPILATION__
+#include "kernels_common.h"
+#include "kernels_key_only.h"
+#include "kernels_key_value.h"
 #undef __CUDA_INTERNAL_COMPILATION__
 
 
@@ -29,8 +32,8 @@ _Kv - Key-value
 template <
     uint_t subBlockSizeKo, uint_t subBlockSizeKv,
     uint_t threadsPadding, uint_t elemsPadding,
-    uint_t threadsMergeKo, uint_t elemsMergeKo,
-    uint_t threadsMergeKv, uint_t elemsMergeKv,
+    uint_t threadsMergeSortKo, uint_t elemsMergeSortKo,
+    uint_t threadsMergeSortKv, uint_t elemsMergeSortKv,
     uint_t threadsGenRanksKo, uint_t elemsGenRanksKo
 >
 class MergeSortParallelBase : public SortParallel, public AddPaddingBase<threadsPadding, elemsPadding>

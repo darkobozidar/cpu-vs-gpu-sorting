@@ -52,4 +52,72 @@ inline __device__ void calcDataBlockLength(uint_t &offset, uint_t &dataBlockLeng
     dataBlockLength =  offset + elemsPerThreadBlock <= arrayLength ? elemsPerThreadBlock : arrayLength - offset;
 }
 
+/*
+Binary search, which returns an index of last element LOWER than target.
+Start and end indexes can't be unsigned, because end index can become negative.
+*/
+template <order_t sortOrder, uint_t stride>
+inline __device__ int_t binarySearchExclusive(data_t* dataArray, data_t target, int_t indexStart, int_t indexEnd)
+{
+    while (indexStart <= indexEnd)
+    {
+        // Floor to multiplier of stride - needed for strides > 1
+        int_t index = ((indexStart + indexEnd) / 2) & ((stride - 1) ^ MAX_VAL);
+
+        if (sortOrder == ORDER_ASC ? (target < dataArray[index]) : (target > dataArray[index]))
+        {
+            indexEnd = index - stride;
+        }
+        else
+        {
+            indexStart = index + stride;
+        }
+    }
+
+    return indexStart;
+}
+
+/*
+Performs excluesive binary search with stride 1 (which is used in most cases).
+*/
+template <order_t sortOrder>
+inline __device__ int_t binarySearchExclusive(data_t* dataArray, data_t target, int_t indexStart, int_t indexEnd)
+{
+    return binarySearchExclusive<sortOrder, 1>(dataArray, target, indexStart, indexEnd);
+}
+
+/*
+Binary search, which returns an index of last element LOWER OR EQUAL than target.
+Start and end indexes can't be unsigned, because end index can become negative.
+*/
+template <order_t sortOrder, uint_t stride>
+inline __device__ int_t binarySearchInclusive(data_t* dataArray, data_t target, int_t indexStart, int_t indexEnd)
+{
+    while (indexStart <= indexEnd)
+    {
+        // Floor to multiplier of stride - needed for strides > 1
+        int_t index = ((indexStart + indexEnd) / 2) & ((stride - 1) ^ MAX_VAL);
+
+        if (sortOrder == ORDER_ASC ? (target <= dataArray[index]) : (target >= dataArray[index]))
+        {
+            indexEnd = index - stride;
+        }
+        else
+        {
+            indexStart = index + stride;
+        }
+    }
+
+    return indexStart;
+}
+
+/*
+Performs inclusive binary search with stride 1 (which is used in most cases).
+*/
+template <order_t sortOrder>
+inline __device__ int_t binarySearchInclusive(data_t* dataArray, data_t target, int_t indexStart, int_t indexEnd)
+{
+    return binarySearchInclusive<sortOrder, 1>(dataArray, target, indexStart, indexEnd);
+}
+
 #endif
