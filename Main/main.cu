@@ -20,6 +20,7 @@
 #include "../BitonicSortAdaptive/sort_sequential.h"
 #include "../BitonicSortAdaptive/sort_parallel.h"
 #include "../MergeSort/sort_sequential.h"
+#include "../MergeSort/sort_parallel.h"
 
 #include "test_sort.h"
 
@@ -38,12 +39,13 @@ int main(int argc, char **argv)
 
     // Sorting algorithms
     std::vector<SortSequential*> sorts;
-    sorts.push_back(new BitonicSortSequential());
-    sorts.push_back(new BitonicSortParallel());
-    sorts.push_back(new BitonicSortMultistepParallel());
-    sorts.push_back(new BitonicSortAdaptiveSequential());
-    sorts.push_back(new BitonicSortAdaptiveParallel());
-    sorts.push_back(new MergeSortSequential());
+    //sorts.push_back(new BitonicSortSequential());
+    //sorts.push_back(new BitonicSortParallel());
+    //sorts.push_back(new BitonicSortMultistepParallel());
+    //sorts.push_back(new BitonicSortAdaptiveSequential());
+    //sorts.push_back(new BitonicSortAdaptiveParallel());
+    //sorts.push_back(new MergeSortSequential());
+    sorts.push_back(new MergeSortParallel());
 
     // This is needed only for testing puproses, because data transfer from device to host shouldn't be stopwatched.
     for (std::vector<SortSequential*>::iterator sort = sorts.begin(); sort != sorts.end(); sort++)

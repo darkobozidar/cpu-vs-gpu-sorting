@@ -11,7 +11,7 @@
 
 
 /*
-Base class for sequential bitonic sort.
+Base class for sequential merge sort.
 */
 class MergeSortSequential : public SortSequential
 {
