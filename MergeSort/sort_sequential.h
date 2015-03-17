@@ -37,6 +37,29 @@ protected:
     }
 
     /*
+    In case if number of phases of merge sort is odd, then sorted array is located in buffer array. In that case
+    array has to be copied from buffer to primary array.
+    This could be also achieved with passing of pointers by reference, but this was easier to implement with
+    current class structure.
+    */
+    virtual void memoryCopyAfterSort(data_t *h_keys, data_t *h_values, uint_t arrayLength)
+    {
+        SortSequential::memoryCopyAfterSort(h_keys, h_values, arrayLength);
+
+        uint_t numSortPhases = log2(nextPowerOf2(arrayLength));
+        if (numSortPhases % 2 == 0)
+        {
+            return;
+        }
+
+        std::copy(_h_keysBuffer, _h_keysBuffer + arrayLength, h_keys);
+        if (h_values != NULL)
+        {
+            std::copy(_h_valuesBuffer, _h_valuesBuffer + arrayLength, h_values);
+        }
+    }
+
+    /*
     Method for destroying memory needed for sort. For sort testing purposes this method is public.
     */
     void memoryDestroy()
@@ -63,14 +86,10 @@ protected:
 
     /*
     Sorts data sequentially with merge sort.
-
-    Pointers to data table and data buffer are carried by reference in order to insure that output data in always
-    in primary array. If it wasn't for this, there would be 50% chance (depending on array size) that output would
-    be in buffer array.
     */
     template <order_t sortOrder, bool sortingKeyOnly>
     void mergeSortSequential(
-        data_t *&h_keys, data_t *&h_values, data_t *&h_keysBuffer, data_t *&h_valuesBuffer, uint_t arrayLength
+        data_t *h_keys, data_t *h_values, data_t *h_keysBuffer, data_t *h_valuesBuffer, uint_t arrayLength
     )
     {
         uint_t arrayLenPower2 = nextPowerOf2(arrayLength);
