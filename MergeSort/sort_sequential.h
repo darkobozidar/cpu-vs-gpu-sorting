@@ -85,6 +85,87 @@ protected:
     }
 
     /*
+    Merges two blocks in array and outputs the result to buffer array.
+    */
+    template <order_t sortOrder, bool sortingKeyOnly>
+    void mergeBlocks(
+        data_t *h_keys, data_t *h_values, data_t *h_keysBuffer, data_t *h_valuesBuffer, uint_t arrayLength,
+        uint_t sortedBlockSize, uint_t blockIndex
+    )
+    {
+        // Number of sub-blocks being merged
+        uint_t subBlockSize = sortedBlockSize / 2;
+
+        // Odd (left) block being merged
+        uint_t oddIndex = blockIndex * sortedBlockSize;
+        uint_t oddEnd = getEndIndex(oddIndex, subBlockSize, arrayLength);
+
+        // If there is only odd block without even block, then only odd block is coppied into buffer
+        if (oddEnd == arrayLength)
+        {
+            std::copy(h_keys + oddIndex, h_keys + oddEnd, h_keysBuffer + oddIndex);
+            if (!sortingKeyOnly)
+            {
+                std::copy(h_values + oddIndex, h_values + oddEnd, h_valuesBuffer + oddIndex);
+            }
+            return;
+        }
+
+        // Even (right) block being merged
+        uint_t evenIndex = oddIndex + subBlockSize;
+        uint_t evenEnd = getEndIndex(evenIndex, subBlockSize, arrayLength);
+        uint_t mergeIndex = oddIndex;
+
+        // Merge of odd and even block
+        while (oddIndex < oddEnd && evenIndex < evenEnd)
+        {
+            data_t oddElement = h_keys[oddIndex];
+            data_t evenElement = h_keys[evenIndex];
+
+            if (sortOrder == ORDER_ASC ? oddElement <= evenElement : oddElement >= evenElement)
+            {
+                h_keysBuffer[mergeIndex] = oddElement;
+                if (!sortingKeyOnly)
+                {
+                    h_valuesBuffer[mergeIndex] = h_values[oddIndex];
+                }
+
+                mergeIndex++;
+                oddIndex++;
+            }
+            else
+            {
+                h_keysBuffer[mergeIndex] = evenElement;
+                if (!sortingKeyOnly)
+                {
+                    h_valuesBuffer[mergeIndex] = h_values[evenIndex];
+                }
+
+                mergeIndex++;
+                evenIndex++;
+            }
+        }
+
+        // Block that wasn't merged entirely is coppied into buffer array
+        if (oddIndex == oddEnd)
+        {
+            std::copy(h_keys + evenIndex, h_keys + evenEnd, h_keysBuffer + mergeIndex);
+            if (!sortingKeyOnly)
+            {
+                std::copy(h_values + evenIndex, h_values + evenEnd, h_valuesBuffer + mergeIndex);
+            }
+        }
+        else
+        {
+            std::copy(h_keys + oddIndex, h_keys + oddEnd, h_keysBuffer + mergeIndex);
+            if (!sortingKeyOnly)
+            {
+                std::copy(h_values + oddIndex, h_values + oddEnd, h_valuesBuffer + mergeIndex);
+            }
+        }
+    }
+
+    /*
     Sorts data sequentially with merge sort.
     */
     template <order_t sortOrder, bool sortingKeyOnly>
@@ -99,79 +180,13 @@ protected:
         {
             // Number of merged blocks that will be created in this iteration
             uint_t numBlocks = (arrayLength - 1) / sortedBlockSize + 1;
-            // Number of sub-blocks being merged
-            uint_t subBlockSize = sortedBlockSize / 2;
 
             // Merge of all blocks
             for (uint_t blockIndex = 0; blockIndex < numBlocks; blockIndex++)
             {
-                // Odd (left) block being merged
-                uint_t oddIndex = blockIndex * sortedBlockSize;
-                uint_t oddEnd = getEndIndex(oddIndex, subBlockSize, arrayLength);
-
-                // If there is only odd block without even block, then only odd block is coppied into buffer
-                if (oddEnd == arrayLength)
-                {
-                    std::copy(h_keys + oddIndex, h_keys + oddEnd, h_keysBuffer + oddIndex);
-                    if (!sortingKeyOnly)
-                    {
-                        std::copy(h_values + oddIndex, h_values + oddEnd, h_valuesBuffer + oddIndex);
-                    }
-                    continue;
-                }
-
-                // Even (right) block being merged
-                uint_t evenIndex = oddIndex + subBlockSize;
-                uint_t evenEnd = getEndIndex(evenIndex, subBlockSize, arrayLength);
-                uint_t mergeIndex = oddIndex;
-
-                // Merge of odd and even block
-                while (oddIndex < oddEnd && evenIndex < evenEnd)
-                {
-                    data_t oddElement = h_keys[oddIndex];
-                    data_t evenElement = h_keys[evenIndex];
-
-                    if (sortOrder == ORDER_ASC ? oddElement <= evenElement : oddElement >= evenElement)
-                    {
-                        h_keysBuffer[mergeIndex] = oddElement;
-                        if (!sortingKeyOnly)
-                        {
-                            h_valuesBuffer[mergeIndex] = h_values[oddIndex];
-                        }
-
-                        mergeIndex++;
-                        oddIndex++;
-                    }
-                    else
-                    {
-                        h_keysBuffer[mergeIndex] = evenElement;
-                        if (!sortingKeyOnly)
-                        {
-                            h_valuesBuffer[mergeIndex] = h_values[evenIndex];
-                        }
-
-                        mergeIndex++;
-                        evenIndex++;
-                    }
-                }
-
-                // Block that wasn't merged entirely is coppied into buffer array
-                if (oddIndex == oddEnd)
-                {
-                    std::copy(h_keys + evenIndex, h_keys + evenEnd, h_keysBuffer + mergeIndex);
-                    if (!sortingKeyOnly)
-                    {
-                        std::copy(h_values + evenIndex, h_values + evenEnd, h_valuesBuffer + mergeIndex);
-                    }
-                }
-                else
-                {
-                    std::copy(h_keys + oddIndex, h_keys + oddEnd, h_keysBuffer + mergeIndex);
-                    if (!sortingKeyOnly)
-                    {
-                        std::copy(h_values + oddIndex, h_values + oddEnd, h_valuesBuffer + mergeIndex);
-                    }
-                }
+                mergeBlocks<sortOrder, sortingKeyOnly>(
+                    h_keys, h_values, h_keysBuffer, h_valuesBuffer, arrayLength, sortedBlockSize, blockIndex
+                );
             }
 
             // Exchanges key and value pointers with buffer
