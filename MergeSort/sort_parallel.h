@@ -228,11 +228,15 @@ protected:
 
         if (sortingKeyOnly)
         {
-            mergeSortKernel<elemsMergeSortKo, sortOrder><<<dimGrid, dimBlock, sharedMemSize>>>(d_keys);
+            mergeSortKernel<threadsMergeSortKo, elemsMergeSortKo, sortOrder><<<dimGrid, dimBlock, sharedMemSize>>>(
+                d_keys
+            );
         }
         else
         {
-            mergeSortKernel<elemsMergeSortKv, sortOrder><<<dimGrid, dimBlock, sharedMemSize>>>(d_keys, d_values);
+            mergeSortKernel<threadsMergeSortKv, elemsMergeSortKv, sortOrder><<<dimGrid, dimBlock, sharedMemSize>>>(
+                d_keys, d_values
+            );
         }
     }
 
@@ -402,16 +406,13 @@ protected:
                 d_keysBuffer + arrayLenPrevPower2, d_valuesBuffer + arrayLenPrevPower2, arrayLength,
                 sortedBlockSize, lastPaddingMergePhase
             );
-            cudaError_t error = cudaDeviceSynchronize();
             runGenerateRanksKernel<sortOrder, sortingKeyOnly>(
                 d_keysBuffer, d_ranksEven, d_ranksOdd, arrayLength, sortedBlockSize
             );
-            error = cudaDeviceSynchronize();
             runMergeKernel<sortOrder, sortingKeyOnly>(
                 d_keysBuffer, d_valuesBuffer, d_keys, d_values, d_ranksEven, d_ranksOdd, arrayLength,
                 sortedBlockSize
             );
-            error = cudaDeviceSynchronize();
 
             sortedBlockSize *= 2;
         }

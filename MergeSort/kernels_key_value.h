@@ -15,14 +15,12 @@
 /*
 Sorts sub blocks of input data with merge sort. Sort is stable.
 */
-template <uint_t elemsMergeSort, order_t sortOrder>
+template <uint_t threadsMerge, uint_t elemsMergeSort, order_t sortOrder>
 __global__ void mergeSortKernel(data_t *keys, data_t *values)
 {
     extern __shared__ data_t mergeSortTile[];
 
-    // Var blockDim.x needed in case there array contains less elements than one thread block in
-    // this kernel can sort
-    uint_t elemsPerThreadBlock = blockDim.x * elemsMergeSort;
+    uint_t elemsPerThreadBlock = threadsMerge * elemsMergeSort;
     data_t *globalKeys = keys + blockIdx.x * elemsPerThreadBlock;
     data_t *globalValues = values + blockIdx.x * elemsPerThreadBlock;
 
@@ -33,7 +31,7 @@ __global__ void mergeSortKernel(data_t *keys, data_t *values)
     data_t *bufferValues = mergeSortTile + 3 * elemsPerThreadBlock;
 
     // Reads data from global to shared memory.
-    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += blockDim.x)
+    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += threadsMerge)
     {
         dataKeys[tx] = globalKeys[tx];
         dataValues[tx] = globalValues[tx];
@@ -44,7 +42,7 @@ __global__ void mergeSortKernel(data_t *keys, data_t *values)
     {
         __syncthreads();
 
-        for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock >> 1; tx += blockDim.x)
+        for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock >> 1; tx += threadsMerge)
         {
             // Offset of current sample within block
             uint_t offsetSample = tx & (stride - 1);
@@ -61,10 +59,10 @@ __global__ void mergeSortKernel(data_t *keys, data_t *values)
             data_t valueOdd = dataValues[indexOdd];
 
             // Calculate the rank of element from even block in odd block and vice versa
-            uint_t rankOdd = binarySearchInclusive<sortOrder, 1>(
+            uint_t rankOdd = binarySearchInclusive<sortOrder>(
                 dataKeys, keyEven, offsetBlock + stride, offsetBlock + 2 * stride - 1
             );
-            uint_t rankEven = binarySearchExclusive<sortOrder, 1>(
+            uint_t rankEven = binarySearchExclusive<sortOrder>(
                 dataKeys, keyOdd, offsetBlock, offsetBlock + stride - 1
             );
 
@@ -90,7 +88,7 @@ __global__ void mergeSortKernel(data_t *keys, data_t *values)
 
     __syncthreads();
     // Stores data from shared to global memory
-    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += blockDim.x)
+    for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += threadsMerge)
     {
         globalKeys[tx] = dataKeys[tx];
         globalValues[tx] = dataValues[tx];
@@ -166,7 +164,7 @@ __global__ void mergeKernel(
     // Search for ranks in ODD sub-block for all elements in EVEN sub-block
     if (threadIdx.x < numElementsEven)
     {
-        uint_t rankOdd = binarySearchInclusive<sortOrder, 1>(keysOdd, keysEven[threadIdx.x], 0, numElementsOdd - 1);
+        uint_t rankOdd = binarySearchInclusive<sortOrder>(keysOdd, keysEven[threadIdx.x], 0, numElementsOdd - 1);
         rankOdd += indexStartOdd;
 
         keysBuffer[offsetEven + rankOdd] = keysEven[threadIdx.x];
@@ -175,7 +173,7 @@ __global__ void mergeKernel(
     // Search for ranks in EVEN sub-block for all elements in ODD sub-block
     if (threadIdx.x < numElementsOdd)
     {
-        uint_t rankEven = binarySearchExclusive<sortOrder, 1>(keysEven, keysOdd[threadIdx.x], 0, numElementsEven - 1);
+        uint_t rankEven = binarySearchExclusive<sortOrder>(keysEven, keysOdd[threadIdx.x], 0, numElementsEven - 1);
         rankEven += indexStartEven;
 
         keysBuffer[offsetOdd + rankEven] = keysOdd[threadIdx.x];

@@ -69,13 +69,13 @@ __global__ void generateRanksKernel(data_t *keys, uint_t *ranksEven, uint_t *ran
     {
         if (indexBlockOpposite % 2 == 0)
         {
-            rankDataOpposite = binarySearchExclusive<sortOrder, 1>(
+            rankDataOpposite = binarySearchExclusive<sortOrder>(
                 keys, sampleValue, indexStart, indexEnd
             );
         }
         else
         {
-            rankDataOpposite = binarySearchInclusive<sortOrder, 1>(
+            rankDataOpposite = binarySearchInclusive<sortOrder>(
                 keys, sampleValue, indexStart, indexEnd
             );
         }
