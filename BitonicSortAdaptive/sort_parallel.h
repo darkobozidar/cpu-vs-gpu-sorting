@@ -10,6 +10,7 @@
 #include "device_launch_parameters.h"
 
 #include "../Utils/data_types_common.h"
+#include "../Utils/sort_interface.h"
 #include "../Utils/kernels_classes.h"
 #include "../Utils/cuda.h"
 #include "../Utils/host.h"
@@ -34,8 +35,6 @@ _Kv - Key-value
 template <
     uint_t threadsBitonicSortKo, uint_t elemsBitonicSortKo,
     uint_t threadsBitonicSortKv, uint_t elemsBitonicSortKv,
-    uint_t threadsGlobalMergeKo, uint_t elemsGlobalMergeKo,
-    uint_t threadsGlobalMergeKv, uint_t elemsGlobalMergeKv,
     uint_t threadsLocalMergeKo, uint_t elemsLocalMergeKo,
     uint_t threadsLocalMergeKv, uint_t elemsLocalMergeKv,
     uint_t threadsPadding, uint_t elemsPadding,
@@ -44,14 +43,10 @@ template <
     uint_t threadsGenIntervalsKo, uint_t elemsGenIntervalsKo,
     uint_t threadsGenIntervalsKv, uint_t elemsGenIntervalsKv
 >
-class BitonicSortAdaptiveParallelBase : public BitonicSortParallelBase<
-    threadsBitonicSortKo, elemsBitonicSortKo, threadsBitonicSortKv, elemsBitonicSortKv,
-    threadsGlobalMergeKo, elemsGlobalMergeKo, threadsGlobalMergeKv, elemsGlobalMergeKv,
-    threadsLocalMergeKo, elemsLocalMergeKo, threadsLocalMergeKv, elemsLocalMergeKv
->, public AddPaddingBase <threadsPadding, elemsPadding>
+class BitonicSortAdaptiveParallelBase : public SortParallel, public AddPaddingBase<threadsPadding, elemsPadding>
 {
 protected:
-    std::string _sortName = "Bitonic sort multistep parallel";
+    std::string _sortName = "Bitonic sort adaptive parallel";
     // Device buffer for keys and values
     data_t *_d_keysBuffer, *_d_valuesBuffer;
     // Stores intervals of bitonic subsequences
@@ -65,7 +60,7 @@ protected:
         uint_t arrayLenPower2 = nextPowerOf2(arrayLength);
         cudaError_t error;
 
-        BitonicSortParallelBase::memoryAllocate(h_keys, h_values, arrayLenPower2);
+        SortParallel::memoryAllocate(h_keys, h_values, arrayLenPower2);
 
         uint_t phasesAll = log2((double)arrayLenPower2);
         uint_t phasesBitonicMerge = log2((double)2 * min(threadsLocalMergeKo, threadsLocalMergeKv));
@@ -95,7 +90,7 @@ protected:
         }
 
         cudaError_t error;
-        BitonicSortParallelBase::memoryDestroy();
+        SortParallel::memoryDestroy();
 
         error = cudaFree(_d_keysBuffer);
         checkCudaError(error);
@@ -463,13 +458,11 @@ uint_t threadsGenIntervalsKo, uint_t elemsGenIntervalsKo,
 uint_t threadsGenIntervalsKv, uint_t elemsGenintervalsKv
 */
 class BitonicSortAdaptiveParallel : public BitonicSortAdaptiveParallelBase<
-    THREADS_BITONIC_SORT_KO, ELEMS_THREAD_BITONIC_SORT_KO,
-    THREADS_BITONIC_SORT_KV, ELEMS_THREAD_BITONIC_SORT_KV,
-    0, 0,  // Global bitonic merge is not needed
-    0, 0,  // Global bitonic merge is not needed
-    THREADS_LOCAL_MERGE_KO, ELEMS_THREAD_LOCAL_MERGE_KO,
-    THREADS_LOCAL_MERGE_KV, ELEMS_THREAD_LOCAL_MERGE_KV,
-    THREADS_PADDING, ELEMS_THREAD_PADDING,
+    THREADS_BITONIC_SORT_KO, ELEMS_BITONIC_SORT_KO,
+    THREADS_BITONIC_SORT_KV, ELEMS_BITONIC_SORT_KV,
+    THREADS_LOCAL_MERGE_KO, ELEMS_LOCAL_MERGE_KO,
+    THREADS_LOCAL_MERGE_KV, ELEMS_LOCAL_MERGE_KV,
+    THREADS_PADDING, ELEMS_PADDING,
     THREADS_INIT_INTERVALS_KO, ELEMS_INIT_INTERVALS_KO,
     THREADS_INIT_INTERVALS_KV, ELEMS_INIT_INTERVALS_KV,
     THREADS_GEN_INTERVALS_KO, ELEMS_GEN_INTERVALS_KO,

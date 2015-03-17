@@ -22,7 +22,7 @@ Class which runs kernel for adding padding.
 template <uint_t threadsPadding, uint_t elemsPadding>
 class AddPaddingBase
 {
-protected:
+private:
     /*
     Adds padding of MAX/MIN values to input table, deppending if sort order is ascending or descending.
     */
@@ -54,6 +54,7 @@ protected:
         }
     }
 
+protected:
     /*
     Adds padding for primary array only.
     */

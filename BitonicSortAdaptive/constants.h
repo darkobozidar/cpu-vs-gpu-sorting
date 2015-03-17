@@ -11,7 +11,7 @@ _KV:  Key-value
 // How many threads are used per on thread block for padding. Has to be power of 2.
 #define THREADS_PADDING 128
 // How many table elements are processed by one thread in padding kernel. Min value is 2.
-#define ELEMS_THREAD_PADDING 32
+#define ELEMS_PADDING 32
 
 
 /* ---------------- BITONIC SORT KERNEL -------------- */
@@ -22,8 +22,8 @@ _KV:  Key-value
 #define THREADS_BITONIC_SORT_KV 128
 // How many elements are processed by one thread in bitonic sort kernel. Min value is 2.
 // Has to be divisable by 2.
-#define ELEMS_THREAD_BITONIC_SORT_KO 4
-#define ELEMS_THREAD_BITONIC_SORT_KV 4
+#define ELEMS_BITONIC_SORT_KO 4
+#define ELEMS_BITONIC_SORT_KV 4
 
 
 /* ------------------- BITONIC MERGE ----------------- */
@@ -33,8 +33,8 @@ _KV:  Key-value
 #define THREADS_LOCAL_MERGE_KV 128
 // How many elements are processed by one thread in bitonic merge kernel. Min value is 2.
 // Has to be divisable by 2.
-#define ELEMS_THREAD_LOCAL_MERGE_KO 4
-#define ELEMS_THREAD_LOCAL_MERGE_KV 4
+#define ELEMS_LOCAL_MERGE_KO 4
+#define ELEMS_LOCAL_MERGE_KV 4
 
 
 /* --------------- INIT INTERVALS KERNEL ------------- */
