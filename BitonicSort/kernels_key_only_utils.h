@@ -9,6 +9,9 @@
 #include "../Utils/kernels_utils.h"
 
 
+/*
+Executes one step of bitonic merge.
+*/
 template <order_t sortOrder, uint_t threadsKernel, uint_t elemsKernel, bool isFirstStepOfPhase>
 inline __device__ void bitonicMergeStep(data_t *keys, uint_t offsetGlobal, uint_t tableLen, uint_t stride)
 {
