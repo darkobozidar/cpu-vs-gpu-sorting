@@ -1,5 +1,5 @@
-#ifndef DATA_TYPES_H
-#define DATA_TYPES_H
+#ifndef DATA_TYPES_QUICKSORT_H
+#define DATA_TYPES_QUICKSORT_H
 
 #include <stdint.h>
 

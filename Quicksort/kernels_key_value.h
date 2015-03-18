@@ -11,6 +11,7 @@
 
 #include "../Utils/data_types_common.h"
 #include "../Utils/constants_common.h"
+#include "../Utils/kernels_utils.h"
 #include "data_types.h"
 #include "kernels_common_utils.h"
 
@@ -88,10 +89,7 @@ sequence stores the pivots.
 
 TODO try alignment with 32 for coalasced reading
 */
-template <
-    uint_t threadsSortGlobal, uint_t elemsThreadGlobal, uint_t threadsReduction, bool useReductionInGlobalSort,
-    order_t sortOrder
->
+template <uint_t threadsSortGlobal, uint_t elemsThreadGlobal, uint_t useReductionInGlobalSort, order_t sortOrder>
 __global__ void quickSortGlobalKernel(
     data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, data_t *pivotValues,
     d_glob_seq_t *sequences, uint_t *seqIndexes
@@ -162,7 +160,7 @@ __global__ void quickSortGlobalKernel(
     __syncthreads();
 
     // Calculates and saves min/max values, before shared memory gets overriden by scan
-    minMaxReduction<threadsReduction>(numActiveThreads);
+    minMaxReduction<threadsSortGlobal>(numActiveThreads);
     if (threadIdx.x == (threadsSortGlobal - 1))
     {
         atomicMin(&sequences[seqIdx].greaterSeqMinVal, minValues[0]);
@@ -259,7 +257,7 @@ Workstack is used - shortest sequence is always processed.
 
 TODO try alignment with 32 for coalasced reading
 */
-template <uint_t threadsSortLocal, uint_t threadsBitonicSort, uint_t thresholdBitonicSort, order_t sortOrder>
+template <uint_t threadsSortLocal, uint_t thresholdBitonicSort, order_t sortOrder>
 __global__ void quickSortLocalKernel(
     data_t *dataKeysGlobal, data_t *dataValuesGlobal, data_t *bufferKeysGlobal, data_t *bufferValuesGlobal,
     data_t *pivotValues, loc_seq_t *sequences
@@ -290,7 +288,7 @@ __global__ void quickSortLocalKernel(
             // Bitonic sort is executed in-place and sorted data has to be writter to output.
             data_t *keysInput = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataKeysGlobal : bufferKeysGlobal;
             data_t *valuesInput = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataValuesGlobal : bufferValuesGlobal;
-            normalizedBitonicSort<threadsBitonicSort, thresholdBitonicSort, sortOrder>(
+            normalizedBitonicSort<threadsSortLocal, thresholdBitonicSort, sortOrder>(
                 keysInput, valuesInput, bufferKeysGlobal, bufferValuesGlobal, sequence
             );
 

@@ -11,8 +11,9 @@
 
 #include "../Utils/data_types_common.h"
 #include "../Utils/constants_common.h"
-#include "constants.h"
+#include "../Utils/kernels_utils.h"
 #include "data_types.h"
+#include "kernels_common_utils.h"
 
 
 /*
@@ -80,13 +81,10 @@ sequence stores the pivots.
 
 TODO try alignment with 32 for coalasced reading
 */
-template <
-    uint_t threadsSortGlobal, uint_t elemsThreadGlobal, uint_t threadsReduction, bool useReductionInGlobalSort,
-    order_t sortOrder
->
+template <uint_t threadsSortGlobal, uint_t elemsThreadGlobal, uint_t useReductionInGlobalSort, order_t sortOrder>
 __global__ void quickSortGlobalKernel(
     data_t *dataInput, data_t *dataBuffer, d_glob_seq_t *sequences, uint_t *seqIndexes
-    )
+)
 {
     extern __shared__ data_t globalSortTile[];
 #if useReductionInGlobalSort
@@ -151,7 +149,7 @@ __global__ void quickSortGlobalKernel(
     __syncthreads();
 
     // Calculates and saves min/max values, before shared memory gets overriden by scan
-    minMaxReduction<threadsReduction>(numActiveThreads);
+    minMaxReduction<threadsSortGlobal>(numActiveThreads);
     if (threadIdx.x == (threadsSortGlobal - 1))
     {
         atomicMin(&sequences[seqIdx].greaterSeqMinVal, minValues[0]);
@@ -224,7 +222,7 @@ Workstack is used - shortest sequence is always processed.
 
 TODO try alignment with 32 for coalasced reading
 */
-template <uint_t threadsSortLocal, uint_t threadsBitonicSort, uint_t thresholdBitonicSort, order_t sortOrder>
+template <uint_t threadsSortLocal, uint_t thresholdBitonicSort, order_t sortOrder>
 __global__ void quickSortLocalKernel(data_t *dataInput, data_t *dataBuffer, loc_seq_t *sequences)
 {
     // Explicit stack (instead of recursion), which holds sequences, which need to be processed.
@@ -251,7 +249,7 @@ __global__ void quickSortLocalKernel(data_t *dataInput, data_t *dataBuffer, loc_
         {
             // Bitonic sort is executed in-place and sorted data has to be writter to output.
             data_t *inputTemp = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataInput : dataBuffer;
-            normalizedBitonicSort<threadsBitonicSort, thresholdBitonicSort, sortOrder>(
+            normalizedBitonicSort<threadsSortLocal, sortOrder>(
                 inputTemp, dataBuffer, sequence
             );
 
@@ -266,7 +264,7 @@ __global__ void quickSortLocalKernel(data_t *dataInput, data_t *dataBuffer, loc_
             pivot = getMedian(
                 primaryArray[sequence.start], primaryArray[sequence.start + (sequence.length / 2)],
                 primaryArray[sequence.start + sequence.length - 1]
-                );
+            );
         }
         __syncthreads();
 
