@@ -11,14 +11,16 @@
 
 /*
 Executes one step of bitonic merge.
+"OffsetGlobal" is needed to calculate correct thread index for global bitonic merge.
+"TableLen" is needed for global bitonic merge to verify if elements are still inside array boundaries.
 */
-template <order_t sortOrder, uint_t threadsKernel, uint_t elemsKernel, bool isFirstStepOfPhase>
+template <order_t sortOrder, uint_t threadsKernel, bool isFirstStepOfPhase>
 inline __device__ void bitonicMergeStep(
-    data_t *keys, data_t *values, uint_t offsetGlobal, uint_t tableLen, uint_t stride
+    data_t *keys, data_t *values, uint_t offsetGlobal, uint_t tableLen, uint_t dataBlockLen, uint_t stride
 )
 {
     // Every thread compares and exchanges 2 elements
-    for (uint_t tx = threadIdx.x; tx < (threadsKernel * elemsKernel) >> 1; tx += threadsKernel)
+    for (uint_t tx = threadIdx.x; tx < dataBlockLen >> 1; tx += threadsKernel)
     {
         uint_t indexThread = offsetGlobal + tx;
         uint_t offset = stride;
@@ -40,9 +42,7 @@ inline __device__ void bitonicMergeStep(
             break;
         }
 
-        compareExchange<sortOrder>(
-            &keys[index], &keys[index + offset], &values[index], &values[index + offset]
-        );
+        compareExchange<sortOrder>(&keys[index], &keys[index + offset], &values[index], &values[index + offset]);
     }
 }
 
@@ -77,14 +77,14 @@ inline __device__ void normalizedBitonicSort(
         {
             if (stride == subBlockSize)
             {
-                bitonicMergeStep<sortOrder, threadsBitonicSort, elemsBitonicSort, true>(
-                    keysTile, valuesTile, 0, dataBlockLength, stride
+                bitonicMergeStep<sortOrder, threadsBitonicSort, true>(
+                    keysTile, valuesTile, 0, dataBlockLength, dataBlockLength, stride
                 );
             }
             else
             {
-                bitonicMergeStep<sortOrder, threadsBitonicSort, elemsBitonicSort, false>(
-                    keysTile, valuesTile, 0, dataBlockLength, stride
+                bitonicMergeStep<sortOrder, threadsBitonicSort, false>(
+                    keysTile, valuesTile, 0, dataBlockLength, dataBlockLength, stride
                 );
             }
 
@@ -127,15 +127,15 @@ inline __device__ void bitonicMergeLocal(data_t *keys, data_t *values, uint_t ta
     {
         if (isFirstStepOfPhaseCopy)
         {
-            bitonicMergeStep<sortOrder, threadsMerge, elemsMerge, true>(
-                keysTile, valuesTile, 0, dataBlockLength, stride
+            bitonicMergeStep<sortOrder, threadsMerge, true>(
+                keysTile, valuesTile, 0, dataBlockLength, dataBlockLength, stride
             );
             isFirstStepOfPhaseCopy = false;
         }
         else
         {
-            bitonicMergeStep<sortOrder, threadsMerge, elemsMerge, false>(
-                keysTile, valuesTile, 0, dataBlockLength, stride
+            bitonicMergeStep<sortOrder, threadsMerge, false>(
+                keysTile, valuesTile, 0, dataBlockLength, dataBlockLength, stride
             );
         }
         __syncthreads();

@@ -11,12 +11,16 @@
 
 /*
 Executes one step of bitonic merge.
+"OffsetGlobal" is needed to calculate correct thread index for global bitonic merge.
+"TableLen" is needed for global bitonic merge to verify if elements are still inside array boundaries.
 */
-template <order_t sortOrder, uint_t threadsKernel, uint_t elemsKernel, bool isFirstStepOfPhase>
-inline __device__ void bitonicMergeStep(data_t *keys, uint_t offsetGlobal, uint_t tableLen, uint_t stride)
+template <order_t sortOrder, uint_t threadsKernel, bool isFirstStepOfPhase>
+inline __device__ void bitonicMergeStep(
+    data_t *keys, uint_t offsetGlobal, uint_t tableLen, uint_t dataBlockLen, uint_t stride
+)
 {
     // Every thread compares and exchanges 2 elements
-    for (uint_t tx = threadIdx.x; tx < (threadsKernel * elemsKernel) >> 1; tx += threadsKernel)
+    for (uint_t tx = threadIdx.x; tx < dataBlockLen >> 1; tx += threadsKernel)
     {
         uint_t indexThread = offsetGlobal + tx;
         uint_t offset = stride;
@@ -67,14 +71,14 @@ inline __device__ void normalizedBitonicSort(data_t *keysInput, data_t *keysOutp
         {
             if (stride == subBlockSize)
             {
-                bitonicMergeStep<sortOrder, threadsBitonicSort, elemsBitonicSort, true>(
-                    bitonicSortTile, 0, dataBlockLength, stride
+                bitonicMergeStep<sortOrder, threadsBitonicSort, true>(
+                    bitonicSortTile, 0, dataBlockLength, dataBlockLength, stride
                 );
             }
             else
             {
-                bitonicMergeStep<sortOrder, threadsBitonicSort, elemsBitonicSort, false>(
-                    bitonicSortTile, 0, dataBlockLength, stride
+                bitonicMergeStep<sortOrder, threadsBitonicSort, false>(
+                    bitonicSortTile, 0, dataBlockLength, dataBlockLength, stride
                 );
             }
             __syncthreads();
@@ -111,12 +115,12 @@ inline __device__ void bitonicMergeLocal(data_t *dataTable, uint_t tableLen, uin
     {
         if (isFirstStepOfPhaseCopy)
         {
-            bitonicMergeStep<sortOrder, threadsMerge, elemsMerge, true>(mergeTile, 0, dataBlockLength, stride);
+            bitonicMergeStep<sortOrder, threadsMerge, true>(mergeTile, 0, dataBlockLength, dataBlockLength, stride);
             isFirstStepOfPhaseCopy = false;
         }
         else
         {
-            bitonicMergeStep<sortOrder, threadsMerge, elemsMerge, false>(mergeTile, 0, dataBlockLength, stride);
+            bitonicMergeStep<sortOrder, threadsMerge, false>(mergeTile, 0, dataBlockLength, dataBlockLength, stride);
         }
         __syncthreads();
     }

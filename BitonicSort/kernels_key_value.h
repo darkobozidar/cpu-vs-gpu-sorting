@@ -29,11 +29,11 @@ Global bitonic merge for sections, where stride IS GREATER than max shared memor
 template <order_t sortOrder, bool isFirstStepOfPhase, uint_t threadsMerge, uint_t elemsMerge>
 __global__ void bitonicMergeGlobalKernel(data_t *keys, data_t *values, uint_t tableLen, uint_t step)
 {
-    uint_t pairsPerThreadBlock = (threadsMerge * elemsMerge) >> 1;
-    uint_t offset = blockIdx.x * pairsPerThreadBlock;
+    uint_t offset, dataBlockLength;
+    calcDataBlockLength<threadsMerge, elemsMerge>(offset, dataBlockLength, tableLen);
 
-    bitonicMergeStep<sortOrder, threadsMerge, elemsMerge, isFirstStepOfPhase>(
-        keys, values, offset, tableLen, 1 << (step - 1)
+    bitonicMergeStep<sortOrder, threadsMerge, isFirstStepOfPhase>(
+        keys, values, offset / 2, tableLen, dataBlockLength, 1 << (step - 1)
     );
 }
 
