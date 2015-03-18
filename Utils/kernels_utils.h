@@ -5,7 +5,8 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
-#include "../Utils/data_types_common.h"
+#include "constants_common.h"
+#include "data_types_common.h"
 
 
 /*
@@ -38,6 +39,22 @@ inline __device__ void compareExchange(data_t *key1, data_t *key2, data_t *val1,
         *val1 = *val2;
         *val2 = temp;
     }
+}
+
+/*
+Calculates the next power of 2 of provided value or returns value if it is already a power of 2.
+*/
+inline __device__ uint_t nextPowerOf2Device(uint_t value)
+{
+    value--;
+    value |= value >> 1;
+    value |= value >> 2;
+    value |= value >> 4;
+    value |= value >> 8;
+    value |= value >> 16;
+    value++;
+
+    return value;
 }
 
 /*
@@ -118,6 +135,73 @@ template <order_t sortOrder>
 inline __device__ int_t binarySearchInclusive(data_t* dataArray, data_t target, int_t indexStart, int_t indexEnd)
 {
     return binarySearchInclusive<sortOrder, 1>(dataArray, target, indexStart, indexEnd);
+}
+
+/*
+Performs exclusive scan and computes, how many elements have 'true' predicate before current element.
+*/
+template <uint_t blockSize>
+inline __device__ uint_t intraWarpScan(volatile uint_t *scanTile, uint_t val)
+{
+    // The same kind of indexing as for bitonic sort
+    uint_t index = 2 * threadIdx.x - (threadIdx.x & (min(blockSize, WARP_SIZE) - 1));
+
+    scanTile[index] = 0;
+    index += min(blockSize, WARP_SIZE);
+    scanTile[index] = val;
+
+    if (blockSize >= 2)
+    {
+        scanTile[index] += scanTile[index - 1];
+    }
+    if (blockSize >= 4)
+    {
+        scanTile[index] += scanTile[index - 2];
+    }
+    if (blockSize >= 8)
+    {
+        scanTile[index] += scanTile[index - 4];
+    }
+    if (blockSize >= 16)
+    {
+        scanTile[index] += scanTile[index - 8];
+    }
+    if (blockSize >= 32)
+    {
+        scanTile[index] += scanTile[index - 16];
+    }
+
+    // Converts inclusive scan to exclusive
+    return scanTile[index] - val;
+}
+
+/*
+Performs intra-block INCLUSIVE scan.
+*/
+template <uint_t blockSize>
+inline __device__ uint_t intraBlockScan(uint_t val)
+{
+    extern __shared__ uint_t scanTile[];
+    uint_t warpIdx = threadIdx.x / WARP_SIZE;
+    uint_t laneIdx = threadIdx.x & (WARP_SIZE - 1);  // Thread index inside warp
+
+    uint_t warpResult = intraWarpScan<blockSize>(scanTile, val);
+    __syncthreads();
+
+    if (laneIdx == WARP_SIZE - 1)
+    {
+        scanTile[warpIdx] = warpResult + val;
+    }
+    __syncthreads();
+
+    // Maximum number of elements for scan is warpSize ^ 2
+    if (threadIdx.x < WARP_SIZE)
+    {
+        scanTile[threadIdx.x] = intraWarpScan<blockSize / WARP_SIZE>(scanTile, scanTile[threadIdx.x]);
+    }
+    __syncthreads();
+
+    return warpResult + scanTile[warpIdx] + val;
 }
 
 #endif
