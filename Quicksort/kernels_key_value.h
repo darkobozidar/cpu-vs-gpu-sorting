@@ -12,6 +12,7 @@
 #include "../Utils/data_types_common.h"
 #include "../Utils/constants_common.h"
 #include "../Utils/kernels_utils.h"
+#include "../BitonicSort/kernels_key_only_utils.h"
 #include "data_types.h"
 #include "constants.h"
 #include "kernels_common_utils.h"
@@ -44,33 +45,18 @@ __device__ void normalizedBitonicSort(
         // Bitonic merge STEPS
         for (uint_t stride = subBlockSize; stride > 0; stride >>= 1)
         {
-            for (uint_t tx = threadIdx.x; tx < localParams.length >> 1; tx += threadsBitonicSort)
+            if (stride == subBlockSize)
             {
-                uint_t indexThread = tx;
-                uint_t offset = stride;
-
-                // In normalized bitonic sort, first STEP of every PHASE uses different offset than all other
-                // STEPS. Also in first step of every phase, offsets sizes are generated in ASCENDING order
-                // (normalized bitnic sort requires DESCENDING order). Because of that we can break the loop if
-                // index + offset >= length (bellow). If we want to generate offset sizes in ASCENDING order,
-                // than thread indexes inside every sub-block have to be reversed.
-                if (stride == subBlockSize)
-                {
-                    indexThread = (tx / stride) * stride + ((stride - 1) - (tx % stride));
-                    offset = ((tx & (stride - 1)) << 1) + 1;
-                }
-
-                uint_t index = (indexThread << 1) - (indexThread & (stride - 1));
-                if (index + offset >= localParams.length)
-                {
-                    break;
-                }
-
-                compareExchange<sortOrder>(
-                    &keysTile[index], &keysTile[index + offset], &valuesTile[index], &valuesTile[index + offset]
-                    );
+                bitonicMergeStep<sortOrder, threadsBitonicSort, true>(
+                    keysTile, valuesTile, 0, localParams.length, localParams.length, stride
+                );
             }
-
+            else
+            {
+                bitonicMergeStep<sortOrder, threadsBitonicSort, false>(
+                    keysTile, valuesTile, 0, localParams.length, localParams.length, stride
+                );
+            }
             __syncthreads();
         }
     }
@@ -100,7 +86,6 @@ __global__ void quickSortGlobalKernel(
 #if USE_REDUCTION_IN_GLOBAL_SORT
     data_t *minValues = globalSortTile;
     data_t *maxValues = globalSortTile + threadsSortGlobal;
-    __shared__ uint_t numActiveThreads;
 #endif
 
     // Index of sequence, which this thread block is partitioning
