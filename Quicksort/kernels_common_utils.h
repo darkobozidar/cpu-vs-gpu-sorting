@@ -8,6 +8,7 @@
 
 #include "../Utils/data_types_common.h"
 #include "data_types.h"
+#include "constants.h"
 
 
 //////////////////////////// GENERAL UTILS //////////////////////////
@@ -116,6 +117,64 @@ inline __device__ void warpMaxReduce(volatile data_t *maxValues) {
     {
         maxValues[index] = max(maxValues[index], maxValues[index + 1]);
     }
+}
+
+
+/////////////////////// GLOBAL QUICKSORT UTILS //////////////////////
+
+/*
+Counts the number of elements which are lower and greater than pivot.
+*/
+template <uint_t threadsSortGlobal>
+__device__ void countElementsLowerGreaterPivot(
+    data_t *keys, d_glob_seq_t *sequences, d_glob_seq_t sequence, uint_t seqIdx, uint_t localStart,
+    uint_t localLength, uint_t &localLower, uint_t &localGreater, uint_t &scanLower, uint_t &scanGreater
+)
+{
+    extern __shared__ data_t globalSortTile[];
+#if USE_REDUCTION_IN_GLOBAL_SORT
+    data_t *minValues = globalSortTile;
+    data_t *maxValues = globalSortTile + threadsSortGlobal;
+    // Initializes min/max values.
+    data_t minVal = MAX_VAL, maxVal = MIN_VAL;
+#endif
+
+    // Counts the number of elements lower/greater than pivot and finds min/max
+    for (uint_t tx = threadIdx.x; tx < localLength; tx += threadsSortGlobal)
+    {
+        data_t temp = keys[localStart + tx];
+        localLower += temp < sequence.pivot;
+        localGreater += temp > sequence.pivot;
+
+#if USE_REDUCTION_IN_GLOBAL_SORT
+        // Max value is calculated for "lower" sequence and min value is calculated for "greater" sequence.
+        // Min for lower sequence and max of greater sequence (min and max of currently partitioned
+        // sequence) were already calculated on host.
+        maxVal = max(maxVal, temp < sequence.pivot ? temp : MIN_VAL);
+        minVal = min(minVal, temp > sequence.pivot ? temp : MAX_VAL);
+#endif
+    }
+
+#if USE_REDUCTION_IN_GLOBAL_SORT
+    minValues[threadIdx.x] = minVal;
+    maxValues[threadIdx.x] = maxVal;
+    __syncthreads();
+
+    // Calculates and saves min/max values, before shared memory gets overriden by scan
+    minMaxReduction<threadsSortGlobal>();
+    if (threadIdx.x == (threadsSortGlobal - 1))
+    {
+        atomicMin(&sequences[seqIdx].greaterSeqMinVal, minValues[0]);
+        atomicMax(&sequences[seqIdx].lowerSeqMaxVal, maxValues[0]);
+    }
+#endif
+    __syncthreads();
+
+    // Calculates number of elements lower/greater than pivot inside whole thread blocks
+    scanLower = intraBlockScan<threadsSortGlobal>(localLower);
+    __syncthreads();
+    scanGreater = intraBlockScan<threadsSortGlobal>(localGreater);
+    __syncthreads();
 }
 
 

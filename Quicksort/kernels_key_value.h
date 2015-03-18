@@ -83,10 +83,6 @@ __global__ void quickSortGlobalKernel(
 )
 {
     extern __shared__ data_t globalSortTile[];
-#if USE_REDUCTION_IN_GLOBAL_SORT
-    data_t *minValues = globalSortTile;
-    data_t *maxValues = globalSortTile + threadsSortGlobal;
-#endif
 
     // Index of sequence, which this thread block is partitioning
     __shared__ uint_t seqIdx;
@@ -113,50 +109,12 @@ __global__ void quickSortGlobalKernel(
     data_t *keysBuffer = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataKeys : bufferKeys;
     data_t *valuesBuffer = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataValues : bufferValues;
 
-#if USE_REDUCTION_IN_GLOBAL_SORT
-    // Initializes min/max values.
-    data_t minVal = MAX_VAL, maxVal = MIN_VAL;
-#endif
-
     // Number of elements lower/greater than pivot (local for thread)
-    uint_t localLower = 0, localGreater = 0;
-
-    // Counts the number of elements lower/greater than pivot and finds min/max
-    for (uint_t tx = threadIdx.x; tx < localLength; tx += threadsSortGlobal)
-    {
-        data_t temp = keysPrimary[localStart + tx];
-        localLower += temp < sequence.pivot;
-        localGreater += temp > sequence.pivot;
-
-#if USE_REDUCTION_IN_GLOBAL_SORT
-        // Max value is calculated for "lower" sequence and min value is calculated for "greater" sequence.
-        // Min for lower sequence and max of greater sequence (min and max of currently partitioned
-        // sequence) were already calculated on host.
-        maxVal = max(maxVal, temp < sequence.pivot ? temp : MIN_VAL);
-        minVal = min(minVal, temp > sequence.pivot ? temp : MAX_VAL);
-#endif
-    }
-
-#if USE_REDUCTION_IN_GLOBAL_SORT
-    minValues[threadIdx.x] = minVal;
-    maxValues[threadIdx.x] = maxVal;
-    __syncthreads();
-
-    // Calculates and saves min/max values, before shared memory gets overriden by scan
-    minMaxReduction<threadsSortGlobal>();
-    if (threadIdx.x == (threadsSortGlobal - 1))
-    {
-        atomicMin(&sequences[seqIdx].greaterSeqMinVal, minValues[0]);
-        atomicMax(&sequences[seqIdx].lowerSeqMaxVal, maxValues[0]);
-    }
-#endif
-    __syncthreads();
-
-    // Calculates number of elements lower/greater than pivot inside whole thread blocks
-    uint_t scanLower = intraBlockScan<threadsSortGlobal>(localLower);
-    __syncthreads();
-    uint_t scanGreater = intraBlockScan<threadsSortGlobal>(localGreater);
-    __syncthreads();
+    uint_t localLower = 0, localGreater = 0, scanLower = 0, scanGreater = 0;
+    countElementsLowerGreaterPivot<threadsSortGlobal>(
+        keysPrimary, sequences, sequence, seqIdx, localStart, localLength, localLower, localGreater, scanLower,
+        scanGreater
+    );
 
     // Calculates number of elements lower/greater than pivot for all thread blocks processing this sequence
     __shared__ uint_t globalLower, globalGreater, globalOffsetPivotValues;
