@@ -20,9 +20,9 @@ _KV: Key-value
 // Threshold of array length, when reduction is performed on DEVICE instead of HOST.
 #define THRESHOLD_PARALLEL_REDUCTION (1 << 13)
 // How many threads are in each thread block when running min/max reduction. Has to be power of 2.
-#define THREADS_PER_REDUCTION 128
+#define THREADS_REDUCTION 128
 // How many elements are processed by each thread in min/max reduction. Has to be power of 2.
-#define ELEMENTS_PER_THREAD_REDUCTION 64
+#define ELEMENTS_REDUCTION 64
 
 
 /* ---------------- GLOBAL QUICKSORT ---------------- */
@@ -32,11 +32,11 @@ _KV: Key-value
 #define THRESHOLD_PARTITION_SIZE_GLOBAL_KO (1 << 11)
 #define THRESHOLD_PARTITION_SIZE_GLOBAL_KV (1 << 11)
 // How many threads are in each thread block when running global quicksort kernel. Has to be power of 2.
-#define THREADS_PER_SORT_GLOBAL_KO 128
-#define THREADS_PER_SORT_GLOBAL_KV 128
+#define THREADS_SORT_GLOBAL_KO 128
+#define THREADS_SORT_GLOBAL_KV 128
 // How many elements are processed by each thread in global quicksort. Has to be power of 2.
-#define ELEMENTS_PER_THREAD_GLOBAL_KO 6  // 8 if USE_REDUCTION_IN_GLOBAL_SORT is 1
-#define ELEMENTS_PER_THREAD_GLOBAL_KV 4  // 8 if USE_REDUCTION_IN_GLOBAL_SORT is 1
+#define ELEMENTS_GLOBAL_KO 6  // 8 if USE_REDUCTION_IN_GLOBAL_SORT is 1
+#define ELEMENTS_GLOBAL_KV 4  // 8 if USE_REDUCTION_IN_GLOBAL_SORT is 1
 
 
 /* ----------------- LOCAL QUICKSORT ---------------- */
@@ -45,8 +45,8 @@ _KV: Key-value
 #define THRESHOLD_BITONIC_SORT_KO 512
 #define THRESHOLD_BITONIC_SORT_KV 512
 // How many threads are in each thread block when running local quicksort kernel. Has to be power of 2.
-// It is reasonable that is is lower than "THREADS_PER_SORT_GLOBAL * ELEMENTS_PER_THREAD_GLOBAL".
-#define THREADS_PER_SORT_LOCAL_KO 128
-#define THREADS_PER_SORT_LOCAL_KV 256
+// It is reasonable that is is lower than "THREADS_SORT_GLOBAL * ELEMENTS_GLOBAL".
+#define THREADS_SORT_LOCAL_KO 128
+#define THREADS_SORT_LOCAL_KV 256
 
 #endif
