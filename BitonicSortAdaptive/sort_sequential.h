@@ -12,7 +12,7 @@
 
 
 /*
-Base class for sequential adaptive bitonic sort.
+Class for sequential adaptive bitonic sort.
 TODO: reimplement without padding. In previous Git commits it is partially reimplemented without padding.
 */
 class BitonicSortAdaptiveSequential : public SortSequential

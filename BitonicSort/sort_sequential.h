@@ -11,7 +11,7 @@
 
 
 /*
-Base class for sequential bitonic sort.
+Class for sequential bitonic sort.
 */
 class BitonicSortSequential : public SortSequential
 {
