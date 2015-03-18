@@ -24,7 +24,7 @@ _Kv - Key-value
 TODO implement DESC ordering.
 */
 template <
-    uint_t useReductionInGlobalSort, uint_t thresholdParallelReduction,
+    uint_t thresholdParallelReduction,
     uint_t threadsReduction, uint_t elemsReduction,
     uint_t threasholdPartitionGlobalKo, uint_t threasholdPartitionGlobalKv,
     uint_t threadsSortGlobalKo, uint_t elemsSortGlobalKo,
@@ -290,16 +290,14 @@ protected:
         if (sortingKeyOnly)
         {
             quickSortGlobalKernel
-                <threadsSortGlobalKo, elemsSortGlobalKo, useReductionInGlobalSort, sortOrder>
-                <<<dimGrid, dimBlock, sharedMemSize>>>(
+                <threadsSortGlobalKo, elemsSortGlobalKo, sortOrder><<<dimGrid, dimBlock, sharedMemSize>>>(
                 d_keys, d_keysBuffer, d_globalSeqDev, d_globalSeqIndexes
             );
         }
         else
         {
             quickSortGlobalKernel
-                <threadsSortGlobalKv, elemsSortGlobalKv, useReductionInGlobalSort, sortOrder>
-                <<<dimGrid, dimBlock, sharedMemSize>>>(
+                <threadsSortGlobalKv, elemsSortGlobalKv, sortOrder><<<dimGrid, dimBlock, sharedMemSize>>>(
                 d_keys, d_values, d_keysBuffer, d_valuesBuffer, d_valuesPivot, d_globalSeqDev, d_globalSeqIndexes
             );
         }
@@ -523,7 +521,7 @@ public:
 Class for parallel quicksort.
 */
 class QuicksortParallel : public QuicksortParallelBase<
-    USE_REDUCTION_IN_GLOBAL_SORT, THRESHOLD_PARALLEL_REDUCTION,
+    THRESHOLD_PARALLEL_REDUCTION,
     THREADS_PER_REDUCTION, ELEMENTS_PER_THREAD_REDUCTION,
     THRESHOLD_PARTITION_SIZE_GLOBAL_KO, THRESHOLD_PARTITION_SIZE_GLOBAL_KV,
     THREADS_PER_SORT_GLOBAL_KO, ELEMENTS_PER_THREAD_GLOBAL_KO,

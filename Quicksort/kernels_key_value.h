@@ -13,6 +13,7 @@
 #include "../Utils/constants_common.h"
 #include "../Utils/kernels_utils.h"
 #include "data_types.h"
+#include "constants.h"
 #include "kernels_common_utils.h"
 
 
@@ -89,14 +90,14 @@ sequence stores the pivots.
 
 TODO try alignment with 32 for coalasced reading
 */
-template <uint_t threadsSortGlobal, uint_t elemsThreadGlobal, uint_t useReductionInGlobalSort, order_t sortOrder>
+template <uint_t threadsSortGlobal, uint_t elemsThreadGlobal, order_t sortOrder>
 __global__ void quickSortGlobalKernel(
     data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, data_t *pivotValues,
     d_glob_seq_t *sequences, uint_t *seqIndexes
 )
 {
     extern __shared__ data_t globalSortTile[];
-#if useReductionInGlobalSort
+#if USE_REDUCTION_IN_GLOBAL_SORT
     data_t *minValues = globalSortTile;
     data_t *maxValues = globalSortTile + threadsSortGlobal;
     __shared__ uint_t numActiveThreads;
@@ -119,9 +120,6 @@ __global__ void quickSortGlobalKernel(
         uint_t offset = localBlockIdx * elemsPerBlock;
         localStart = sequence.start + offset;
         localLength = offset + elemsPerBlock <= sequence.length ? elemsPerBlock : sequence.length - offset;
-#if useReductionInGlobalSort
-        numActiveThreads = nextPowerOf2Device(min(threadsSortGlobal, localLength));
-#endif
     }
     __syncthreads();
 
@@ -130,7 +128,7 @@ __global__ void quickSortGlobalKernel(
     data_t *keysBuffer = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataKeys : bufferKeys;
     data_t *valuesBuffer = sequence.direction == BUFFER_TO_PRIMARY_MEM ? dataValues : bufferValues;
 
-#if useReductionInGlobalSort
+#if USE_REDUCTION_IN_GLOBAL_SORT
     // Initializes min/max values.
     data_t minVal = MAX_VAL, maxVal = MIN_VAL;
 #endif
@@ -145,7 +143,7 @@ __global__ void quickSortGlobalKernel(
         localLower += temp < sequence.pivot;
         localGreater += temp > sequence.pivot;
 
-#if useReductionInGlobalSort
+#if USE_REDUCTION_IN_GLOBAL_SORT
         // Max value is calculated for "lower" sequence and min value is calculated for "greater" sequence.
         // Min for lower sequence and max of greater sequence (min and max of currently partitioned
         // sequence) were already calculated on host.
@@ -154,13 +152,13 @@ __global__ void quickSortGlobalKernel(
 #endif
     }
 
-#if useReductionInGlobalSort
+#if USE_REDUCTION_IN_GLOBAL_SORT
     minValues[threadIdx.x] = minVal;
     maxValues[threadIdx.x] = maxVal;
     __syncthreads();
 
     // Calculates and saves min/max values, before shared memory gets overriden by scan
-    minMaxReduction<threadsSortGlobal>(numActiveThreads);
+    minMaxReduction<threadsSortGlobal>();
     if (threadIdx.x == (threadsSortGlobal - 1))
     {
         atomicMin(&sequences[seqIdx].greaterSeqMinVal, minValues[0]);

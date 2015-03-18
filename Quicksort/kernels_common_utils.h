@@ -30,13 +30,13 @@ Performs parallel min/max reduction. Half of the threads in thread block calcula
 other half calculates max value. Result is returned as the first element in each array.
 */
 template <uint_t blockSize>
-inline __device__ void minMaxReduction(uint_t length)
+inline __device__ void minMaxReduction()
 {
     extern __shared__ data_t reductionTile[];
     data_t *minValues = reductionTile;
     data_t *maxValues = reductionTile + blockSize;
 
-    for (uint_t stride = length / 2; stride > 0; stride >>= 1)
+    for (uint_t stride = blockSize / 2; stride > 0; stride >>= 1)
     {
         if (threadIdx.x < stride)
         {
