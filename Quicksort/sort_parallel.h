@@ -519,6 +519,8 @@ public:
 
 /*
 Class for parallel quicksort.
+Constant if min/max reduction is used is not passed to class, because preprocessor directives can't be used
+with c++ templates.
 */
 class QuicksortParallel : public QuicksortParallelBase<
     THRESHOLD_PARALLEL_REDUCTION,

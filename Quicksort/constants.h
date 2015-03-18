@@ -12,7 +12,7 @@ _KV: Key-value
 //          generated GREATER sequence (FASTER, but possibility of WRONG min/max value)
 // - VAL 1: min/max reduction is performed in order to find MAX value of newly generated LOWER sequence
 //          and MIN value of newly generated GREATER sequence (SLOWER, but ALWAYS correct min/max value)
-#define USE_REDUCTION_IN_GLOBAL_SORT 1
+#define USE_REDUCTION_IN_GLOBAL_SORT 0
 
 
 /* ---------------- MIN/MAX REDUCTION --------------- */

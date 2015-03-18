@@ -12,62 +12,10 @@
 #include "../Utils/data_types_common.h"
 #include "../Utils/constants_common.h"
 #include "../Utils/kernels_utils.h"
-#include "../BitonicSort/kernels_key_only_utils.h"
 #include "data_types.h"
-#include "constants.h"
 #include "kernels_common_utils.h"
+#include "kernels_key_value_utils.h"
 
-
-/*
-Sorts input data with NORMALIZED bitonic sort (all comparisons are made in same direction,
-easy to implement for input sequences of arbitrary size) and outputs them to output array.
-*/
-template <uint_t threadsBitonicSort, uint_t thresholdBitonicSort, order_t sortOrder>
-__device__ void normalizedBitonicSort(
-    data_t *keysInput, data_t *valuesInput, data_t *keysOutput, data_t *valuesOutput, loc_seq_t localParams
-)
-{
-    extern __shared__ data_t bitonicSortTile[];
-    data_t *keysTile = bitonicSortTile;
-    data_t *valuesTile = bitonicSortTile + thresholdBitonicSort;
-
-    // Read data from global to shared memory.
-    for (uint_t tx = threadIdx.x; tx < localParams.length; tx += threadsBitonicSort)
-    {
-        keysTile[tx] = keysInput[localParams.start + tx];
-        valuesTile[tx] = valuesInput[localParams.start + tx];
-    }
-    __syncthreads();
-
-    // Bitonic sort PHASES
-    for (uint_t subBlockSize = 1; subBlockSize < localParams.length; subBlockSize <<= 1)
-    {
-        // Bitonic merge STEPS
-        for (uint_t stride = subBlockSize; stride > 0; stride >>= 1)
-        {
-            if (stride == subBlockSize)
-            {
-                bitonicMergeStep<sortOrder, threadsBitonicSort, true>(
-                    keysTile, valuesTile, 0, localParams.length, localParams.length, stride
-                );
-            }
-            else
-            {
-                bitonicMergeStep<sortOrder, threadsBitonicSort, false>(
-                    keysTile, valuesTile, 0, localParams.length, localParams.length, stride
-                );
-            }
-            __syncthreads();
-        }
-    }
-
-    // Store data from shared to global memory
-    for (uint_t tx = threadIdx.x; tx < localParams.length; tx += threadsBitonicSort)
-    {
-        keysOutput[localParams.start + tx] = keysTile[tx];
-        valuesOutput[localParams.start + tx] = valuesTile[tx];
-    }
-}
 
 /*
 Executes global quicksort - multiple thread blocks process one sequence. They count how many elements are
