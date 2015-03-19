@@ -1,5 +1,5 @@
-#ifndef KERNELS_KEY_ONLY_UTILS_RADIX_SORT_H
-#define KERNELS_KEY_ONLY_UTILS_RADIX_SORT_H
+#ifndef KERNELS_KEY_VALUE_UTILS_RADIX_SORT_H
+#define KERNELS_KEY_VALUE_UTILS_RADIX_SORT_H
 
 #include <cuda.h>
 #include "cuda_runtime.h"

@@ -182,6 +182,202 @@ protected:
         }
     }
 
+    /*
+    Runs kernel, which generates local bucket offsets and sizes.
+    */
+    template <bool sortingKeyOnly>
+    void runGenerateBucketsKernel(
+        data_t *d_keys, uint_t *blockOffsets, uint_t *blockSizes, uint_t arrayLength, uint_t bitOffset
+    )
+    {
+        uint_t radix = sortingKeyOnly ? radixKo : radixKv;
+        uint_t elemsPerLocalSort;
+
+        if (sortingKeyOnly)
+        {
+            elemsPerLocalSort = threadsSortLocalKo * elemsSortLocalKo;
+        }
+        else
+        {
+            elemsPerLocalSort = threadsSortLocalKv * elemsSortLocalKv;
+        }
+
+        // Shared memory size:
+        // - "elemsPerLocalSort" -> container for elements read from global memory into shared memory
+        // - "2 * radix"         -> bucket local sizes + bucket local offsets
+        uint_t sharedMemSize = elemsPerLocalSort * sizeof(uint_t) + 2 * radix * sizeof(uint_t);
+
+        dim3 dimGrid((arrayLength - 1) / elemsPerLocalSort + 1, 1, 1);
+        dim3 dimBlock(sortingKeyOnly ? threadsGenBucketsKo : threadsGenBucketsKv, 1, 1);
+
+        if (sortingKeyOnly)
+        {
+            generateBucketsKernel
+                <threadsGenBucketsKo, threadsSortLocalKo, elemsSortLocalKo, radixKo>
+                <<<dimGrid, dimBlock, sharedMemSize>>>(
+                d_keys, blockOffsets, blockSizes, bitOffset
+            );
+        }
+        else
+        {
+            generateBucketsKernel
+                <threadsGenBucketsKv, threadsSortLocalKv, elemsSortLocalKv, radixKv>
+                <<<dimGrid, dimBlock, sharedMemSize>>>(
+                d_keys, blockOffsets, blockSizes, bitOffset
+            );
+        }
+    }
+
+    /*
+    Scatters elements to their corresponding buckets according to current radix diggit, which is specified
+    with "bitOffset".
+    */
+    template <bool sortingKeyOnly>
+    void runRadixSortGlobalKernel(
+        data_t *d_keys, data_t *d_values, data_t *d_keysBuffer, data_t *d_valuesBuffer, uint_t *offsetsLocal,
+        uint_t *offsetsGlobal, uint_t arrayLength, uint_t bitOffset
+    )
+    {
+        uint_t elemsPerLocalSort, sharedMemSize;
+
+        if (sortingKeyOnly)
+        {
+            elemsPerLocalSort = threadsSortLocalKo * elemsSortLocalKo;
+            sharedMemSize = elemsPerLocalSort * sizeof(*d_keys);
+        }
+        else
+        {
+            elemsPerLocalSort = threadsSortLocalKv * elemsSortLocalKv;
+            sharedMemSize = 2 * elemsPerLocalSort * sizeof(*d_keys);
+        }
+
+        dim3 dimGrid((arrayLength - 1) / elemsPerLocalSort + 1, 1, 1);
+        dim3 dimBlock(sortingKeyOnly ? threadsSortGlobalKo : threadsSortGlobalKv, 1, 1);
+
+        if (sortingKeyOnly)
+        {
+            radixSortGlobalKernel
+                <threadsSortGlobalKo, threadsSortLocalKo, elemsSortLocalKo, radixKo>
+                <<<dimGrid, dimBlock, sharedMemSize>>>(
+                d_keys, d_keysBuffer, offsetsLocal, offsetsGlobal, bitOffset
+            );
+        }
+        else
+        {
+            radixSortGlobalKernel
+                <threadsSortGlobalKv, threadsSortLocalKv, elemsSortLocalKv, radixKv>
+                <<<dimGrid, dimBlock, sharedMemSize>>>(
+                d_keys, d_values, d_keysBuffer, d_valuesBuffer, offsetsLocal, offsetsGlobal, bitOffset
+            );
+        }
+    }
+
+    /*
+    Sorts data with parallel radix sort.
+    */
+    template <order_t sortOrder, bool sortingKeyOnly>
+    void radixSortParallel(
+        data_t *d_keys, data_t *d_values, data_t *d_keysBuffer, data_t *d_valuesBuffer,
+        uint_t *d_bucketOffsetsLocal, uint_t *d_bucketOffsetsGlobal, uint_t *d_bucketSizes, uint_t arrayLength
+    )
+    {
+        uint_t radix = sortingKeyOnly ? radixKo : radixKv;
+        uint_t bitCountRadix = sortingKeyOnly ? bitCountRadixKo : bitCountRadixKv;
+        uint_t elemsPerLocalSort;
+
+        if (sortingKeyOnly)
+        {
+            elemsPerLocalSort = threadsSortLocalKo * elemsSortLocalKo;
+        }
+        else
+        {
+            elemsPerLocalSort = threadsSortLocalKv * elemsSortLocalKv;
+        }
+
+        uint_t bucketsLen = radix * ((arrayLength - 1) / elemsPerLocalSort + 1);
+        CUDPPHandle scanPlan;
+
+        cudppInitScan(&scanPlan, bucketsLen);
+        addPadding<sortOrder, sortingKeyOnly>(d_keys, arrayLength);
+
+        for (uint_t bitOffset = 0; bitOffset < sizeof(data_t)* 8; bitOffset += bitCountRadix)
+        {
+            runRadixSortLocalKernel<sortOrder, sortingKeyOnly>(d_keys, d_values, arrayLength, bitOffset);
+            runGenerateBucketsKernel<sortingKeyOnly>(
+                d_keys, d_bucketOffsetsLocal, d_bucketSizes, arrayLength, bitOffset
+            );
+
+            // Performs global scan in order to calculate global bucket offsets from local bucket sizes
+            CUDPPResult result = cudppScan(scanPlan, d_bucketOffsetsGlobal, d_bucketSizes, bucketsLen);
+            if (result != CUDPP_SUCCESS)
+            {
+                printf("Error in cudppScan()\n");
+                getchar();
+                exit(-1);
+            }
+
+            runRadixSortGlobalKernel<sortingKeyOnly>(
+                d_keys, d_values, d_keysBuffer, d_valuesBuffer, d_bucketOffsetsLocal, d_bucketOffsetsGlobal,
+                arrayLength, bitOffset
+            );
+
+            data_t *temp = d_keys;
+            d_keys = d_keysBuffer;
+            d_keysBuffer = temp;
+
+            if (!sortingKeyOnly)
+            {
+                temp = d_values;
+                d_values = d_valuesBuffer;
+                d_valuesBuffer = temp;
+            }
+        }
+    }
+
+    /*
+    Wrapper for radix sort method.
+    The code runs faster if arguments are passed to method. If members are accessed directly, code runs slower.
+    */
+    void sortKeyOnly()
+    {
+        if (_sortOrder == ORDER_ASC)
+        {
+            radixSortParallel<ORDER_ASC, true>(
+                _d_keys, NULL, _d_keysBuffer, NULL, _d_bucketOffsetsLocal, _d_bucketOffsetsGlobal, _d_bucketSizes,
+                _arrayLength
+            );
+        }
+        else
+        {
+            radixSortParallel<ORDER_DESC, true>(
+                _d_keys, NULL, _d_keysBuffer, NULL, _d_bucketOffsetsLocal, _d_bucketOffsetsGlobal, _d_bucketSizes,
+                _arrayLength
+            );
+        }
+    }
+
+    /*
+    wrapper for radix sort method.
+    the code runs faster if arguments are passed to method. if members are accessed directly, code runs slower.
+    */
+    void sortKeyValue()
+    {
+        if (_sortOrder == ORDER_ASC)
+        {
+            radixSortParallel<ORDER_ASC, false>(
+                _d_keys, _d_values, _d_keysBuffer, _d_valuesBuffer, _d_bucketOffsetsLocal, _d_bucketOffsetsGlobal,
+                _d_bucketSizes, _arrayLength
+            );
+        }
+        else
+        {
+            radixSortParallel<ORDER_ASC, false>(
+                _d_keys, _d_values, _d_keysBuffer, _d_valuesBuffer, _d_bucketOffsetsLocal, _d_bucketOffsetsGlobal,
+                _d_bucketSizes, _arrayLength
+            );
+        }
+    }
+
 public:
     std::string getSortName()
     {

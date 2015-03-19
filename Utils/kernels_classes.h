@@ -61,7 +61,7 @@ protected:
     template <order_t sortOrder>
     void runAddPaddingKernel(data_t *d_arrayPrimary, uint_t indexStart, uint_t indexEnd)
     {
-        runAddPaddingKernel<sortOrder, false>(d_arrayPrimary, indexStart, indexEnd);
+        runAddPaddingKernel<sortOrder, false>(d_arrayPrimary, NULL, indexStart, indexEnd);
     }
 
     /*
