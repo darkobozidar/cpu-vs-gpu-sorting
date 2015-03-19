@@ -82,7 +82,7 @@ __global__ void radixSortLocalKernel(data_t *dataTable, uint_t bitOffset)
         __syncthreads();
 
         // According to provided predicates calculates number of elements with true predicate before this thread.
-        uint_t trueBefore = intraBlockScan<threadsSortLocal>(
+        uint_t trueBefore = intraBlockScanKeyOnly<threadsSortLocal>(
 #if (ELEMS_PER_THREAD_LOCAL_KO >= 1)
             pred0
 #endif
@@ -162,15 +162,14 @@ __global__ void radixSortLocalKernel(data_t *dataTable, uint_t bitOffset)
 From provided offsets scatters elements to their corresponding buckets (according to radix diggit) from
 primary to buffer array.
 */
-template <uint_t threadsSortGlobal, uint_t threadsSortLocal, uint_t elemsSortLocal, uint_t radix>
+template <uint_t threadsSortGlobal, uint_t threadsSortLocal, uint_t elemsSortLocal, uint_t radixParam>
 __global__ void radixSortGlobalKernel(
     data_t *dataInput, data_t *dataOutput, uint_t *offsetsLocal, uint_t *offsetsGlobal, uint_t bitOffset
 )
 {
     extern __shared__ data_t sortGlobalTile[];
-    __shared__ uint_t offsetsLocalTile[radix];
-    __shared__ uint_t offsetsGlobalTile[radix];
-    uint_t radix, indexOutput;
+    __shared__ uint_t offsetsLocalTile[radixParam];
+    __shared__ uint_t offsetsGlobalTile[radixParam];
 
     const uint_t elemsPerLocalSort = threadsSortLocal * elemsSortLocal;
     const uint_t offset = blockIdx.x * elemsPerLocalSort;
@@ -182,17 +181,17 @@ __global__ void radixSortGlobalKernel(
     }
 
     // Reads local and global offsets
-    if (blockDim.x < radix)
+    if (blockDim.x < radixParam)
     {
-        for (int i = 0; i < radix; i += blockDim.x)
+        for (int i = 0; i < radixParam; i += blockDim.x)
         {
-            offsetsLocalTile[threadIdx.x + i] = offsetsLocal[blockIdx.x * radix + threadIdx.x + i];
+            offsetsLocalTile[threadIdx.x + i] = offsetsLocal[blockIdx.x * radixParam + threadIdx.x + i];
             offsetsGlobalTile[threadIdx.x + i] = offsetsGlobal[(threadIdx.x + i) * gridDim.x + blockIdx.x];
         }
     }
-    else if (threadIdx.x < radix)
+    else if (threadIdx.x < radixParam)
     {
-        offsetsLocalTile[threadIdx.x] = offsetsLocal[blockIdx.x * radix + threadIdx.x];
+        offsetsLocalTile[threadIdx.x] = offsetsLocal[blockIdx.x * radixParam + threadIdx.x];
         offsetsGlobalTile[threadIdx.x] = offsetsGlobal[threadIdx.x * gridDim.x + blockIdx.x];
     }
     __syncthreads();
@@ -200,8 +199,8 @@ __global__ void radixSortGlobalKernel(
     // Every thread stores multiple elements
     for (uint_t tx = threadIdx.x; tx < elemsPerLocalSort; tx += threadsSortGlobal)
     {
-        radix = (sortGlobalTile[tx] >> bitOffset) & (radix - 1);
-        indexOutput = offsetsGlobalTile[radix] + tx - offsetsLocalTile[radix];
+        uint_t radix = (sortGlobalTile[tx] >> bitOffset) & (radixParam - 1);
+        uint_t indexOutput = offsetsGlobalTile[radix] + tx - offsetsLocalTile[radix];
         dataOutput[indexOutput] = sortGlobalTile[tx];
     }
 }

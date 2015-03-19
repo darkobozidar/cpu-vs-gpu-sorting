@@ -300,7 +300,7 @@ protected:
         cudppInitScan(&scanPlan, bucketsLen);
         addPadding<sortOrder, sortingKeyOnly>(d_keys, arrayLength);
 
-        for (uint_t bitOffset = 0; bitOffset < sizeof(data_t)* 8; bitOffset += bitCountRadix)
+        for (uint_t bitOffset = 0; bitOffset < sizeof(data_t) * 8; bitOffset += bitCountRadix)
         {
             runRadixSortLocalKernel<sortOrder, sortingKeyOnly>(d_keys, d_values, arrayLength, bitOffset);
             runGenerateBucketsKernel<sortingKeyOnly>(

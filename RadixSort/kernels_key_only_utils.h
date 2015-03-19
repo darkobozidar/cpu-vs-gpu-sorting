@@ -7,7 +7,6 @@
 
 #include "../Utils/data_types_common.h"
 #include "../Utils/constants_common.h"
-#include "../Utils/kernels_utils.h"
 #include "constants.h"
 #include "kernels_common_utils.h"
 
@@ -18,7 +17,7 @@ The function is the same as in key-value version. The only difference is the pre
 ELEMS_PER_THREAD_LOCAL_KO.
 */
 template <uint_t blockSize>
-__device__ uint_t intraBlockScan(
+__device__ uint_t intraBlockScanKeyOnly(
 #if (ELEMS_PER_THREAD_LOCAL_KO >= 1)
     bool pred0
 #endif
@@ -50,7 +49,6 @@ __device__ uint_t intraBlockScan(
     uint_t laneIdx = threadIdx.x & (WARP_SIZE - 1);
     uint_t warpResult = 0;
     uint_t predResult = 0;
-    uint4 trueBefore;
 
 #if (ELEMS_PER_THREAD_LOCAL_KO >= 1)
     warpResult += binaryWarpScan(pred0);
