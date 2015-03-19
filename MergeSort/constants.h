@@ -1,6 +1,10 @@
 #ifndef CONSTANTS_MERGE_SORT_H
 #define CONSTANTS_MERGE_SORT_H
 
+/*
+_KO: Key-only
+_KV: Key-value
+*/
 
 /* --------------- ALGORITHM PARAMETERS -------------- */
 // Max size of sub-blocks being merged.

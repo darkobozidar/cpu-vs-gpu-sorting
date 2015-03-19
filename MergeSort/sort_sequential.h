@@ -11,7 +11,7 @@
 
 
 /*
-Base class for sequential merge sort.
+Class for sequential merge sort.
 */
 class MergeSortSequential : public SortSequential
 {
@@ -211,11 +211,11 @@ protected:
     {
         if (_sortOrder == ORDER_ASC)
         {
-            mergeSortSequential<ORDER_ASC, true>(_h_keys, _h_values, _h_keysBuffer, _h_valuesBuffer, _arrayLength);
+            mergeSortSequential<ORDER_ASC, true>(_h_keys, NULL, _h_keysBuffer, NULL, _arrayLength);
         }
         else
         {
-            mergeSortSequential<ORDER_DESC, true>(_h_keys, _h_values, _h_keysBuffer, _h_valuesBuffer, _arrayLength);
+            mergeSortSequential<ORDER_DESC, true>(_h_keys, NULL, _h_keysBuffer, NULL, _arrayLength);
         }
     }
 
