@@ -12,12 +12,12 @@
 
 
 /*
-Base class for sequential merge sort.
-
+Parent class for sequential radix sort. Not to be used directly - it's inherited by bottom class, which performs
+partial template specialization.
 TODO implement for descending order.
 */
-template <uint_t bitCountRadix, uint_t radix>
-class RadixSortSequentialBase : public SortSequential
+template <uint_t bitCountRadixKo, uint_t radixKo, uint_t bitCountRadixKv, uint_t radixKv>
+class RadixSortSequentialParent : public SortSequential
 {
 protected:
     std::string _sortName = "Radix sort sequential";
@@ -35,13 +35,14 @@ protected:
     virtual void memoryAllocate(data_t *h_keys, data_t *h_values, uint_t arrayLength)
     {
         SortSequential::memoryAllocate(h_keys, h_values, arrayLength);
+        uint_t maxRadix = max(radixKo, radixKv);
 
         // Allocates keys and values
         _h_keysBuffer = (data_t*)malloc(arrayLength * sizeof(*_h_keysBuffer));
         checkMallocError(_h_keysBuffer);
         _h_valuesBuffer = (data_t*)malloc(arrayLength * sizeof(*_h_valuesBuffer));
         checkMallocError(_h_valuesBuffer);
-        _h_dataCounters = (uint_t*)malloc(radix * sizeof(*_h_dataCounters));
+        _h_dataCounters = (uint_t*)malloc(maxRadix * sizeof(*_h_dataCounters));
         checkMallocError(_h_dataCounters);
     }
 
@@ -51,6 +52,8 @@ protected:
     */
     virtual void memoryCopyAfterSort(data_t *h_keys, data_t *h_values, uint_t arrayLength)
     {
+        bool sortingKeyOnly = h_values == NULL;
+        uint_t bitCountRadix = sortingKeyOnly ? bitCountRadixKo : bitCountRadixKv;
         uint_t numPhases = DATA_TYPE_BITS / bitCountRadix;
 
         if (numPhases % 2 == 0)
@@ -59,8 +62,9 @@ protected:
         }
         else
         {
+            // Counting sort was performed
             std::copy(_h_keysBuffer, _h_keysBuffer + _arrayLength, h_keys);
-            if (h_values != NULL)
+            if (!sortingKeyOnly)
             {
                 std::copy(_h_valuesBuffer, _h_valuesBuffer + _arrayLength, h_values);
             }
@@ -87,7 +91,7 @@ protected:
     /*
     Performs sequential couinting sort on provided bit offset for specified number of bits.
     */
-    template <order_t sortOrder, bool sortingKeyOnly>
+    template <order_t sortOrder, bool sortingKeyOnly, uint_t radix>
     void countingSort(
         data_t *h_keys, data_t *h_values, data_t *h_keysBuffer, data_t *h_valuesBuffer, uint_t *dataCounters,
         uint_t tableLen, uint_t bitOffset
@@ -127,7 +131,7 @@ protected:
     /*
     Sorts data sequentially with radix sort.
     */
-    template <order_t sortOrder, bool sortingKeyOnly>
+    template <order_t sortOrder, bool sortingKeyOnly, uint_t bitCountRadix, uint_t radix>
     void radixSortSequential(
         data_t *h_keys, data_t *h_values, data_t *h_keysBuffer, data_t *h_valuesBuffer, uint_t *dataCounters,
         uint_t arrayLength
@@ -136,7 +140,7 @@ protected:
         // Executes couting sort for every digit (every group of BIT_COUNT_SEQUENTIAL bits)
         for (uint_t bitOffset = 0; bitOffset < sizeof(data_t)* 8; bitOffset += bitCountRadix)
         {
-            countingSort<sortOrder, sortingKeyOnly>(
+            countingSort<sortOrder, sortingKeyOnly, radix>(
                 h_keys, h_values, h_keysBuffer, h_valuesBuffer, dataCounters, arrayLength, bitOffset
             );
 
@@ -161,11 +165,15 @@ protected:
     {
         if (_sortOrder == ORDER_ASC)
         {
-            radixSortSequential<ORDER_ASC, true>(_h_keys, NULL, _h_keysBuffer, NULL, _h_dataCounters, _arrayLength);
+            radixSortSequential<ORDER_ASC, true, bitCountRadixKo, radixKo>(
+                _h_keys, NULL, _h_keysBuffer, NULL, _h_dataCounters, _arrayLength
+            );
         }
         else
         {
-            radixSortSequential<ORDER_DESC, true>(_h_keys, NULL, _h_keysBuffer, NULL, _h_dataCounters, _arrayLength);
+            radixSortSequential<ORDER_DESC, true, bitCountRadixKo, radixKo>(
+                _h_keys, NULL, _h_keysBuffer, NULL, _h_dataCounters, _arrayLength
+            );
         }
     }
 
@@ -177,13 +185,13 @@ protected:
     {
         if (_sortOrder == ORDER_ASC)
         {
-            radixSortSequential<ORDER_ASC, false>(
+            radixSortSequential<ORDER_ASC, false, bitCountRadixKv, radixKv>(
                 _h_keys, _h_values, _h_keysBuffer, _h_valuesBuffer, _h_dataCounters, _arrayLength
             );
         }
         else
         {
-            radixSortSequential<ORDER_DESC, false>(
+            radixSortSequential<ORDER_DESC, false, bitCountRadixKv, radixKv>(
                 _h_keys, _h_values, _h_keysBuffer, _h_valuesBuffer, _h_dataCounters, _arrayLength
             );
         }
@@ -196,17 +204,20 @@ public:
     }
 };
 
-///*
-//Base class for sequential merge sort with only one templat argument - number of bits in radix.
-//*/
-//template <uint_t bitCountRadix>
-//class RadixSortSequentialBase : public RadixSortSequentialBase<bitCountRadix, 1 << bitCountRadix>
-//{};
+/*
+Base class for sequential radix sort with only one templat argument for key only and key-value - number of
+bits in radix.
+*/
+template <uint_t bitCountRadixKo, uint_t bitCountRadixKv>
+class RadixSortSequentialBase : public RadixSortSequentialParent<
+    bitCountRadixKo, 1 << bitCountRadixKo, bitCountRadixKv, 1 << bitCountRadixKv
+>
+{};
 
 /*
-Class for parallel merge sort.
+Class for sequential radix sort.
 */
-class RadixSortSequential : public RadixSortSequentialBase<BIT_COUNT_SEQUENTIAL, RADIX_SEQUENTIAL>
+class RadixSortSequential : public RadixSortSequentialBase<BIT_COUNT_SEQUENTIAL_KO, BIT_COUNT_SEQUENTIAL_KV>
 {};
 
 #endif

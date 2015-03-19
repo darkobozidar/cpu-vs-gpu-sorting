@@ -1,5 +1,5 @@
-#ifndef CONSTANTS_H
-#define CONSTANTS_H
+#ifndef CONSTANTS_RADIX_SORT_H
+#define CONSTANTS_RADIX_SORT_H
 
 /*
 _KO: Key-only
@@ -17,12 +17,12 @@ _KV: Key-value
 /* ----------------- RADIX SORT LOCAL ---------------- */
 
 // How many threads are used per one thread block for local radix sort kernel. Has to be power of 2.
-#define THREADS_PER_LOCAL_SORT 128
-#define THREADS_PER_LOCAL_SORT 128
+#define THREADS_PER_LOCAL_SORT_KO 128
+#define THREADS_PER_LOCAL_SORT_KV 128
 // How many elements are processed by one thread in local radix sort.
 // Has to be divisable by 2. Min value is 1, Max value is 8.
-#define ELEMS_PER_THREAD_LOCAL 6
-#define ELEMS_PER_THREAD_LOCAL 4
+#define ELEMS_PER_THREAD_LOCAL_KO 6
+#define ELEMS_PER_THREAD_LOCAL_KV 4
 
 
 /* ------------------ GENERATE BUCKET ---------------- */
@@ -39,15 +39,15 @@ _KV: Key-value
 // Number of elements processed by one thread is implicitly specified with:
 // "(THREADS_PER_LOCAL_SORT * ELEMS_PER_THREAD_LOCAL) / THREADS_PER_GLOBAL_SORT"
 
-#define THREADS_PER_GLOBAL_SORT 128
-#define THREADS_PER_GLOBAL_SORT 256
+#define THREADS_PER_GLOBAL_SORT_KO 128
+#define THREADS_PER_GLOBAL_SORT_KV 256
 
 
 /* ---------- PARALLEL ALGORITHM PARAMETERS ---------- */
 
 // How many bits is the one radix diggit made of (one diggit is processed in one iteration).
-#define BIT_COUNT_PARALLEL 4
-#define BIT_COUNT_PARALLEL 4
+#define BIT_COUNT_PARALLEL_KO 4
+#define BIT_COUNT_PARALLEL_KV 4
 // Radix value - number of all possible different diggit values.
 #define RADIX_PARALLEL (1 << BIT_COUNT_PARALLEL)
 // Radix mask needed to to perform logical "& (AND)" operation in order to extract diggit from number.
@@ -57,11 +57,7 @@ _KV: Key-value
 /* --------- SEQUENTIAL ALGORITHM PARAMETERS --------- */
 
 // How many bits is the one radix diggit made of (one diggit is processed in one iteration).
-#define BIT_COUNT_SEQUENTIAL 8
-#define BIT_COUNT_SEQUENTIAL 8
-// Radix value - number of all possible different diggit values.
-#define RADIX_SEQUENTIAL (1 << BIT_COUNT_SEQUENTIAL)
-// Radix mask needed to to perform logical "& (AND)" operation in order to extract diggit from number.
-#define RADIX_MASK_SEQUENTIAL ((1 << BIT_COUNT_SEQUENTIAL) - 1)
+#define BIT_COUNT_SEQUENTIAL_KO 8
+#define BIT_COUNT_SEQUENTIAL_KV 8
 
 #endif

@@ -23,6 +23,7 @@
 #include "../MergeSort/sort_parallel.h"
 #include "../Quicksort/sort_sequential.h"
 #include "../Quicksort/sort_parallel.h"
+#include "../RadixSort/sort_sequential.h"
 
 #include "test_sort.h"
 
@@ -50,6 +51,7 @@ int main(int argc, char **argv)
     sorts.push_back(new MergeSortParallel());
     sorts.push_back(new QuicksortSequential());
     sorts.push_back(new QuicksortParallel());
+    sorts.push_back(new RadixSortSequential());
 
     // This is needed only for testing puproses, because data transfer from device to host shouldn't be stopwatched.
     for (std::vector<SortSequential*>::iterator sort = sorts.begin(); sort != sorts.end(); sort++)
