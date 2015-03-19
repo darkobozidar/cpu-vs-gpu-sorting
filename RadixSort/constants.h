@@ -30,7 +30,8 @@ _KV: Key-value
 // How many threads are used per one thread block for kernel, which generates bucket sizes.
 // Has to be power of 2. Number of elements processed by one thread is implicitly specified with:
 // "(THREADS_PER_LOCAL_SORT * ELEMS_PER_THREAD_LOCAL) / THREADS_PER_GEN_BUCKETS"
-#define THREADS_PER_GEN_BUCKETS 128
+#define THREADS_PER_GEN_BUCKETS_KO 128
+#define THREADS_PER_GEN_BUCKETS_KV 128
 
 
 /* ---------------- RADIX SORT GLOBAL ---------------- */
@@ -48,10 +49,6 @@ _KV: Key-value
 // How many bits is the one radix diggit made of (one diggit is processed in one iteration).
 #define BIT_COUNT_PARALLEL_KO 4
 #define BIT_COUNT_PARALLEL_KV 4
-// Radix value - number of all possible different diggit values.
-#define RADIX_PARALLEL (1 << BIT_COUNT_PARALLEL)
-// Radix mask needed to to perform logical "& (AND)" operation in order to extract diggit from number.
-#define RADIX_MASK_PARALLEL ((1 << BIT_COUNT_PARALLEL) - 1)
 
 
 /* --------- SEQUENTIAL ALGORITHM PARAMETERS --------- */
