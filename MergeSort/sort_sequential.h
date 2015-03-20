@@ -230,7 +230,7 @@ protected:
     }
 
     /*
-    Wrapper for merge sort method.
+    Wrapper for sample sort method.
     The code runs faster if arguments are passed to method. If members are accessed directly, code runs slower.
     */
     void sortKeyOnly()
@@ -246,7 +246,7 @@ protected:
     }
 
     /*
-    Wrapper for merge sort method.
+    Wrapper for sample sort method.
     The code runs faster if arguments are passed to method. If members are accessed directly, code runs slower.
     */
     void sortKeyValue()
