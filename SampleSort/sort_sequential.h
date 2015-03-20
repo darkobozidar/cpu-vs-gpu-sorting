@@ -34,6 +34,9 @@ class SampleSortSequentialParent : public MergeSortSequential
 protected:
     std::string _sortName = "Sample sort sequential";
 
+    // Arrays where sorted sequence is saved. It's needed because subsequences are moved from primary and buffer
+    // memory. This way some of the sorted array would end up in primary array and other part in buffer.
+    data_t *_h_keysSorted = NULL, *_h_valuesSorted = NULL;
     // Holds samples and after samples are sorted holds splitters in sequential sample sort
     data_t *_h_samples;
     // For every element in input holds bucket index to which it belogns (needed for sequential sample sort)
@@ -47,14 +50,39 @@ protected:
         MergeSortSequential::memoryAllocate(h_keys, h_values, arrayLength);
 
         uint_t maxNumSamples = max(numSamplesKo, numSamplesKv);
-        uint_t maxOversamplingFactor = max(oversamplingFactorKo, oversamplingFactorKv);
+
+        _h_keysSorted = (data_t*)malloc(arrayLength * sizeof(*_h_keysSorted));
+        checkMallocError(_h_keysSorted);
+        _h_valuesSorted = (uint_t*)malloc(arrayLength * sizeof(*_h_valuesSorted));
+        checkMallocError(_h_valuesSorted);
 
         // Holds samples and splitters in sequential sample sort (needed for sequential sample sort)
-        _h_samples = (data_t*)malloc(maxNumSamples * maxOversamplingFactor * sizeof(*_h_samples));
+        _h_samples = (data_t*)malloc(maxNumSamples * sizeof(*_h_samples));
         checkMallocError(_h_samples);
         // For each element in array holds, to which bucket it belongs (needed for sequential sample sort)
         _h_elementBuckets = (uint_t*)malloc(arrayLength * sizeof(*_h_elementBuckets));
         checkMallocError(_h_elementBuckets);
+    }
+
+    /*
+    Sorted sequence is located in sorted array.
+    */
+    virtual void memoryCopyAfterSort(data_t *h_keys, data_t *h_values, uint_t arrayLength)
+    {
+        std::copy(_h_keysSorted, _h_keysSorted + arrayLength, h_keys);
+        if (h_values != NULL)
+        {
+            std::copy(_h_valuesSorted, _h_valuesSorted + arrayLength, h_values);
+        }
+    }
+
+    /*
+    Returns the output array. Implemented because sample sort class (which is derived from this class) requires
+    different function to determine output array than this class.
+    */
+    data_t* getOutputMergeArray(data_t *arrayBuffer, data_t *arraySorted, bool isLastMergePhase)
+    {
+        return isLastMergePhase ? arraySorted : arrayBuffer;
     }
 
     /*
@@ -64,7 +92,7 @@ protected:
     void collectSamples(data_t *d_keys, data_t *h_samples, uint_t arrayLength)
     {
         auto seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-        auto generator = std::bind(std::uniform_int_distribution<uint_t>(0, arrayLength - 1), mt19937(seed));
+        auto generator = std::bind(std::uniform_int_distribution<uint_t>(0, arrayLength - 1), std::mt19937(seed));
         uint_t numSamples = sortingKeyOnly ? numSamplesKo : numSamplesKv;
 
         // Collects "numSamples" samples
@@ -119,112 +147,144 @@ protected:
         }
     }
 
-    ///*
-    //Sorts array with sample sort and outputs sorted data to result array.
-    //*/
-    //template <order_t sortOrder>
-    //void sampleSort(
-    //    data_t *dataKeys, data_t *dataValues, data_t *bufferKeys, data_t *bufferValues, data_t *resultKeys,
-    //    data_t *resultValues, data_t *samples, uint_t *elementBuckets, uint_t tableLen
-    //)
-    //{
-    //    // When array is small enough, it is sorted with small sort (in our case merge sort).
-    //    // Merge sort was chosen because it is stable sort and it keeps sorted array stable.
-    //    if (tableLen <= SMALL_SORT_THRESHOLD)
-    //    {
-    //        mergeSort<sortOrder>(dataKeys, dataValues, bufferKeys, bufferValues, resultKeys, resultValues, tableLen);
-    //        return;
-    //    }
-    //
-    //    collectSamples<sortOrder>(dataKeys, samples, tableLen);
-    //
-    //    // Holds bucket sizes and bucket offsets after exclusive scan is performed on bucket sizes.
-    //    // A new array is needed for every level of recursion.
-    //    uint_t bucketSizes[NUM_SPLITTERS_SEQUENTIAL + 1];
-    //    // For clarity purposes another pointer is used
-    //    data_t *splitters = samples;
-    //
-    //    // From "NUM_SAMPLES_SEQUENTIAL" samples collects "NUM_SPLITTERS_SEQUENTIAL" splitters
-    //    for (uint_t i = 0; i < NUM_SPLITTERS_SEQUENTIAL; i++)
-    //    {
-    //        splitters[i] = samples[i * OVERSAMPLING_FACTOR + (OVERSAMPLING_FACTOR / 2)];
-    //        bucketSizes[i] = 0;
-    //    }
-    //    // For "NUM_SPLITTERS_SEQUENTIAL" splitters "NUM_SPLITTERS_SEQUENTIAL + 1" buckets are created
-    //    bucketSizes[NUM_SPLITTERS_SEQUENTIAL] = 0;
-    //
-    //    // For all elements in data table searches, which bucket they belong to and counts the elements in buckets
-    //    for (uint_t i = 0; i < tableLen; i++)
-    //    {
-    //        uint_t bucket = binarySearchInclusive<sortOrder>(splitters, dataKeys[i], NUM_SPLITTERS_SEQUENTIAL);
-    //        bucketSizes[bucket]++;
-    //        elementBuckets[i] = bucket;
-    //    }
-    //
-    //    // Performs an EXCLUSIVE scan over array of bucket sizes in order to get bucket offsets
-    //    exclusiveScan(bucketSizes, NUM_SPLITTERS_SEQUENTIAL + 1);
-    //    // For clarity purposes another pointer is used
-    //    uint_t *bucketOffsets = bucketSizes;
-    //
-    //    // Goes through all elements again and stores them in their corresponding buckets
-    //    for (uint_t i = 0; i < tableLen; i++)
-    //    {
-    //        uint_t *bucketOffset = &bucketOffsets[elementBuckets[i]];
-    //        bufferKeys[*bucketOffset] = dataKeys[i];
-    //        bufferValues[*bucketOffset] = dataValues[i];
-    //
-    //        (*bucketOffset)++;
-    //    }
-    //
-    //    // Recursively sorts buckets
-    //    for (uint_t i = 0; i <= NUM_SPLITTERS_SEQUENTIAL; i++)
-    //    {
-    //        uint_t prevBucketOffset = i > 0 ? bucketOffsets[i - 1] : 0;
-    //        uint_t bucketSize = bucketOffsets[i] - prevBucketOffset;
-    //
-    //        if (bucketSize > 0)
-    //        {
-    //            // Primary and buffer array are exchanged
-    //            sampleSort<sortOrder>(
-    //                bufferKeys + prevBucketOffset, bufferValues + prevBucketOffset, dataKeys + prevBucketOffset,
-    //                dataValues + prevBucketOffset, resultKeys + prevBucketOffset, resultValues + prevBucketOffset,
-    //                samples, elementBuckets, bucketSize
-    //            );
-    //        }
-    //    }
-    //}
+    /*
+    Sorts array with sample sort and outputs sorted data to result array.
+    */
+    template <
+        order_t sortOrder, uint_t sortingKeyOnly, uint_t numSplitters, uint_t oversamplingFactor,
+        uint_t smallSortThreashold
+    >
+    void sampleSort(
+        data_t *h_keys, data_t *h_values, data_t *h_keysBuffer, data_t *h_valuesBuffer, data_t *h_keysSorted,
+        data_t *h_valuesSorted, data_t *h_samples, uint_t *h_elementBuckets, uint_t arrayLength
+    )
+    {
+        // When array is small enough, it is sorted with small sort (in our case merge sort).
+        // Merge sort was chosen because it is stable sort and it keeps sorted array stable.
+        if (arrayLength <= smallSortThreashold)
+        {
+            mergeSortSequential<sortOrder, sortingKeyOnly>(
+                h_keys, h_values, h_keysBuffer, h_valuesBuffer, h_keysSorted, h_valuesSorted, arrayLength
+            );
+            return;
+        }
 
-    ///*
-    //Wrapper for bitonic sort method.
-    //The code runs faster if arguments are passed to method. If members are accessed directly, code runs slower.
-    //*/
-    //void sortKeyOnly()
-    //{
-    //    if (_sortOrder == ORDER_ASC)
-    //    {
-    //        mergeSortSequential<ORDER_ASC, true>(_h_keys, NULL, _h_keysBuffer, NULL, _arrayLength);
-    //    }
-    //    else
-    //    {
-    //        mergeSortSequential<ORDER_DESC, true>(_h_keys, NULL, _h_keysBuffer, NULL, _arrayLength);
-    //    }
-    //}
+        collectSamples<sortOrder, sortingKeyOnly>(h_keys, h_samples, arrayLength);
 
-    ///*
-    //Wrapper for bitonic sort method.
-    //The code runs faster if arguments are passed to method. If members are accessed directly, code runs slower.
-    //*/
-    //void sortKeyValue()
-    //{
-    //    if (_sortOrder == ORDER_ASC)
-    //    {
-    //        mergeSortSequential<ORDER_ASC, false>(_h_keys, _h_values, _h_keysBuffer, _h_valuesBuffer, _arrayLength);
-    //    }
-    //    else
-    //    {
-    //        mergeSortSequential<ORDER_DESC, false>(_h_keys, _h_values, _h_keysBuffer, _h_valuesBuffer, _arrayLength);
-    //    }
-    //}
+        // Holds bucket sizes and bucket offsets after exclusive scan is performed on bucket sizes.
+        // A new array is needed for every level of recursion.
+        uint_t bucketSizes[numSplitters + 1];
+        // For clarity purposes another pointer is used
+        data_t *splitters = h_samples;
+
+        // From "NUM_SAMPLES_SEQUENTIAL" samples collects "numSplitters" splitters
+        for (uint_t i = 0; i < numSplitters; i++)
+        {
+            splitters[i] = h_samples[i * oversamplingFactor + (oversamplingFactor / 2)];
+            bucketSizes[i] = 0;
+        }
+        // For "numSplitters" splitters "numSplitters + 1" buckets are created
+        bucketSizes[numSplitters] = 0;
+
+        // For all elements in data table searches, which bucket they belong to and counts the elements in buckets
+        for (uint_t i = 0; i < arrayLength; i++)
+        {
+            uint_t bucket = binarySearchInclusive<sortOrder>(splitters, h_keys[i], numSplitters);
+            bucketSizes[bucket]++;
+            h_elementBuckets[i] = bucket;
+        }
+
+        // Performs an EXCLUSIVE scan over array of bucket sizes in order to get bucket offsets
+        exclusiveScan(bucketSizes, numSplitters + 1);
+        // For clarity purposes another pointer is used
+        uint_t *bucketOffsets = bucketSizes;
+
+        // Goes through all elements again and stores them in their corresponding buckets
+        for (uint_t i = 0; i < arrayLength; i++)
+        {
+            uint_t *bucketOffset = &bucketOffsets[h_elementBuckets[i]];
+            h_keysBuffer[*bucketOffset] = h_keys[i];
+
+            if (!sortingKeyOnly)
+            {
+                h_valuesBuffer[*bucketOffset] = h_values[i];
+            }
+
+            (*bucketOffset)++;
+        }
+
+        // Recursively sorts buckets
+        for (uint_t i = 0; i <= numSplitters; i++)
+        {
+            uint_t prevBucketOffset = i > 0 ? bucketOffsets[i - 1] : 0;
+            uint_t bucketSize = bucketOffsets[i] - prevBucketOffset;
+
+            if (bucketSize > 0)
+            {
+                // Primary and buffer arrays are exchanged
+                if (sortingKeyOnly)
+                {
+                    sampleSort<sortOrder, sortingKeyOnly, numSplitters, oversamplingFactor, smallSortThreashold>(
+                        h_keysBuffer + prevBucketOffset, NULL, h_keys + prevBucketOffset, NULL,
+                        h_keysSorted + prevBucketOffset, h_valuesSorted + prevBucketOffset, h_samples,
+                        h_elementBuckets, bucketSize
+                    );
+                }
+                else
+                {
+                    sampleSort<sortOrder, sortingKeyOnly, numSplitters, oversamplingFactor, smallSortThreashold>(
+                        h_keysBuffer + prevBucketOffset, h_valuesBuffer + prevBucketOffset, h_keys + prevBucketOffset,
+                        h_values + prevBucketOffset, h_keysSorted + prevBucketOffset,
+                        h_valuesSorted + prevBucketOffset, h_samples, h_elementBuckets, bucketSize
+                    );
+                }
+            }
+        }
+    }
+
+    /*
+    Wrapper for bitonic sort method.
+    The code runs faster if arguments are passed to method. If members are accessed directly, code runs slower.
+    */
+    void sortKeyOnly()
+    {
+        if (_sortOrder == ORDER_ASC)
+        {
+            sampleSort<ORDER_ASC, true, numSplittersKo, oversamplingFactorKo, smallSortThresholdKo>(
+                _h_keys, NULL, _h_keysBuffer, NULL, _h_keysSorted, _h_valuesSorted, _h_samples,
+                _h_elementBuckets, _arrayLength
+            );
+        }
+        else
+        {
+            sampleSort<ORDER_DESC, true, numSplittersKo, oversamplingFactorKo, smallSortThresholdKo>(
+                _h_keys, NULL, _h_keysBuffer, NULL, _h_keysSorted, _h_valuesSorted, _h_samples,
+                _h_elementBuckets, _arrayLength
+            );
+        }
+    }
+
+    /*
+    Wrapper for bitonic sort method.
+    The code runs faster if arguments are passed to method. If members are accessed directly, code runs slower.
+    */
+    void sortKeyValue()
+    {
+        if (_sortOrder == ORDER_ASC)
+        {
+            sampleSort<ORDER_ASC, false, numSplittersKv, oversamplingFactorKv, smallSortThresholdKv>(
+                _h_keys, _h_values, _h_keysBuffer, _h_valuesBuffer, _h_keysSorted, _h_valuesSorted, _h_samples,
+                _h_elementBuckets, _arrayLength
+            );
+        }
+        else
+        {
+            sampleSort<ORDER_DESC, false, numSplittersKv, oversamplingFactorKv, smallSortThresholdKv>(
+                _h_keys, _h_values, _h_keysBuffer, _h_valuesBuffer, _h_keysSorted, _h_valuesSorted, _h_samples,
+                _h_elementBuckets, _arrayLength
+            );
+        }
+    }
 
 public:
     std::string getSortName()
@@ -244,6 +304,8 @@ public:
 
         MergeSortSequential::memoryDestroy();
 
+        free(_h_keysSorted);
+        free(_h_valuesSorted);
         free(_h_samples);
         free(_h_valuesBuffer);
     }
