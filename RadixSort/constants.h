@@ -9,39 +9,39 @@ _KV: Key-value
 /* ------------------ PADDING KERNEL ----------------- */
 
 // How many threads are used per on thread block for padding. Has to be power of 2.
-#define THREADS_PER_PADDING 128
+#define THREADS_PADDING 128
 // How many table elements are processed by one thread in padding kernel. Min value is 2.
-#define ELEMS_PER_THREAD_PADDING 4
+#define ELEMS_PADDING 4
 
 
 /* ----------------- RADIX SORT LOCAL ---------------- */
 
 // How many threads are used per one thread block for local radix sort kernel. Has to be power of 2.
-#define THREADS_PER_LOCAL_SORT_KO 128
-#define THREADS_PER_LOCAL_SORT_KV 128
+#define THREADS_LOCAL_SORT_KO 128
+#define THREADS_LOCAL_SORT_KV 128
 // How many elements are processed by one thread in local radix sort.
 // Has to be divisable by 2. Min value is 1, Max value is 8.
-#define ELEMS_PER_THREAD_LOCAL_KO 6
-#define ELEMS_PER_THREAD_LOCAL_KV 4
+#define ELEMS_LOCAL_KO 6
+#define ELEMS_LOCAL_KV 4
 
 
 /* ------------------ GENERATE BUCKET ---------------- */
 
 // How many threads are used per one thread block for kernel, which generates bucket sizes.
 // Has to be power of 2. Number of elements processed by one thread is implicitly specified with:
-// "(THREADS_PER_LOCAL_SORT * ELEMS_PER_THREAD_LOCAL) / THREADS_PER_GEN_BUCKETS"
-#define THREADS_PER_GEN_BUCKETS_KO 128
-#define THREADS_PER_GEN_BUCKETS_KV 128
+// "(THREADS_LOCAL_SORT * ELEMS_LOCAL) / THREADS_GEN_BUCKETS"
+#define THREADS_GEN_BUCKETS_KO 128
+#define THREADS_GEN_BUCKETS_KV 128
 
 
 /* ---------------- RADIX SORT GLOBAL ---------------- */
 
 // How many threads are used per one thread block for global radix sort kernel. Has to be power of 2.
 // Number of elements processed by one thread is implicitly specified with:
-// "(THREADS_PER_LOCAL_SORT * ELEMS_PER_THREAD_LOCAL) / THREADS_PER_GLOBAL_SORT"
+// "(THREADS_LOCAL_SORT * ELEMS_LOCAL) / THREADS_GLOBAL_SORT"
 
-#define THREADS_PER_GLOBAL_SORT_KO 128
-#define THREADS_PER_GLOBAL_SORT_KV 256
+#define THREADS_GLOBAL_SORT_KO 128
+#define THREADS_GLOBAL_SORT_KV 256
 
 
 /* ---------- PARALLEL ALGORITHM PARAMETERS ---------- */

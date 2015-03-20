@@ -14,32 +14,32 @@
 /*
 Performs scan for provided predicates and returns structure of results for each predicate.
 The function is the same as in key-value version. The only difference is the preprocessor constant value
-ELEMS_PER_THREAD_LOCAL_KO.
+ELEMS_LOCAL_KO.
 */
 template <uint_t blockSize>
 __device__ uint_t intraBlockScanKeyOnly(
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 1)
+#if (ELEMS_LOCAL_KO >= 1)
     bool pred0
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 2)
+#if (ELEMS_LOCAL_KO >= 2)
     ,bool pred1
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 3)
+#if (ELEMS_LOCAL_KO >= 3)
     ,bool pred2
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 4)
+#if (ELEMS_LOCAL_KO >= 4)
     ,bool pred3
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 5)
+#if (ELEMS_LOCAL_KO >= 5)
     ,bool pred4
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 6)
+#if (ELEMS_LOCAL_KO >= 6)
     ,bool pred5
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 7)
+#if (ELEMS_LOCAL_KO >= 7)
     ,bool pred6
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 8)
+#if (ELEMS_LOCAL_KO >= 8)
     ,bool pred7
 #endif
 )
@@ -50,35 +50,35 @@ __device__ uint_t intraBlockScanKeyOnly(
     uint_t warpResult = 0;
     uint_t predResult = 0;
 
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 1)
+#if (ELEMS_LOCAL_KO >= 1)
     warpResult += binaryWarpScan(pred0);
     predResult += pred0;
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 2)
+#if (ELEMS_LOCAL_KO >= 2)
     warpResult += binaryWarpScan(pred1);
     predResult += pred1;
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 3)
+#if (ELEMS_LOCAL_KO >= 3)
     warpResult += binaryWarpScan(pred2);
     predResult += pred2;
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 4)
+#if (ELEMS_LOCAL_KO >= 4)
     warpResult += binaryWarpScan(pred3);
     predResult += pred3;
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 5)
+#if (ELEMS_LOCAL_KO >= 5)
     warpResult += binaryWarpScan(pred4);
     predResult += pred4;
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 6)
+#if (ELEMS_LOCAL_KO >= 6)
     warpResult += binaryWarpScan(pred5);
     predResult += pred5;
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 7)
+#if (ELEMS_LOCAL_KO >= 7)
     warpResult += binaryWarpScan(pred6);
     predResult += pred6;
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 8)
+#if (ELEMS_LOCAL_KO >= 8)
     warpResult += binaryWarpScan(pred7);
     predResult += pred7;
 #endif

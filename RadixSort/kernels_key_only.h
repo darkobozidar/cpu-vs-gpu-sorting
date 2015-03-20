@@ -22,7 +22,7 @@ template <uint_t threadsSortLocal, uint_t bitCountRadix, order_t sortOrder>
 __global__ void radixSortLocalKernel(data_t *dataTable, uint_t bitOffset)
 {
     extern __shared__ data_t sortTile[];
-    const uint_t elemsPerThreadBlock = threadsSortLocal * ELEMS_PER_THREAD_LOCAL_KO;
+    const uint_t elemsPerThreadBlock = threadsSortLocal * ELEMS_LOCAL_KO;
     const uint_t offset = blockIdx.x * elemsPerThreadBlock;
     __shared__ uint_t falseTotal;
 
@@ -33,49 +33,49 @@ __global__ void radixSortLocalKernel(data_t *dataTable, uint_t bitOffset)
     }
     __syncthreads();
 
-    // Every thread processes ELEMS_PER_THREAD_LOCAL_KO elements
+    // Every thread processes ELEMS_LOCAL_KO elements
     for (uint_t shift = bitOffset; shift < bitOffset + bitCountRadix; shift++)
     {
         uint_t predResult = 0;
 
         // Every thread reads it's corresponding elements into registers
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 1)
-        data_t el0 = sortTile[ELEMS_PER_THREAD_LOCAL_KO * threadIdx.x];
+#if (ELEMS_LOCAL_KO >= 1)
+        data_t el0 = sortTile[ELEMS_LOCAL_KO * threadIdx.x];
         bool pred0 = (el0 >> shift) & 1;
         predResult += pred0;
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 2)
-        data_t el1 = sortTile[ELEMS_PER_THREAD_LOCAL_KO * threadIdx.x + 1];
+#if (ELEMS_LOCAL_KO >= 2)
+        data_t el1 = sortTile[ELEMS_LOCAL_KO * threadIdx.x + 1];
         bool pred1 = (el1 >> shift) & 1;
         predResult += pred1;
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 3)
-        data_t el2 = sortTile[ELEMS_PER_THREAD_LOCAL_KO * threadIdx.x + 2];
+#if (ELEMS_LOCAL_KO >= 3)
+        data_t el2 = sortTile[ELEMS_LOCAL_KO * threadIdx.x + 2];
         bool pred2 = (el2 >> shift) & 1;
         predResult += pred2;
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 4)
-        data_t el3 = sortTile[ELEMS_PER_THREAD_LOCAL_KO * threadIdx.x + 3];
+#if (ELEMS_LOCAL_KO >= 4)
+        data_t el3 = sortTile[ELEMS_LOCAL_KO * threadIdx.x + 3];
         bool pred3 = (el3 >> shift) & 1;
         predResult += pred3;
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 5)
-        data_t el4 = sortTile[ELEMS_PER_THREAD_LOCAL_KO * threadIdx.x + 4];
+#if (ELEMS_LOCAL_KO >= 5)
+        data_t el4 = sortTile[ELEMS_LOCAL_KO * threadIdx.x + 4];
         bool pred4 = (el4 >> shift) & 1;
         predResult += pred4;
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 6)
-        data_t el5 = sortTile[ELEMS_PER_THREAD_LOCAL_KO * threadIdx.x + 5];
+#if (ELEMS_LOCAL_KO >= 6)
+        data_t el5 = sortTile[ELEMS_LOCAL_KO * threadIdx.x + 5];
         bool pred5 = (el5 >> shift) & 1;
         predResult += pred5;
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 7)
-        data_t el6 = sortTile[ELEMS_PER_THREAD_LOCAL_KO * threadIdx.x + 6];
+#if (ELEMS_LOCAL_KO >= 7)
+        data_t el6 = sortTile[ELEMS_LOCAL_KO * threadIdx.x + 6];
         bool pred6 = (el6 >> shift) & 1;
         predResult += pred6;
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 7)
-        data_t el7 = sortTile[ELEMS_PER_THREAD_LOCAL_KO * threadIdx.x + 7];
+#if (ELEMS_LOCAL_KO >= 7)
+        data_t el7 = sortTile[ELEMS_LOCAL_KO * threadIdx.x + 7];
         bool pred7 = (el7 >> shift) & 1;
         predResult += pred7;
 #endif
@@ -83,28 +83,28 @@ __global__ void radixSortLocalKernel(data_t *dataTable, uint_t bitOffset)
 
         // According to provided predicates calculates number of elements with true predicate before this thread.
         uint_t trueBefore = intraBlockScanKeyOnly<threadsSortLocal>(
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 1)
+#if (ELEMS_LOCAL_KO >= 1)
             pred0
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 2)
+#if (ELEMS_LOCAL_KO >= 2)
             , pred1
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 3)
+#if (ELEMS_LOCAL_KO >= 3)
             , pred2
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 4)
+#if (ELEMS_LOCAL_KO >= 4)
             , pred3
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 5)
+#if (ELEMS_LOCAL_KO >= 5)
             , pred4
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 6)
+#if (ELEMS_LOCAL_KO >= 6)
             , pred5
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 7)
+#if (ELEMS_LOCAL_KO >= 7)
             , pred6
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 8)
+#if (ELEMS_LOCAL_KO >= 8)
             , pred7
 #endif
             );
@@ -117,36 +117,36 @@ __global__ void radixSortLocalKernel(data_t *dataTable, uint_t bitOffset)
         __syncthreads();
 
         // Every thread stores it's corresponding elements
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 1)
-        sortTile[pred0 ? trueBefore + falseTotal : (ELEMS_PER_THREAD_LOCAL_KO * threadIdx.x) - trueBefore] = el0;
+#if (ELEMS_LOCAL_KO >= 1)
+        sortTile[pred0 ? trueBefore + falseTotal : (ELEMS_LOCAL_KO * threadIdx.x) - trueBefore] = el0;
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 2)
+#if (ELEMS_LOCAL_KO >= 2)
         trueBefore += pred0;
-        sortTile[pred1 ? trueBefore + falseTotal : (ELEMS_PER_THREAD_LOCAL_KO * threadIdx.x + 1) - trueBefore] = el1;
+        sortTile[pred1 ? trueBefore + falseTotal : (ELEMS_LOCAL_KO * threadIdx.x + 1) - trueBefore] = el1;
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 3)
+#if (ELEMS_LOCAL_KO >= 3)
         trueBefore += pred1;
-        sortTile[pred2 ? trueBefore + falseTotal : (ELEMS_PER_THREAD_LOCAL_KO * threadIdx.x + 2) - trueBefore] = el2;
+        sortTile[pred2 ? trueBefore + falseTotal : (ELEMS_LOCAL_KO * threadIdx.x + 2) - trueBefore] = el2;
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 4)
+#if (ELEMS_LOCAL_KO >= 4)
         trueBefore += pred2;
-        sortTile[pred3 ? trueBefore + falseTotal : (ELEMS_PER_THREAD_LOCAL_KO * threadIdx.x + 3) - trueBefore] = el3;
+        sortTile[pred3 ? trueBefore + falseTotal : (ELEMS_LOCAL_KO * threadIdx.x + 3) - trueBefore] = el3;
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 5)
+#if (ELEMS_LOCAL_KO >= 5)
         trueBefore += pred3;
-        sortTile[pred4 ? trueBefore + falseTotal : (ELEMS_PER_THREAD_LOCAL_KO * threadIdx.x + 4) - trueBefore] = el4;
+        sortTile[pred4 ? trueBefore + falseTotal : (ELEMS_LOCAL_KO * threadIdx.x + 4) - trueBefore] = el4;
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 6)
+#if (ELEMS_LOCAL_KO >= 6)
         trueBefore += pred4;
-        sortTile[pred5 ? trueBefore + falseTotal : (ELEMS_PER_THREAD_LOCAL_KO * threadIdx.x + 5) - trueBefore] = el5;
+        sortTile[pred5 ? trueBefore + falseTotal : (ELEMS_LOCAL_KO * threadIdx.x + 5) - trueBefore] = el5;
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 7)
+#if (ELEMS_LOCAL_KO >= 7)
         trueBefore += pred5;
-        sortTile[pred6 ? trueBefore + falseTotal : (ELEMS_PER_THREAD_LOCAL_KO * threadIdx.x + 6) - trueBefore] = el6;
+        sortTile[pred6 ? trueBefore + falseTotal : (ELEMS_LOCAL_KO * threadIdx.x + 6) - trueBefore] = el6;
 #endif
-#if (ELEMS_PER_THREAD_LOCAL_KO >= 8)
+#if (ELEMS_LOCAL_KO >= 8)
         trueBefore += pred6;
-        sortTile[pred7 ? trueBefore + falseTotal : (ELEMS_PER_THREAD_LOCAL_KO * threadIdx.x + 7) - trueBefore] = el7;
+        sortTile[pred7 ? trueBefore + falseTotal : (ELEMS_LOCAL_KO * threadIdx.x + 7) - trueBefore] = el7;
 #endif
         __syncthreads();
     }
