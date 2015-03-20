@@ -85,16 +85,28 @@ protected:
     }
 
     /*
+    Returns the output array. Implemented because sample sort class (which is derived from this class) requires
+    different function to determine output array than this class.
+    */
+    data_t* getOutputMergeArray(data_t *arrayBuffer, data_t *arraySorted, bool isLastMergePhase)
+    {
+        return arrayBuffer;
+    }
+
+    /*
     Merges two blocks in array and outputs the result to buffer array.
     */
     template <order_t sortOrder, bool sortingKeyOnly>
     void mergeBlocks(
-        data_t *h_keys, data_t *h_values, data_t *h_keysBuffer, data_t *h_valuesBuffer, uint_t arrayLength,
-        uint_t sortedBlockSize, uint_t blockIndex
+        data_t *h_keys, data_t *h_values, data_t *h_keysBuffer, data_t *h_valuesBuffer, data_t *h_keysSorted,
+        data_t *h_valuesSorted, uint_t arrayLength, uint_t sortedBlockSize, uint_t blockIndex, bool isLastMergePhase
     )
     {
         // Number of sub-blocks being merged
         uint_t subBlockSize = sortedBlockSize / 2;
+        // If it is last phase of merge sort, data is coppied to result array
+        data_t *keysOutput = getOutputMergeArray(h_keysBuffer, h_keysSorted, isLastMergePhase);
+        data_t *valuesOutput = getOutputMergeArray(h_valuesBuffer, h_valuesSorted, isLastMergePhase);
 
         // Odd (left) block being merged
         uint_t oddIndex = blockIndex * sortedBlockSize;
@@ -103,10 +115,10 @@ protected:
         // If there is only odd block without even block, then only odd block is coppied into buffer
         if (oddEnd == arrayLength)
         {
-            std::copy(h_keys + oddIndex, h_keys + oddEnd, h_keysBuffer + oddIndex);
+            std::copy(h_keys + oddIndex, h_keys + oddEnd, keysOutput + oddIndex);
             if (!sortingKeyOnly)
             {
-                std::copy(h_values + oddIndex, h_values + oddEnd, h_valuesBuffer + oddIndex);
+                std::copy(h_values + oddIndex, h_values + oddEnd, valuesOutput + oddIndex);
             }
             return;
         }
@@ -124,10 +136,10 @@ protected:
 
             if (sortOrder == ORDER_ASC ? oddElement <= evenElement : oddElement >= evenElement)
             {
-                h_keysBuffer[mergeIndex] = oddElement;
+                keysOutput[mergeIndex] = oddElement;
                 if (!sortingKeyOnly)
                 {
-                    h_valuesBuffer[mergeIndex] = h_values[oddIndex];
+                    valuesOutput[mergeIndex] = h_values[oddIndex];
                 }
 
                 mergeIndex++;
@@ -135,10 +147,10 @@ protected:
             }
             else
             {
-                h_keysBuffer[mergeIndex] = evenElement;
+                keysOutput[mergeIndex] = evenElement;
                 if (!sortingKeyOnly)
                 {
-                    h_valuesBuffer[mergeIndex] = h_values[evenIndex];
+                    valuesOutput[mergeIndex] = h_values[evenIndex];
                 }
 
                 mergeIndex++;
@@ -149,28 +161,30 @@ protected:
         // Block that wasn't merged entirely is coppied into buffer array
         if (oddIndex == oddEnd)
         {
-            std::copy(h_keys + evenIndex, h_keys + evenEnd, h_keysBuffer + mergeIndex);
+            std::copy(h_keys + evenIndex, h_keys + evenEnd, keysOutput + mergeIndex);
             if (!sortingKeyOnly)
             {
-                std::copy(h_values + evenIndex, h_values + evenEnd, h_valuesBuffer + mergeIndex);
+                std::copy(h_values + evenIndex, h_values + evenEnd, valuesOutput + mergeIndex);
             }
         }
         else
         {
-            std::copy(h_keys + oddIndex, h_keys + oddEnd, h_keysBuffer + mergeIndex);
+            std::copy(h_keys + oddIndex, h_keys + oddEnd, keysOutput + mergeIndex);
             if (!sortingKeyOnly)
             {
-                std::copy(h_values + oddIndex, h_values + oddEnd, h_valuesBuffer + mergeIndex);
+                std::copy(h_values + oddIndex, h_values + oddEnd, valuesOutput + mergeIndex);
             }
         }
     }
 
     /*
     Sorts data sequentially with merge sort.
+    Arrays for sorted keys and values are needed in sample sort, which is derived from this class.
     */
     template <order_t sortOrder, bool sortingKeyOnly>
     void mergeSortSequential(
-        data_t *h_keys, data_t *h_values, data_t *h_keysBuffer, data_t *h_valuesBuffer, uint_t arrayLength
+        data_t *h_keys, data_t *h_values, data_t *h_keysBuffer, data_t *h_valuesBuffer, data_t *h_keysSorted,
+        data_t *h_valuesSorted, uint_t arrayLength
     )
     {
         uint_t arrayLenPower2 = nextPowerOf2(arrayLength);
@@ -180,12 +194,14 @@ protected:
         {
             // Number of merged blocks that will be created in this iteration
             uint_t numBlocks = (arrayLength - 1) / sortedBlockSize + 1;
+            bool isLastMergePhase = numBlocks == 1;
 
             // Merge of all blocks
             for (uint_t blockIndex = 0; blockIndex < numBlocks; blockIndex++)
             {
                 mergeBlocks<sortOrder, sortingKeyOnly>(
-                    h_keys, h_values, h_keysBuffer, h_valuesBuffer, arrayLength, sortedBlockSize, blockIndex
+                    h_keys, h_values, h_keysBuffer, h_valuesBuffer, h_keysSorted, h_valuesSorted, arrayLength,
+                    sortedBlockSize, blockIndex, isLastMergePhase
                 );
             }
 
@@ -211,11 +227,11 @@ protected:
     {
         if (_sortOrder == ORDER_ASC)
         {
-            mergeSortSequential<ORDER_ASC, true>(_h_keys, NULL, _h_keysBuffer, NULL, _arrayLength);
+            mergeSortSequential<ORDER_ASC, true>(_h_keys, NULL, _h_keysBuffer, NULL, NULL, NULL, _arrayLength);
         }
         else
         {
-            mergeSortSequential<ORDER_DESC, true>(_h_keys, NULL, _h_keysBuffer, NULL, _arrayLength);
+            mergeSortSequential<ORDER_DESC, true>(_h_keys, NULL, _h_keysBuffer, NULL, NULL, NULL, _arrayLength);
         }
     }
 
@@ -227,11 +243,15 @@ protected:
     {
         if (_sortOrder == ORDER_ASC)
         {
-            mergeSortSequential<ORDER_ASC, false>(_h_keys, _h_values, _h_keysBuffer, _h_valuesBuffer, _arrayLength);
+            mergeSortSequential<ORDER_ASC, false>(
+                _h_keys, _h_values, _h_keysBuffer, _h_valuesBuffer, NULL, NULL, _arrayLength
+            );
         }
         else
         {
-            mergeSortSequential<ORDER_DESC, false>(_h_keys, _h_values, _h_keysBuffer, _h_valuesBuffer, _arrayLength);
+            mergeSortSequential<ORDER_DESC, false>(
+                _h_keys, _h_values, _h_keysBuffer, _h_valuesBuffer, NULL, NULL, _arrayLength
+            );
         }
     }
 
