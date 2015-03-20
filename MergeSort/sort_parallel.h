@@ -163,12 +163,12 @@ protected:
     padding is added to "elemsPerThreadBlock". I array length is greater than "elemsPerThreadBlock", then
     padding is added to the next power of 2 of array length.
     */
-    template <order_t sortOrder>
+    template <order_t sortOrder, bool sortingKeyOnly>
     void addPadding(data_t *d_keys, data_t *d_keysBuffer, uint_t arrayLength)
     {
-        uint_t elemsPerThreadBlock = max(
-            threadsMergeSortKo * elemsMergeSortKo, threadsMergeSortKv * elemsMergeSortKv
-        );
+        uint_t threadsMergeSort = sortingKeyOnly ? threadsMergeSortKo : threadsMergeSortKv;
+        uint_t elemsMergeSort = sortingKeyOnly ? elemsMergeSortKo : elemsMergeSortKv;
+        uint_t elemsPerThreadBlock = threadsMergeSort * elemsMergeSort;
         uint_t arrayLenRoundedUp = max(nextPowerOf2(arrayLength), elemsPerThreadBlock);
         runAddPaddingKernel<sortOrder>(d_keys, d_keysBuffer, arrayLength, arrayLenRoundedUp);
     }
@@ -360,7 +360,7 @@ protected:
         uint_t lastPaddingMergePhase = log2((double)(sortedBlockSize));
         uint_t arrayLenPrevPower2 = previousPowerOf2(arrayLength);
 
-        addPadding<sortOrder>(d_keys, d_keysBuffer, arrayLength);
+        addPadding<sortOrder, sortingKeyOnly>(d_keys, d_keysBuffer, arrayLength);
         runMergeSortKernel<sortOrder, sortingKeyOnly>(d_keys, d_values, arrayLength);
 
         while (sortedBlockSize < arrayLength)
