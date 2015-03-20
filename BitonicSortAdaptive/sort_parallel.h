@@ -80,30 +80,6 @@ protected:
     }
 
     /*
-    Method for destroying memory needed for sort. For sort testing purposes this method is public.
-    */
-    void memoryDestroy()
-    {
-        if (_arrayLength == 0)
-        {
-            return;
-        }
-
-        cudaError_t error;
-        SortParallel::memoryDestroy();
-
-        error = cudaFree(_d_keysBuffer);
-        checkCudaError(error);
-        error = cudaFree(_d_valuesBuffer);
-        checkCudaError(error);
-
-        error = cudaFree(_d_intervals);
-        checkCudaError(error);
-        error = cudaFree(_d_intervalsBuffer);
-        checkCudaError(error);
-    }
-
-    /*
     Adds padding of MAX/MIN values to input table, deppending if sort order is ascending or descending. This is
     needed, if table length is not power of 2. In order for bitonic sort to work, table length has to be power of 2.
     */
@@ -403,7 +379,7 @@ protected:
     }
 
     /*
-    Wrapper for bitonic sort method.
+    Wrapper for adaptive bitonic sort method.
     The code runs faster if arguments are passed to method. If members are accessed directly, code runs slower.
     */
     void sortKeyOnly()
@@ -423,8 +399,8 @@ protected:
     }
 
     /*
-    wrapper for bitonic sort method.
-    the code runs faster if arguments are passed to method. if members are accessed directly, code runs slower.
+    Wrapper for adaptive bitonic sort method.
+    The code runs faster if arguments are passed to method. if members are accessed directly, code runs slower.
     */
     void sortKeyValue()
     {
@@ -442,20 +418,40 @@ protected:
         }
     }
 
-
 public:
     std::string getSortName()
     {
         return this->_sortName;
+    }
+
+    /*
+    Method for destroying memory needed for sort. For sort testing purposes this method is public.
+    */
+    void memoryDestroy()
+    {
+        if (_arrayLength == 0)
+        {
+            return;
+        }
+
+        SortParallel::memoryDestroy();
+        cudaError_t error;
+
+        error = cudaFree(_d_keysBuffer);
+        checkCudaError(error);
+        error = cudaFree(_d_valuesBuffer);
+        checkCudaError(error);
+
+        error = cudaFree(_d_intervals);
+        checkCudaError(error);
+        error = cudaFree(_d_intervalsBuffer);
+        checkCudaError(error);
     }
 };
 
 
 /*
 Class for parallel adaptive bitonic sort.
-
-uint_t threadsGenIntervalsKo, uint_t elemsGenIntervalsKo,
-uint_t threadsGenIntervalsKv, uint_t elemsGenintervalsKv
 */
 class BitonicSortAdaptiveParallel : public BitonicSortAdaptiveParallelBase<
     THREADS_BITONIC_SORT_KO, ELEMS_BITONIC_SORT_KO,

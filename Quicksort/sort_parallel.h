@@ -152,49 +152,6 @@ protected:
         }
     }
 
-    void memoryDestroy()
-    {
-        if (_arrayLength == 0)
-        {
-            return;
-        }
-
-        SortParallel::memoryDestroy();
-
-        cudaError_t error;
-
-        /* HOST MEMORY */
-
-        free(_h_globalSeqHost);
-        free(_h_globalSeqHostBuffer);
-
-        // These arrays are allocated in CUDA pinned memory
-        error = cudaFreeHost(_h_minMaxValues);
-        checkCudaError(error);
-        error = cudaFreeHost(_h_globalSeqDev);
-        checkCudaError(error);
-        error = cudaFreeHost(_h_globalSeqIndexes);
-        checkCudaError(error);
-        error = cudaFreeHost(_h_localSeq);
-        checkCudaError(error);
-
-        /* DEVICE MEMORY */
-
-        error = cudaFree(_d_keysBuffer);
-        checkCudaError(error);
-        error = cudaFree(_d_valuesBuffer);
-        checkCudaError(error);
-        error = cudaFree(_d_valuesPivot);
-        checkCudaError(error);
-
-        error = cudaFree(_d_globalSeqDev);
-        checkCudaError(error);
-        error = cudaFree(_d_globalSeqIndexes);
-        checkCudaError(error);
-        error = cudaFree(_d_localSeq);
-        checkCudaError(error);
-    }
-
     /*
     Executes kernel for finding min/max values. Every thread block searches for min/max values in their
     corresponding chunk of data. This means kernel will return a list of min/max values with same length
@@ -462,7 +419,7 @@ protected:
     }
 
     /*
-    Wrapper for bitonic sort method.
+    Wrapper for quicksort method.
     The code runs faster if arguments are passed to method. If members are accessed directly, code runs slower.
     */
     void sortKeyOnly()
@@ -486,8 +443,8 @@ protected:
     }
 
     /*
-    wrapper for bitonic sort method.
-    the code runs faster if arguments are passed to method. if members are accessed directly, code runs slower.
+    Wrapper for quicksort method.
+    The code runs faster if arguments are passed to method. if members are accessed directly, code runs slower.
     */
     void sortKeyValue()
     {
@@ -513,6 +470,49 @@ public:
     std::string getSortName()
     {
         return this->_sortName;
+    }
+
+    void memoryDestroy()
+    {
+        if (_arrayLength == 0)
+        {
+            return;
+        }
+
+        SortParallel::memoryDestroy();
+
+        cudaError_t error;
+
+        /* HOST MEMORY */
+
+        free(_h_globalSeqHost);
+        free(_h_globalSeqHostBuffer);
+
+        // These arrays are allocated in CUDA pinned memory
+        error = cudaFreeHost(_h_minMaxValues);
+        checkCudaError(error);
+        error = cudaFreeHost(_h_globalSeqDev);
+        checkCudaError(error);
+        error = cudaFreeHost(_h_globalSeqIndexes);
+        checkCudaError(error);
+        error = cudaFreeHost(_h_localSeq);
+        checkCudaError(error);
+
+        /* DEVICE MEMORY */
+
+        error = cudaFree(_d_keysBuffer);
+        checkCudaError(error);
+        error = cudaFree(_d_valuesBuffer);
+        checkCudaError(error);
+        error = cudaFree(_d_valuesPivot);
+        checkCudaError(error);
+
+        error = cudaFree(_d_globalSeqDev);
+        checkCudaError(error);
+        error = cudaFree(_d_globalSeqIndexes);
+        checkCudaError(error);
+        error = cudaFree(_d_localSeq);
+        checkCudaError(error);
     }
 };
 

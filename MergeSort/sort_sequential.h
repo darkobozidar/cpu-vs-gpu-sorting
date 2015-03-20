@@ -60,22 +60,6 @@ protected:
     }
 
     /*
-    Method for destroying memory needed for sort. For sort testing purposes this method is public.
-    */
-    void memoryDestroy()
-    {
-        if (_arrayLength == 0)
-        {
-            return;
-        }
-
-        SortSequential::memoryDestroy();
-
-        free(_h_keysBuffer);
-        free(_h_valuesBuffer);
-    }
-
-    /*
     From provided array offset, size of array block and length of entire array returns end index of the block.
     */
     uint_t getEndIndex(uint_t offset, uint_t subBlockSize, uint_t arrayLength)
@@ -230,7 +214,7 @@ protected:
     }
 
     /*
-    Wrapper for sample sort method.
+    Wrapper for merge sort method.
     The code runs faster if arguments are passed to method. If members are accessed directly, code runs slower.
     */
     void sortKeyOnly()
@@ -246,7 +230,7 @@ protected:
     }
 
     /*
-    Wrapper for sample sort method.
+    Wrapper for merge sort method.
     The code runs faster if arguments are passed to method. If members are accessed directly, code runs slower.
     */
     void sortKeyValue()
@@ -263,6 +247,22 @@ protected:
                 _h_keys, _h_values, _h_keysBuffer, _h_valuesBuffer, NULL, NULL, _arrayLength
             );
         }
+    }
+
+    /*
+    Method for destroying memory needed for sort. For sort testing purposes this method is public.
+    */
+    void memoryDestroy()
+    {
+        if (_arrayLength == 0)
+        {
+            return;
+        }
+
+        SortSequential::memoryDestroy();
+
+        free(_h_keysBuffer);
+        free(_h_valuesBuffer);
     }
 
 public:

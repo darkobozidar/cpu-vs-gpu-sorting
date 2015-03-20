@@ -421,47 +421,6 @@ protected:
         }
     }
 
-public:
-    std::string getSortName()
-    {
-        return this->_sortName;
-    }
-
-    /*
-    Method for destroying memory needed for sort. For sort testing purposes this method is public.
-    */
-    void memoryDestroy()
-    {
-        if (_arrayLength == 0)
-        {
-            return;
-        }
-
-        BitonicSortParallelBase::memoryDestroy();
-        cudaError_t error;
-
-        free(_h_globalBucketOffsets);
-
-        error = cudaFree(_d_keysBuffer);
-        checkCudaError(error);
-        error = cudaFree(_d_valuesBuffer);
-        checkCudaError(error);
-
-        // Arrays for storing samples
-        error = cudaFree(_d_samplesLocal);
-        checkCudaError(error);
-        error = cudaFree(_d_samplesGlobal);
-        checkCudaError(error);
-
-        // Arrays from bucket bookkeeping
-        error = cudaFree(_d_localBucketSizes);
-        checkCudaError(error);
-        error = cudaFree(_d_localBucketOffsets);
-        checkCudaError(error);
-        error = cudaFree(_d_globalBucketOffsets);
-        checkCudaError(error);
-    }
-
     /*
     Wrapper for sample sort method.
     The code runs faster if arguments are passed to method. If members are accessed directly, code runs slower.
@@ -506,6 +465,47 @@ public:
                 _arrayLength
             );
         }
+    }
+
+public:
+    std::string getSortName()
+    {
+        return this->_sortName;
+    }
+
+    /*
+    Method for destroying memory needed for sort. For sort testing purposes this method is public.
+    */
+    void memoryDestroy()
+    {
+        if (_arrayLength == 0)
+        {
+            return;
+        }
+
+        BitonicSortParallelBase::memoryDestroy();
+        cudaError_t error;
+
+        free(_h_globalBucketOffsets);
+
+        error = cudaFree(_d_keysBuffer);
+        checkCudaError(error);
+        error = cudaFree(_d_valuesBuffer);
+        checkCudaError(error);
+
+        // Arrays for storing samples
+        error = cudaFree(_d_samplesLocal);
+        checkCudaError(error);
+        error = cudaFree(_d_samplesGlobal);
+        checkCudaError(error);
+
+        // Arrays from bucket bookkeeping
+        error = cudaFree(_d_localBucketSizes);
+        checkCudaError(error);
+        error = cudaFree(_d_localBucketOffsets);
+        checkCudaError(error);
+        error = cudaFree(_d_globalBucketOffsets);
+        checkCudaError(error);
     }
 };
 

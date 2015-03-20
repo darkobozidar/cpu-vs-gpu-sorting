@@ -85,14 +85,37 @@ protected:
     }
 
     /*
-    Copies data from device to host. If sorting keys only, than "h_values" contains NULL.
+    Depending of the number of phases performed by radix sort the sorted array can be located in primary
+    or buffer array.
     */
     virtual void memoryCopyAfterSort(data_t *h_keys, data_t *h_values, uint_t arrayLength)
     {
-        SortParallel::memoryCopyAfterSort(h_keys, h_values, arrayLength);
-        cudaError_t error;
+        bool sortingKeyOnly = h_values == NULL;
+        uint_t bitCountRadix = sortingKeyOnly ? bitCountRadixKo : bitCountRadixKv;
+        uint_t numPhases = DATA_TYPE_BITS / bitCountRadix;
 
-        // TODO
+        if (numPhases % 2 == 0)
+        {
+            SortParallel::memoryCopyAfterSort(h_keys, h_values, arrayLength);
+        }
+        else
+        {
+            // Counting sort was performed
+            cudaError_t error = cudaMemcpy(
+                h_keys, (void *)_d_keysBuffer, _arrayLength * sizeof(*_h_keys), cudaMemcpyDeviceToHost
+            );
+            checkCudaError(error);
+
+            if (h_values == NULL)
+            {
+                return;
+            }
+
+            error = cudaMemcpy(
+                h_values, (void *)_d_valuesBuffer, arrayLength * sizeof(*h_values), cudaMemcpyDeviceToHost
+            );
+            checkCudaError(error);
+        }
     }
 
     /*

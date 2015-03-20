@@ -286,22 +286,6 @@ protected:
     }
 
     /*
-    Method for destroying memory needed for sort. For sort testing purposes this method is public.
-    */
-    void memoryDestroy()
-    {
-        if (_arrayLength == 0)
-        {
-            return;
-        }
-
-        SortSequential::memoryDestroy();
-
-        deleteBitonicTree(_root);
-        delete _spare;
-    }
-
-    /*
     Swaps node's key and value properties.
     */
     void swapNodeKeyValue(node_t *node1, node_t *node2)
@@ -469,6 +453,22 @@ public:
     std::string getSortName()
     {
         return this->_sortName;
+    }
+
+    /*
+    Method for destroying memory needed for sort. For sort testing purposes this method is public.
+    */
+    void memoryDestroy()
+    {
+        if (_arrayLength == 0)
+        {
+            return;
+        }
+
+        SortSequential::memoryDestroy();
+
+        deleteBitonicTree(_root);
+        delete _spare;
     }
 };
 

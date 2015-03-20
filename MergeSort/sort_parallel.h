@@ -121,30 +121,6 @@ protected:
     }
 
     /*
-    Method for destroying memory needed for sort. For sort testing purposes this method is public.
-    */
-    void memoryDestroy()
-    {
-        if (_arrayLength == 0)
-        {
-            return;
-        }
-
-        SortParallel::memoryDestroy();
-        cudaError_t error;
-
-        error = cudaFree(_d_keysBuffer);
-        checkCudaError(error);
-        error = cudaFree(_d_valuesBuffer);
-        checkCudaError(error);
-
-        error = cudaFree(_d_ranksEven);
-        checkCudaError(error);
-        error = cudaFree(_d_ranksOdd);
-        checkCudaError(error);
-    }
-
-    /*
     Returns the size of array that needs to be merged. If array size is power of 2, than array size is returned.
     In opposite case array size is broken into 2 parts:
     - main part (previous power of 2 of table length)
@@ -439,8 +415,8 @@ protected:
     }
 
     /*
-    wrapper for merge sort method.
-    the code runs faster if arguments are passed to method. if members are accessed directly, code runs slower.
+    Wrapper for merge sort method.
+    The code runs faster if arguments are passed to method. if members are accessed directly, code runs slower.
     */
     void sortKeyValue()
     {
@@ -462,6 +438,30 @@ public:
     std::string getSortName()
     {
         return this->_sortName;
+    }
+
+    /*
+    Method for destroying memory needed for sort. For sort testing purposes this method is public.
+    */
+    void memoryDestroy()
+    {
+        if (_arrayLength == 0)
+        {
+            return;
+        }
+
+        SortParallel::memoryDestroy();
+        cudaError_t error;
+
+        error = cudaFree(_d_keysBuffer);
+        checkCudaError(error);
+        error = cudaFree(_d_valuesBuffer);
+        checkCudaError(error);
+
+        error = cudaFree(_d_ranksEven);
+        checkCudaError(error);
+        error = cudaFree(_d_ranksOdd);
+        checkCudaError(error);
     }
 };
 

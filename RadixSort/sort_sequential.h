@@ -47,7 +47,7 @@ protected:
     }
 
     /*
-    Depending of the number of phases performed bi radix sort the sorted array can be located in primary
+    Depending of the number of phases performed by radix sort the sorted array can be located in primary
     or buffer array.
     */
     virtual void memoryCopyAfterSort(data_t *h_keys, data_t *h_values, uint_t arrayLength)
@@ -69,23 +69,6 @@ protected:
                 std::copy(_h_valuesBuffer, _h_valuesBuffer + _arrayLength, h_values);
             }
         }
-    }
-
-    /*
-    Method for destroying memory needed for sort. For sort testing purposes this method is public.
-    */
-    void memoryDestroy()
-    {
-        if (_arrayLength == 0)
-        {
-            return;
-        }
-
-        SortSequential::memoryDestroy();
-
-        free(_h_keysBuffer);
-        free(_h_valuesBuffer);
-        free(_h_dataCounters);
     }
 
     /*
@@ -201,6 +184,23 @@ public:
     std::string getSortName()
     {
         return this->_sortName;
+    }
+
+    /*
+    Method for destroying memory needed for sort. For sort testing purposes this method is public.
+    */
+    void memoryDestroy()
+    {
+        if (_arrayLength == 0)
+        {
+            return;
+        }
+
+        SortSequential::memoryDestroy();
+
+        free(_h_keysBuffer);
+        free(_h_valuesBuffer);
+        free(_h_dataCounters);
     }
 };
 
