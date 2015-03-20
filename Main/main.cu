@@ -26,6 +26,7 @@
 #include "../RadixSort/sort_sequential.h"
 #include "../RadixSort/sort_parallel.h"
 #include "../SampleSort/sort_sequential.h"
+#include "../SampleSort/sort_parallel.h"
 
 #include "test_sort.h"
 
@@ -55,7 +56,8 @@ int main(int argc, char **argv)
     //sorts.push_back(new QuicksortParallel());
     //sorts.push_back(new RadixSortSequential());
     //sorts.push_back(new RadixSortParallel());
-    sorts.push_back(new SampleSortSequential());
+    //sorts.push_back(new SampleSortSequential());
+    sorts.push_back(new SampleSortParallel());
 
     // This is needed only for testing puproses, because data transfer from device to host shouldn't be stopwatched.
     for (std::vector<SortSequential*>::iterator sort = sorts.begin(); sort != sorts.end(); sort++)
