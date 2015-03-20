@@ -137,7 +137,7 @@ protected:
             cudaError_t error;
             // Copies keys
             error = cudaMemcpy(
-                h_keys, (void *)_d_keysBuffer, _arrayLength * sizeof(*_h_keys), cudaMemcpyDeviceToHost
+                h_keys, (void *)_d_keysBuffer, _arrayLength * sizeof(*h_keys), cudaMemcpyDeviceToHost
             );
             checkCudaError(error);
 
@@ -206,12 +206,12 @@ protected:
         if (sortingKeyOnly)
         {
             elemsPerThreadBlock = threadsBitonicSortKo * elemsBitonicSortKo;
-            sharedMemSize = 2 * elemsPerThreadBlock * sizeof(*d_keys);
+            sharedMemSize = elemsPerThreadBlock * sizeof(*d_keys);
         }
         else
         {
             elemsPerThreadBlock = threadsBitonicSortKv * elemsBitonicSortKv;
-            sharedMemSize = elemsPerThreadBlock * sizeof(*d_keys);
+            sharedMemSize = 2 * elemsPerThreadBlock * sizeof(*d_keys);
         }
 
         dim3 dimGrid((arrayLength - 1) / elemsPerThreadBlock + 1, 1, 1);
@@ -287,7 +287,7 @@ protected:
         else
         {
             sampleIndexingKernel
-                <threadsSampleIndexingKo, threadsBitonicSortKo, elemsBitonicSortKo, numSamplesKo, sortOrder>
+                <threadsSampleIndexingKv, threadsBitonicSortKv, elemsBitonicSortKv, numSamplesKv, sortOrder>
                 <<<dimGrid, dimBlock>>>(
                 d_keys, d_samples, d_bucketSizes, arrayLength
             );
@@ -329,7 +329,7 @@ protected:
         {
             bucketsRelocationKernel
                 <threadsBucketRelocationKv, threadsBitonicSortKv, elemsBitonicSortKv, numSamplesKv, sortingKeyOnly>
-                << <dimGrid, dimBlock, sharedMemSize >> >(
+                <<<dimGrid, dimBlock, sharedMemSize>>>(
                 d_keys, d_values, d_keysBuffer, d_valuesBuffer, d_globalBucketOffsets, d_localBucketSizes,
                 d_localBucketOffsets, arrayLength
             );
