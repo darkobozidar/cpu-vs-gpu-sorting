@@ -45,18 +45,18 @@ int main(int argc, char **argv)
 
     // Sorting algorithms
     std::vector<SortSequential*> sorts;
-    //sorts.push_back(new BitonicSortSequential());
-    //sorts.push_back(new BitonicSortParallel());
-    //sorts.push_back(new BitonicSortMultistepParallel());
-    //sorts.push_back(new BitonicSortAdaptiveSequential());
-    //sorts.push_back(new BitonicSortAdaptiveParallel());
-    //sorts.push_back(new MergeSortSequential());
-    //sorts.push_back(new MergeSortParallel());
-    //sorts.push_back(new QuicksortSequential());
-    //sorts.push_back(new QuicksortParallel());
-    //sorts.push_back(new RadixSortSequential());
-    //sorts.push_back(new RadixSortParallel());
-    //sorts.push_back(new SampleSortSequential());
+    sorts.push_back(new BitonicSortSequential());
+    sorts.push_back(new BitonicSortParallel());
+    sorts.push_back(new BitonicSortMultistepParallel());
+    sorts.push_back(new BitonicSortAdaptiveSequential());
+    sorts.push_back(new BitonicSortAdaptiveParallel());
+    sorts.push_back(new MergeSortSequential());
+    sorts.push_back(new MergeSortParallel());
+    sorts.push_back(new QuicksortSequential());
+    sorts.push_back(new QuicksortParallel());
+    sorts.push_back(new RadixSortSequential());
+    sorts.push_back(new RadixSortParallel());
+    sorts.push_back(new SampleSortSequential());
     sorts.push_back(new SampleSortParallel());
 
     // This is needed only for testing puproses, because data transfer from device to host shouldn't be stopwatched.

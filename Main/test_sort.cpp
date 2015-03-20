@@ -25,7 +25,7 @@ Prints line in statistics table.
 */
 void printTableLine()
 {
-    printf("==============================================================\n");
+    printf("==================================================================\n");
 }
 
 /*
@@ -34,7 +34,7 @@ Prints statistics table header.
 void printTableHeader()
 {
     printTableLine();
-    printf("|| #     ||     TIME    |   SORT RATE  || CORRECT || STABLE ||\n");
+    printf("|| #     ||      TIME     |    SORT RATE   || CORRECT || STABLE ||\n");
     printTableLine();
 }
 
@@ -49,7 +49,7 @@ void printSortStatistics(
     char *isStableOutput = isStable == -1 ? "/" : (isStable == 1 ? "YES" : "NO");
 
     printf(
-        "|| %5d || %8.2lf ms | %8.2lf M/s ||    %3s  ||   %3s  ||\n", iteration + 1, time,
+        "|| %5d || %10.2lf ms | %10.2lf M/s ||    %3s  ||   %3s  ||\n", iteration + 1, time,
         arrayLength / 1000.0 / time, isCorrectOutput, isStableOutput
     );
 }
