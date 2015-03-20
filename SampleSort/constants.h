@@ -64,8 +64,8 @@ _KV: Key-value
 /* --------- SEQUENTIAL ALGORITHM PARAMETERS --------- */
 
 // How many splitters are used for buckets. From "N" splitters "N + 1" buckets are created.
-#define NUM_SPLITTERS_SEQUENTIAL_KO 32
-#define NUM_SPLITTERS_SEQUENTIAL_KV 32
+#define NUM_SPLITTERS_SEQUENTIAL_KO 16
+#define NUM_SPLITTERS_SEQUENTIAL_KV 16
 
 // How many extra samples are taken for every splitter. Increases the queality of splitters (samples
 // get sorted and only "NUM_SPLITTERS_SEQUENTIAL" splitters are taken from sorted array of samples).

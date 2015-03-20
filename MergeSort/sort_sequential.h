@@ -187,6 +187,16 @@ protected:
         data_t *h_valuesSorted, uint_t arrayLength
     )
     {
+        if (arrayLength == 1)
+        {
+            h_keysSorted[0] = h_keys[0];
+            if (!sortingKeyOnly)
+            {
+                h_valuesSorted[0] = h_values[0];
+            }
+            return;
+        }
+
         uint_t arrayLenPower2 = nextPowerOf2(arrayLength);
 
         // Log(arrayLength) phases of merge sort
