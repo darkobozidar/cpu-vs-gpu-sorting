@@ -88,7 +88,7 @@ protected:
     Returns the output array. Implemented because sample sort class (which is derived from this class) requires
     different function to determine output array than this class.
     */
-    data_t* getOutputMergeArray(data_t *arrayBuffer, data_t *arraySorted, bool isLastMergePhase)
+    virtual data_t* getOutputMergeArray(data_t *arrayBuffer, data_t *arraySorted, bool isLastMergePhase)
     {
         return arrayBuffer;
     }

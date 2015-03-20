@@ -53,7 +53,7 @@ protected:
 
         _h_keysSorted = (data_t*)malloc(arrayLength * sizeof(*_h_keysSorted));
         checkMallocError(_h_keysSorted);
-        _h_valuesSorted = (uint_t*)malloc(arrayLength * sizeof(*_h_valuesSorted));
+        _h_valuesSorted = (data_t*)malloc(arrayLength * sizeof(*_h_valuesSorted));
         checkMallocError(_h_valuesSorted);
 
         // Holds samples and splitters in sequential sample sort (needed for sequential sample sort)
@@ -80,7 +80,7 @@ protected:
     Returns the output array. Implemented because sample sort class (which is derived from this class) requires
     different function to determine output array than this class.
     */
-    data_t* getOutputMergeArray(data_t *arrayBuffer, data_t *arraySorted, bool isLastMergePhase)
+    virtual data_t* getOutputMergeArray(data_t *arrayBuffer, data_t *arraySorted, bool isLastMergePhase)
     {
         return isLastMergePhase ? arraySorted : arrayBuffer;
     }
@@ -154,7 +154,7 @@ protected:
         order_t sortOrder, uint_t sortingKeyOnly, uint_t numSplitters, uint_t oversamplingFactor,
         uint_t smallSortThreashold
     >
-    void sampleSort(
+    void sampleSortSequential(
         data_t *h_keys, data_t *h_values, data_t *h_keysBuffer, data_t *h_valuesBuffer, data_t *h_keysSorted,
         data_t *h_valuesSorted, data_t *h_samples, uint_t *h_elementBuckets, uint_t arrayLength
     )
@@ -224,15 +224,16 @@ protected:
                 // Primary and buffer arrays are exchanged
                 if (sortingKeyOnly)
                 {
-                    sampleSort<sortOrder, sortingKeyOnly, numSplitters, oversamplingFactor, smallSortThreashold>(
+                    sampleSortSequential
+                        <sortOrder, sortingKeyOnly, numSplitters, oversamplingFactor, smallSortThreashold>(
                         h_keysBuffer + prevBucketOffset, NULL, h_keys + prevBucketOffset, NULL,
-                        h_keysSorted + prevBucketOffset, h_valuesSorted + prevBucketOffset, h_samples,
-                        h_elementBuckets, bucketSize
+                        h_keysSorted + prevBucketOffset, NULL, h_samples, h_elementBuckets, bucketSize
                     );
                 }
                 else
                 {
-                    sampleSort<sortOrder, sortingKeyOnly, numSplitters, oversamplingFactor, smallSortThreashold>(
+                    sampleSortSequential
+                        <sortOrder, sortingKeyOnly, numSplitters, oversamplingFactor, smallSortThreashold>(
                         h_keysBuffer + prevBucketOffset, h_valuesBuffer + prevBucketOffset, h_keys + prevBucketOffset,
                         h_values + prevBucketOffset, h_keysSorted + prevBucketOffset,
                         h_valuesSorted + prevBucketOffset, h_samples, h_elementBuckets, bucketSize
@@ -250,16 +251,16 @@ protected:
     {
         if (_sortOrder == ORDER_ASC)
         {
-            sampleSort<ORDER_ASC, true, numSplittersKo, oversamplingFactorKo, smallSortThresholdKo>(
-                _h_keys, NULL, _h_keysBuffer, NULL, _h_keysSorted, _h_valuesSorted, _h_samples,
-                _h_elementBuckets, _arrayLength
+            sampleSortSequential<ORDER_ASC, true, numSplittersKo, oversamplingFactorKo, smallSortThresholdKo>(
+                _h_keys, NULL, _h_keysBuffer, NULL, _h_keysSorted, NULL, _h_samples, _h_elementBuckets,
+                _arrayLength
             );
         }
         else
         {
-            sampleSort<ORDER_DESC, true, numSplittersKo, oversamplingFactorKo, smallSortThresholdKo>(
-                _h_keys, NULL, _h_keysBuffer, NULL, _h_keysSorted, _h_valuesSorted, _h_samples,
-                _h_elementBuckets, _arrayLength
+            sampleSortSequential<ORDER_DESC, true, numSplittersKo, oversamplingFactorKo, smallSortThresholdKo>(
+                _h_keys, NULL, _h_keysBuffer, NULL, _h_keysSorted, NULL, _h_samples, _h_elementBuckets,
+                _arrayLength
             );
         }
     }
@@ -272,14 +273,14 @@ protected:
     {
         if (_sortOrder == ORDER_ASC)
         {
-            sampleSort<ORDER_ASC, false, numSplittersKv, oversamplingFactorKv, smallSortThresholdKv>(
+            sampleSortSequential<ORDER_ASC, false, numSplittersKv, oversamplingFactorKv, smallSortThresholdKv>(
                 _h_keys, _h_values, _h_keysBuffer, _h_valuesBuffer, _h_keysSorted, _h_valuesSorted, _h_samples,
                 _h_elementBuckets, _arrayLength
             );
         }
         else
         {
-            sampleSort<ORDER_DESC, false, numSplittersKv, oversamplingFactorKv, smallSortThresholdKv>(
+            sampleSortSequential<ORDER_DESC, false, numSplittersKv, oversamplingFactorKv, smallSortThresholdKv>(
                 _h_keys, _h_values, _h_keysBuffer, _h_valuesBuffer, _h_keysSorted, _h_valuesSorted, _h_samples,
                 _h_elementBuckets, _arrayLength
             );
@@ -307,7 +308,7 @@ public:
         free(_h_keysSorted);
         free(_h_valuesSorted);
         free(_h_samples);
-        free(_h_valuesBuffer);
+        free(_h_elementBuckets);
     }
 };
 
