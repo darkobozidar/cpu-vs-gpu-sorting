@@ -204,7 +204,7 @@ protected:
     }
 
     /*
-    Wrapper for bitonic sort method.
+    Wrapper for merge sort method.
     The code runs faster if arguments are passed to method. If members are accessed directly, code runs slower.
     */
     void sortKeyOnly()
@@ -220,7 +220,7 @@ protected:
     }
 
     /*
-    Wrapper for bitonic sort method.
+    Wrapper for merge sort method.
     The code runs faster if arguments are passed to method. If members are accessed directly, code runs slower.
     */
     void sortKeyValue()
