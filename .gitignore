@@ -20,4 +20,6 @@
 *.ii
 *.lib
 *.idc
+*.pyc
+*.pyproj
 SortStatistics/
