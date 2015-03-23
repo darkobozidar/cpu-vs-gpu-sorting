@@ -3,13 +3,13 @@
 # Folder where all statistics and temporary files are saved. This is the root folder.
 FOLDER_SORT_ROOT = "../SortStatistics/"
 # Temporary folder, where unsorted and sorted arrays are saved into file.
-FOLDER_SORT_TEMP = FOLDER_SORT_ROOT + "SortTemp/"
+FOLDER_SORT_TEMP = "%s%s" % (FOLDER_SORT_ROOT, "SortTemp/")
 # Folder, where sort execution times are saved.
-FOLDER_SORT_TIMERS = FOLDER_SORT_ROOT + "Time/"
+FOLDER_SORT_TIMERS = "%s%s" % (FOLDER_SORT_ROOT, "Time/")
 # Folder, where sort correctness statuses are saved.
-FOLDER_SORT_CORRECTNESS = FOLDER_SORT_ROOT  + "Correctness/"
+FOLDER_SORT_CORRECTNESS = "%s%s" % (FOLDER_SORT_ROOT, "Correctness/")
 # Folder, where sort stability statuses are saved.
-FOLDER_SORT_STABILITY = FOLDER_SORT_ROOT + "Stability/"
+FOLDER_SORT_STABILITY = "%s%s" % (FOLDER_SORT_ROOT, "Stability/")
 
 
 # FILES
@@ -25,3 +25,5 @@ FILE_SUMMARY = "%s%s" % ("Summary", FILE_EXTENSION)
 
 SORT_KEY_ONLY = "key_only"
 SORT_KEY_VALUE = "key_value"
+SORT_SEQUENTIAL = "sequential"
+SORT_PARALLEL = "parallel"
