@@ -15,22 +15,22 @@
 /*
 Sorts sub-blocks of input data with NORMALIZED bitonic sort.
 */
-template <order_t sortOrder, uint_t threadsBitonicSort, uint_t elemsBitonicSort>
+template <uint_t threadsBitonicSort, uint_t elemsBitonicSort, order_t sortOrder>
 __global__ void bitonicSortKernel(data_t *dataTable, uint_t tableLen)
 {
-    normalizedBitonicSort<sortOrder, threadsBitonicSort, elemsBitonicSort>(dataTable, dataTable, tableLen);
+    normalizedBitonicSort<threadsBitonicSort, elemsBitonicSort, sortOrder>(dataTable, dataTable, tableLen);
 }
 
 /*
 Global bitonic merge for sections, where stride IS GREATER than max shared memory.
 */
-template <order_t sortOrder, bool isFirstStepOfPhase, uint_t threadsMerge, uint_t elemsMerge>
+template <uint_t threadsMerge, uint_t elemsMerge, order_t sortOrder, bool isFirstStepOfPhase>
 __global__ void bitonicMergeGlobalKernel(data_t *dataTable, uint_t tableLen, uint_t step)
 {
     uint_t offset, dataBlockLength;
     calcDataBlockLength<threadsMerge, elemsMerge>(offset, dataBlockLength, tableLen);
 
-    bitonicMergeStep<sortOrder, threadsMerge, isFirstStepOfPhase>(
+    bitonicMergeStep<threadsMerge, sortOrder, isFirstStepOfPhase>(
         dataTable, offset / 2, tableLen, dataBlockLength, 1 << (step - 1)
     );
 }
@@ -38,10 +38,10 @@ __global__ void bitonicMergeGlobalKernel(data_t *dataTable, uint_t tableLen, uin
 /*
 Local bitonic merge for sections, where stride IS LOWER OR EQUAL than max shared memory.
 */
-template <order_t sortOrder, bool isFirstStepOfPhase, uint_t threadsMerge, uint_t elemsMerge>
+template <uint_t threadsMerge, uint_t elemsMerge, order_t sortOrder, bool isFirstStepOfPhase>
 __global__ void bitonicMergeLocalKernel(data_t *dataTable, uint_t tableLen, uint_t step)
 {
-    bitonicMergeLocal<sortOrder, isFirstStepOfPhase, threadsMerge, elemsMerge>(dataTable, tableLen, step);
+    bitonicMergeLocal<threadsMerge, elemsMerge, sortOrder, isFirstStepOfPhase>(dataTable, tableLen, step);
 }
 
 #endif

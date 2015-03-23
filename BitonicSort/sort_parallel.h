@@ -65,14 +65,14 @@ protected:
         if (sortingKeyOnly)
         {
             bitonicSortKernel
-                <sortOrder, threadsBitonicSortKo, elemsBitonicSortKo><<<dimGrid, dimBlock, sharedMemSize>>>(
+                <threadsBitonicSortKo, elemsBitonicSortKo, sortOrder><<<dimGrid, dimBlock, sharedMemSize>>>(
                 d_keys, arrayLength
             );
         }
         else
         {
             bitonicSortKernel
-                <sortOrder, threadsBitonicSortKv, elemsBitonicSortKv><<<dimGrid, dimBlock, sharedMemSize>>>(
+                <threadsBitonicSortKv, elemsBitonicSortKv, sortOrder><<<dimGrid, dimBlock, sharedMemSize>>>(
                 d_keys, d_values, arrayLength
             );
         }
@@ -105,14 +105,14 @@ protected:
             if (isFirstStepOfPhase)
             {
                 bitonicMergeGlobalKernel
-                    <sortOrder, true, threadsGlobalMergeKo, elemsGlobalMergeKo><<<dimGrid, dimBlock>>>(
+                    <threadsGlobalMergeKo, elemsGlobalMergeKo, sortOrder, true><<<dimGrid, dimBlock>>>(
                     d_keys, arrayLength, step
                 );
             }
             else
             {
                 bitonicMergeGlobalKernel
-                    <sortOrder, false, threadsGlobalMergeKo, elemsGlobalMergeKo><<<dimGrid, dimBlock>>>(
+                    <threadsGlobalMergeKo, elemsGlobalMergeKo, sortOrder, false><<<dimGrid, dimBlock>>>(
                     d_keys, arrayLength, step
                 );
             }
@@ -122,14 +122,14 @@ protected:
             if (isFirstStepOfPhase)
             {
                 bitonicMergeGlobalKernel
-                    <sortOrder, true, threadsGlobalMergeKv, elemsGlobalMergeKv><<<dimGrid, dimBlock>>>(
+                    <threadsGlobalMergeKv, elemsGlobalMergeKv, sortOrder, true><<<dimGrid, dimBlock>>>(
                     d_keys, d_values, arrayLength, step
                 );
             }
             else
             {
                 bitonicMergeGlobalKernel
-                    <sortOrder, false, threadsGlobalMergeKv, elemsGlobalMergeKv><<<dimGrid, dimBlock>>>(
+                    <threadsGlobalMergeKv, elemsGlobalMergeKv, sortOrder, false><<<dimGrid, dimBlock>>>(
                     d_keys, d_values, arrayLength, step
                 );
             }
@@ -164,14 +164,14 @@ protected:
         {
             if (isFirstStepOfPhase) {
                 bitonicMergeLocalKernel
-                    <sortOrder, true, threadsLocalMergeKo, elemsLocalMergeKo><<<dimGrid, dimBlock, sharedMemSize>>>(
+                    <threadsLocalMergeKo, elemsLocalMergeKo, sortOrder, true><<<dimGrid, dimBlock, sharedMemSize>>>(
                     d_keys, arrayLength, step
                 );
             }
             else
             {
                 bitonicMergeLocalKernel
-                    <sortOrder, false, threadsLocalMergeKo, elemsLocalMergeKo><<<dimGrid, dimBlock, sharedMemSize>>>(
+                    <threadsLocalMergeKo, elemsLocalMergeKo, sortOrder, false><<<dimGrid, dimBlock, sharedMemSize>>>(
                     d_keys, arrayLength, step
                 );
             }
@@ -180,14 +180,14 @@ protected:
         {
             if (isFirstStepOfPhase) {
                 bitonicMergeLocalKernel
-                    <sortOrder, true, threadsLocalMergeKv, elemsLocalMergeKv><<<dimGrid, dimBlock, sharedMemSize>>>(
+                    <threadsLocalMergeKv, elemsLocalMergeKv, sortOrder, true><<<dimGrid, dimBlock, sharedMemSize>>>(
                     d_keys, d_values, arrayLength, step
                 );
             }
             else
             {
                 bitonicMergeLocalKernel
-                    <sortOrder, false, threadsLocalMergeKv, elemsLocalMergeKv><<<dimGrid, dimBlock, sharedMemSize>>>(
+                    <threadsLocalMergeKv, elemsLocalMergeKv, sortOrder, false><<<dimGrid, dimBlock, sharedMemSize>>>(
                     d_keys, d_values, arrayLength, step
                 );
             }

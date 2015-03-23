@@ -15,10 +15,10 @@
 /*
 Sorts sub-blocks of input data with NORMALIZED bitonic sort.
 */
-template <order_t sortOrder, uint_t threadsBitonicSort, uint_t elemsBitonicSort>
+template <uint_t threadsBitonicSort, uint_t elemsBitonicSort, order_t sortOrder>
 __global__ void bitonicSortKernel(data_t *keys, data_t *values, uint_t tableLen)
 {
-    normalizedBitonicSort<sortOrder, threadsBitonicSort, elemsBitonicSort>(
+    normalizedBitonicSort<threadsBitonicSort, elemsBitonicSort, sortOrder>(
         keys, values, keys, values, tableLen
     );
 }
@@ -26,13 +26,13 @@ __global__ void bitonicSortKernel(data_t *keys, data_t *values, uint_t tableLen)
 /*
 Global bitonic merge for sections, where stride IS GREATER than max shared memory.
 */
-template <order_t sortOrder, bool isFirstStepOfPhase, uint_t threadsMerge, uint_t elemsMerge>
+template <uint_t threadsMerge, uint_t elemsMerge, order_t sortOrder, bool isFirstStepOfPhase>
 __global__ void bitonicMergeGlobalKernel(data_t *keys, data_t *values, uint_t tableLen, uint_t step)
 {
     uint_t offset, dataBlockLength;
     calcDataBlockLength<threadsMerge, elemsMerge>(offset, dataBlockLength, tableLen);
 
-    bitonicMergeStep<sortOrder, threadsMerge, isFirstStepOfPhase>(
+    bitonicMergeStep<threadsMerge, sortOrder, isFirstStepOfPhase>(
         keys, values, offset / 2, tableLen, dataBlockLength, 1 << (step - 1)
     );
 }
@@ -40,10 +40,10 @@ __global__ void bitonicMergeGlobalKernel(data_t *keys, data_t *values, uint_t ta
 /*
 Local bitonic merge for sections, where stride IS LOWER OR EQUAL than max shared memory.
 */
-template <order_t sortOrder, bool isFirstStepOfPhase, uint_t threadsMerge, uint_t elemsMerge>
+template <uint_t threadsMerge, uint_t elemsMerge, order_t sortOrder, bool isFirstStepOfPhase>
 __global__ void bitonicMergeLocalKernel(data_t *keys, data_t *values, uint_t tableLen, uint_t step)
 {
-    bitonicMergeLocal<sortOrder, isFirstStepOfPhase, threadsMerge, elemsMerge>(keys, values, tableLen, step);
+    bitonicMergeLocal<threadsMerge, elemsMerge, sortOrder, isFirstStepOfPhase>(keys, values, tableLen, step);
 }
 
 #endif
