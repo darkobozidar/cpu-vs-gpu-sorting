@@ -14,14 +14,14 @@
 #define FOLDER_SORT_CORRECTNESS FOLDER_SORT_ROOT "Correctness/"
 // Folder, where sort stability statuses are saved.
 #define FOLDER_SORT_STABILITY FOLDER_SORT_ROOT "Stability/"
+// Folder for log files (sort correctness and sort stability)
+#define FOLDER_LOG "Log/"
 
 
 /* ----------------------- FILES --------------------- */
 
 // File extension.
 #define FILE_EXTENSION ".txt"
-// Prefix for log file
-#define FILE_LOG_PREFIX "log_"
 // Separator between elements in file.
 #define FILE_SEPARATOR_CHAR "\t"
 // New line character in file

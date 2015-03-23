@@ -74,6 +74,8 @@ void createFolderStructure(std::vector<data_dist_t> distributions)
     createFolder(FOLDER_SORT_TIMERS);
     createFolder(FOLDER_SORT_CORRECTNESS);
     createFolder(FOLDER_SORT_STABILITY);
+    createFolder(FOLDER_SORT_CORRECTNESS FOLDER_LOG);
+    createFolder(FOLDER_SORT_STABILITY FOLDER_LOG);
 
     // Creates a folder for every distribution, inside which creates a folder for data type.
     for (std::vector<data_dist_t>::iterator dist = distributions.begin(); dist != distributions.end(); dist++)
@@ -220,7 +222,7 @@ void writeBoleanToFile(
     // Prints log in case if bolean is false
     if (!val)
     {
-        std::string fileLog = folderName + FILE_LOG_PREFIX;
+        std::string fileLog = folderName + FOLDER_LOG;
         fileLog += strSlugify(sort->getSortName(sortingKeyOnly)) + FILE_EXTENSION;
 
         file.open(fileLog, std::fstream::app);
