@@ -23,7 +23,7 @@ SEPARATOR = '\t'
 # New line character in file
 FILE_NEW_LINE_CHAR = '\n'
 # File, wher array lengths are saved
-FILE_ARRAY_LENS = "%s%s%s" % (FOLDER_SORT_TEMP, "array_lengths", FILE_EXTENSION)
+FILE_ARRAY_LENS = "%s%s%s" % (FOLDER_SORT_ROOT, "array_lengths", FILE_EXTENSION)
 
 
 # GENERAL

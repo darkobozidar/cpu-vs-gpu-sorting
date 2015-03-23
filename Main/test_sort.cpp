@@ -41,9 +41,7 @@ void printTableHeader()
 /*
 Prints sort statistics.
 */
-void printSortStatistics(
-    uint_t iteration, double time, uint_t arrayLength, int_t isCorrect, int_t isStable
-)
+void printSortStatistics(uint_t iteration, double time, uint_t arrayLength, int_t isCorrect, int_t isStable)
 {
     char *isCorrectOutput = isCorrect ? "YES" : "NO";
     char *isStableOutput = isStable == -1 ? "/" : (isStable == 1 ? "YES" : "NO");
@@ -70,7 +68,6 @@ Creates the folder structure in order to save sort statistics to disc.
 void createFolderStructure(std::vector<data_dist_t> distributions)
 {
     createFolder(FOLDER_SORT_ROOT);
-    createFolder(FOLDER_SORT_TEMP);
     createFolder(FOLDER_SORT_TIMERS);
     createFolder(FOLDER_SORT_CORRECTNESS);
     createFolder(FOLDER_SORT_STABILITY);
@@ -98,34 +95,6 @@ Generates file name of sorted array.
 std::string fileNameSortedArr(uint_t iteration)
 {
     return std::string(FILE_SORTED_ARRAY) + '_' + std::to_string(iteration) + FILE_EXTENSION;
-}
-
-/*
-Generates random sequences and sorts them. Also writes sequences to file.
-*/
-void generateAndSortRandomSeq(
-    data_t *keys, uint_t arrayLength, order_t sortOrder, data_dist_t distribution, uint_t testRepetitions,
-    uint_t interval
-)
-{
-    printf("> Distribution: %s\n", getDistributionName(distribution));
-    printf("> Data type: %s\n", typeid(data_t).name());
-    printf("> Array length: %d\n", arrayLength);
-    for (uint_t iter = 0; iter < testRepetitions; iter++)
-    {
-        printf("- Generating and sorting random seqence %d\n", iter + 1);
-        fillArrayKeyOnly(keys, arrayLength, interval, distribution);
-        writeArrayToFile(fileNameUnsortedArr(iter), keys, arrayLength);
-
-        // If array is already sorted, there is no need to sort it again
-        if (!(distribution == DISTRIBUTION_SORTED_ASC && sortOrder == ORDER_ASC ||
-              distribution == DISTRIBUTION_SORTED_DESC && sortOrder == ORDER_DESC)
-        )
-        {
-            sortCorrect(keys, arrayLength, sortOrder);
-        }
-        writeArrayToFile(fileNameSortedArr(iter), keys, arrayLength);
-    }
 }
 
 /*
@@ -171,7 +140,7 @@ bool isSortStable(data_t *keys, data_t *values, uint_t arrayLength)
     }
 
     // Generally not needed
-    checkValuesUniqueness(values, arrayLength);
+    //checkValuesUniqueness(values, arrayLength);
 
     for (uint_t i = 1; i < arrayLength; i++)
     {
@@ -239,11 +208,15 @@ Times sort with stopwatch, checks if sort is stable and checks if sort is orderi
 this statistics to file.
 */
 void testSort(
-    SortSequential *sort, data_dist_t distribution, data_t *keys, data_t *values, uint_t arrayLength,
-    order_t sortOrder, uint_t iteration, uint_t testRepetitions, bool sortingKeyOnly
+    SortSequential *sort, data_dist_t distribution, data_t *keys, data_t *keysCopy, data_t *values,
+    uint_t arrayLength, order_t sortOrder, uint_t interval, uint_t iteration, uint_t testRepetitions,
+    bool sortingKeyOnly
 )
 {
-    readArrayFromFile(fileNameUnsortedArr(iteration), keys, arrayLength);
+    // For every sort array is filled with new random values. It would be better if array was generated only
+    // once and saved to file, but this works much slower.
+    fillArrayKeyOnly(keys, arrayLength, interval, distribution);
+    std::copy(keys, keys + arrayLength, keysCopy);
 
     if (sortingKeyOnly)
     {
@@ -258,6 +231,19 @@ void testSort(
     double time = sort->getSortTime();
     writeTimeToFile(sort, distribution, time, sortingKeyOnly, iteration == testRepetitions - 1);
 
+    // Sort correctness test
+    if (!(distribution == DISTRIBUTION_SORTED_ASC && sortOrder == ORDER_ASC ||
+        distribution == DISTRIBUTION_SORTED_DESC && sortOrder == ORDER_DESC)
+    )
+    {
+        sortCorrect(keysCopy, arrayLength, sortOrder);
+    }
+
+    bool isCorrect = compareArrays(keys, keysCopy, arrayLength);
+    writeBoleanToFile(
+        FOLDER_SORT_CORRECTNESS, isCorrect, sort, distribution, arrayLength, sortOrder, sortingKeyOnly
+    );
+
     // Key-value sort has to be tested for stability
     int_t isStable = -1;
     if (!sortingKeyOnly)
@@ -268,14 +254,6 @@ void testSort(
         );
     }
 
-    // In order to use less space, array for values is used as container for correctly sorted array
-    data_t *correctlySortedKeys = values;
-    readArrayFromFile(fileNameSortedArr(iteration), correctlySortedKeys, arrayLength);
-    bool isCorrect = compareArrays(keys, correctlySortedKeys, arrayLength);
-    writeBoleanToFile(
-        FOLDER_SORT_CORRECTNESS, isCorrect, sort, distribution, arrayLength, sortOrder, sortingKeyOnly
-    );
-
     printSortStatistics(iteration, time, arrayLength, isCorrect, isStable);
 }
 
@@ -283,8 +261,8 @@ void testSort(
 Tests the sort ang generates results.
 */
 void generateSortTestResults(
-    SortSequential *sort, data_dist_t distribution, data_t *keys, data_t *values, uint_t arrayLength,
-    order_t sortOrder, uint_t testRepetitions, bool sortingKeyOnly
+    SortSequential *sort, data_dist_t distribution, data_t *keys, data_t *keysCopy, data_t *values,
+    uint_t arrayLength, order_t sortOrder, uint_t interval, uint_t testRepetitions, bool sortingKeyOnly
 )
 {
     printf("> Distribution: %s\n", getDistributionName(distribution));
@@ -297,7 +275,8 @@ void generateSortTestResults(
     for (uint_t iter = 0; iter < testRepetitions; iter++)
     {
         testSort(
-            sort, distribution, keys, values, arrayLength, sortOrder, iter, testRepetitions, sortingKeyOnly
+            sort, distribution, keys, keysCopy, values, arrayLength, sortOrder, interval, iter, testRepetitions,
+            sortingKeyOnly
         );
     }
 
@@ -350,25 +329,29 @@ void generateStatistics(
         {
             data_t *keys = (data_t*)malloc(arrayLength * sizeof(*keys));
             checkMallocError(keys);
+            data_t *keysCopy = (data_t*)malloc(arrayLength * sizeof(*keysCopy));
+            checkMallocError(keysCopy);
             data_t *values = (data_t*)malloc(arrayLength * sizeof(*values));
             checkMallocError(values);
 
-            // All the sort algorithms have to sort the same array
-            generateAndSortRandomSeq(keys, arrayLength, sortOrder, *dist, testRepetitions, interval);
-            printf("\n");
-
             for (std::vector<SortSequential*>::iterator sort = sorts.begin(); sort != sorts.end(); sort++)
             {
+                // TODO remove!!!
+                if ((*sort)->getSortName().compare("Quicksort sequential") == 0 && (*dist) == DISTRIBUTION_ZERO)
+                {
+                    continue;
+                }
+
                 // Sort key-only
                 generateSortTestResults(
-                    *sort, *dist, keys, values, arrayLength, sortOrder, testRepetitions, true
+                    *sort, *dist, keys, keysCopy, values, arrayLength, sortOrder, interval, testRepetitions, true
                 );
 
                 printf("\n\n");
 
                 // Sort key-value pairs
                 generateSortTestResults(
-                    *sort, *dist, keys, values, arrayLength, sortOrder, testRepetitions, false
+                    *sort, *dist, keys, keysCopy, values, arrayLength, sortOrder, interval, testRepetitions, false
                 );
 
                 (*sort)->memoryDestroy();
@@ -376,6 +359,7 @@ void generateStatistics(
             }
 
             free(keys);
+            free(keysCopy);
             free(values);
         }
     }
