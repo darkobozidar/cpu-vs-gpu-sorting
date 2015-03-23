@@ -10,6 +10,8 @@ FOLDER_SORT_TIMERS = "%s%s" % (FOLDER_SORT_ROOT, "Time/")
 FOLDER_SORT_CORRECTNESS = "%s%s" % (FOLDER_SORT_ROOT, "Correctness/")
 # Folder, where sort stability statuses are saved.
 FOLDER_SORT_STABILITY = "%s%s" % (FOLDER_SORT_ROOT, "Stability/")
+# Folder, where reduction of sort correctness, stability and sort times are saved.
+FOLDER_SORT_REDUCTION = "%s%s" % (FOLDER_SORT_ROOT, "ReducedResults/")
 
 
 # FILES
@@ -22,10 +24,15 @@ SEPARATOR = '\t'
 FILE_NEW_LINE_CHAR = '\n'
 # File, wher array lengths are saved
 FILE_ARRAY_LENS = "%s%s%s" % (FOLDER_SORT_TEMP, "array_lengths", FILE_EXTENSION)
-# File name, where summary of predicates for sort correctness and stability are saved
-FILE_SUMMARY = "%s%s" % ("Summary", FILE_EXTENSION)
 
+
+# GENERAL
+
+# Substring which appeares in file names for sorting key-only
 SORT_KEY_ONLY = "key_only"
+# Substring which appeares in file names for sorting key-value
 SORT_KEY_VALUE = "key_value"
+# Substring which appeares in file names for sequential sorts
 SORT_SEQUENTIAL = "sequential"
+# Substring which appeares in file names for parallel sorts
 SORT_PARALLEL = "parallel"
