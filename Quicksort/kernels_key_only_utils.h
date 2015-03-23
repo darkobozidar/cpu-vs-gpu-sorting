@@ -35,13 +35,13 @@ __device__ void normalizedBitonicSort(data_t *input, data_t *output, loc_seq_t l
         {
             if (stride == subBlockSize)
             {
-                bitonicMergeStep<sortOrder, threadsBitonicSort, true>(
+                bitonicMergeStep<threadsBitonicSort, sortOrder, true>(
                     bitonicSortTile, 0, localParams.length, localParams.length, stride
                 );
             }
             else
             {
-                bitonicMergeStep<sortOrder, threadsBitonicSort, false>(
+                bitonicMergeStep<threadsBitonicSort, sortOrder, false>(
                     bitonicSortTile, 0, localParams.length, localParams.length, stride
                 );
             }

@@ -22,7 +22,7 @@ __global__ void bitonicSortCollectSamplesKernel(data_t *dataTable, data_t *local
 {
     extern __shared__ data_t bitonicSortTile[];
 
-    normalizedBitonicSort<sortOrder, threadsBitonicSort, elemsBitonicSort>(dataTable, dataTable, tableLen);
+    normalizedBitonicSort<threadsBitonicSort, elemsBitonicSort, sortOrder>(dataTable, dataTable, tableLen);
     collectSamples<threadsBitonicSort, elemsBitonicSort, numSamples>(localSamples);
 }
 

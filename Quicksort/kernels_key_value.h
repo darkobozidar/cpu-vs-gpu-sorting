@@ -282,5 +282,4 @@ __global__ void quickSortLocalKernel(
     }
 }
 
-
 #endif

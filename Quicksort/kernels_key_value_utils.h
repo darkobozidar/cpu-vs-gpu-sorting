@@ -40,13 +40,13 @@ __device__ void normalizedBitonicSort(
         {
             if (stride == subBlockSize)
             {
-                bitonicMergeStep<sortOrder, threadsBitonicSort, true>(
+                bitonicMergeStep<threadsBitonicSort, sortOrder, true>(
                     keysTile, valuesTile, 0, localParams.length, localParams.length, stride
                 );
             }
             else
             {
-                bitonicMergeStep<sortOrder, threadsBitonicSort, false>(
+                bitonicMergeStep<threadsBitonicSort, sortOrder, false>(
                     keysTile, valuesTile, 0, localParams.length, localParams.length, stride
                 );
             }
