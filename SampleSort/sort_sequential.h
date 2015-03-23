@@ -219,6 +219,15 @@ protected:
             uint_t prevBucketOffset = i > 0 ? bucketOffsets[i - 1] : 0;
             uint_t bucketSize = bucketOffsets[i] - prevBucketOffset;
 
+            // Without this condition recursion would never end, if distribution was ZERO (all elements are same).
+            if (bucketSize == arrayLength)
+            {
+                mergeSortSequential<sortOrder, sortingKeyOnly>(
+                    h_keysBuffer, h_valuesBuffer, h_keys, h_values, h_keysSorted, h_valuesSorted, arrayLength
+                );
+                return;
+            }
+
             if (bucketSize > 0)
             {
                 // Primary and buffer arrays are exchanged

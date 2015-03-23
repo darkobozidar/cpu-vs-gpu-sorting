@@ -321,7 +321,7 @@ public:
     /*
     Method for destroying memory needed for sort. For sort testing purposes this method is public.
     */
-    void memoryDestroy()
+    virtual void memoryDestroy()
     {
         if (_arrayLength == 0)
         {
