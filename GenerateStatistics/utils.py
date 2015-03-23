@@ -3,6 +3,11 @@ import os
 import constants as const
 
 
+def create_folder(folder_path):
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+
+
 def generate_summary_predicates(folder_name, file_name_filter=""):
     """
     Goes through all files in folder, reads content and checks, if all predicates in file are true.
@@ -21,29 +26,10 @@ def generate_summary_predicates(folder_name, file_name_filter=""):
             predicates_true = all(int(predicate) for predicate in file_content.split())
 
             sort_name = file_name.replace("_", " ")
-            sort_output = "%s%s%s" % (sort_name, const.FILE_SEPARATOR_CHAR, predicates_true)
+            sort_output = "%s%s%s" % (sort_name, const.SEPARATOR, predicates_true)
             print(sort_output, file=file_summary)
 
     file_summary.close()
-
-def get_sort_timings(folder_dist, file_name_filters=[]):
-    sorts = []
-
-    for file_name_sort in os.listdir(folder_dist):
-        # Filters file name with provided filters
-        if any(f not in file_name_sort for f in file_name_filters):
-            continue
-        if not file_name_sort.endswith(const.FILE_EXTENSION):
-            continue
-
-        with open("%s%s" % (folder_dist, file_name_sort), "r") as file_sort:
-            content = file_sort.read()
-            lines = content.split(const.FILE_NEW_LINE_CHAR)[:-1]
-            timings = [[float(t) for t in l.split(const.FILE_SEPARATOR_CHAR)] for l in lines]
-            sorts.append((file_name_sort.replace("_", " "), timings))
-
-    sorts.sort(key=lambda el: el[0])
-    return sorts
 
 
 def calc_avg_sort_rate(timings, array_len):
@@ -51,31 +37,40 @@ def calc_avg_sort_rate(timings, array_len):
     return array_len / 1000 / avg_time
 
 
-def summarize_sort_timings(folder_name, start_array_len, file_name_filters=[]):
+def summarize_sort_timings(folder_name, array_lens, file_name_filters=[]):
     for distribution in os.listdir(folder_name):
         folder_dist = "%s%s/" % (folder_name, distribution)
-        sorts = get_sort_timings(folder_dist, file_name_filters)
-
         folder_summary = "%s%s" %(folder_dist, "Summary/")
-        if not os.path.exists(folder_summary):
-            os.makedirs(folder_summary)
+        create_folder(folder_summary)
 
         file_name_output = "%s%s%s" % (folder_summary, '_'.join(file_name_filters), const.FILE_EXTENSION)
         file_output = open(file_name_output, "w+")
-        num_timing_lines, array_len = len(sorts[0][1]), start_array_len
 
-        sorts_header = const.FILE_SEPARATOR_CHAR.join(name for name, _ in sorts)
-        header = "%s%s%s" % ("Length", const.FILE_SEPARATOR_CHAR, sorts_header)
+        header = "%s%s" % (const.SEPARATOR, const.SEPARATOR.join(str(l) for l in array_lens))
         print(header, file=file_output)
 
-        for line in range(num_timing_lines):
-            line_summary = [str(line)]
+        for file_name_sort in os.listdir(folder_dist):
+            # Filters file name with provided filters
+            if any(f not in file_name_sort for f in file_name_filters):
+                continue
+            if not file_name_sort.endswith(const.FILE_EXTENSION):
+                continue
 
-            for _, timings in sorts:
-                output = str(calc_avg_sort_rate(timings[line], array_len))
-                line_summary.append(output.replace(".", ","))
+            with open("%s%s" % (folder_dist, file_name_sort), "r") as file_sort:
+                content = file_sort.read()
+                lines = content.split(const.FILE_NEW_LINE_CHAR)[:-1]
+                timings = [[float(t) for t in l.split(const.SEPARATOR)] for l in lines]
+                timings_summary = [calc_avg_sort_rate(t, l) for t, l in zip(timings, array_lens)]
 
-            array_len *= 2
-            print(const.FILE_SEPARATOR_CHAR.join(line_summary), file=file_output)
+            sort_name = str(file_name_sort)
+            for file_filter in file_name_filters:
+                sort_name = sort_name.replace(file_filter, "")
+
+            sort_name = sort_name[:-len(const.FILE_EXTENSION)]
+            sort_name = " ".join(s for s in sort_name.split("_") if s)
+            timings_output = const.SEPARATOR.join(str(t).replace(".", ",") for t in timings_summary)
+            output = "%s%s%s" % (sort_name, const.SEPARATOR, timings_output)
+
+            print(output, file=file_output)
 
         file_output.close()

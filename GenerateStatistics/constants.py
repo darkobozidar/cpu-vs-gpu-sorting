@@ -17,9 +17,11 @@ FOLDER_SORT_STABILITY = "%s%s" % (FOLDER_SORT_ROOT, "Stability/")
 # File extension.
 FILE_EXTENSION = ".txt"
 # Separator between elements in file.
-FILE_SEPARATOR_CHAR = '\t'
+SEPARATOR = '\t'
 # New line character in file
 FILE_NEW_LINE_CHAR = '\n'
+# File, wher array lengths are saved
+FILE_ARRAY_LENS = "%s%s%s" % (FOLDER_SORT_TEMP, "array_lengths", FILE_EXTENSION)
 # File name, where summary of predicates for sort correctness and stability are saved
 FILE_SUMMARY = "%s%s" % ("Summary", FILE_EXTENSION)
 
