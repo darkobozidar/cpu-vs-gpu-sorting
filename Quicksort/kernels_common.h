@@ -10,6 +10,7 @@
 
 #include "../Utils/data_types_common.h"
 #include "../Utils/constants_common.h"
+#include "../Utils/kernels_utils.h"
 #include "kernels_common_utils.h"
 #include "data_types.h"
 
@@ -24,9 +25,8 @@ __global__ void minMaxReductionKernel(data_t *input, data_t *output, uint_t tabl
     data_t *minValues = reductionTile;
     data_t *maxValues = reductionTile + threadsReduction;
 
-    uint_t elemsPerBlock = threadsReduction * elemsThreadReduction;
-    uint_t offset = blockIdx.x * elemsPerBlock;
-    uint_t dataBlockLength = offset + elemsPerBlock <= tableLen ? elemsPerBlock : tableLen - offset;
+    uint_t offset, dataBlockLength;
+    calcDataBlockLength<threadsReduction, elemsThreadReduction>(offset, dataBlockLength, tableLen);
 
     data_t minVal = MAX_VAL;
     data_t maxVal = MIN_VAL;

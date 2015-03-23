@@ -36,8 +36,8 @@ _KV: Key-value
 /* --------------- GENERATE RANKS KERNEL ------------- */
 
 // How many threads are used per one thread block for generating ranks kernel. Has to be power of 2.
-#define THREADS_GEN_RANKS_KO 256
-#define THREADS_GEN_RANKS_KV 256
+#define THREADS_GEN_RANKS_KO 128
+#define THREADS_GEN_RANKS_KV 128
 
 
 #endif

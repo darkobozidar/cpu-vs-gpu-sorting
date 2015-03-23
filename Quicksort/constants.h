@@ -30,7 +30,7 @@ _KV: Key-value
 // Threshold size until sequence can still get partitioned. When sequence's length is lower or equal to this
 // constant, than it stops to be partitioned by global quicksort. Has to be power of 2.
 #define THRESHOLD_PARTITION_SIZE_GLOBAL_KO (1 << 11)
-#define THRESHOLD_PARTITION_SIZE_GLOBAL_KV (1 << 11)
+#define THRESHOLD_PARTITION_SIZE_GLOBAL_KV (1 << 10)
 // How many threads are in each thread block when running global quicksort kernel. Has to be power of 2.
 #define THREADS_SORT_GLOBAL_KO 128
 #define THREADS_SORT_GLOBAL_KV 128
@@ -43,10 +43,10 @@ _KV: Key-value
 
 // Threshold for sequence size in local quick sort, when bitonic sort is used.
 #define THRESHOLD_BITONIC_SORT_KO 512
-#define THRESHOLD_BITONIC_SORT_KV 512
+#define THRESHOLD_BITONIC_SORT_KV 256
 // How many threads are in each thread block when running local quicksort kernel. Has to be power of 2.
 // It is reasonable that is is lower than "THREADS_SORT_GLOBAL * ELEMENTS_GLOBAL".
 #define THREADS_SORT_LOCAL_KO 128
-#define THREADS_SORT_LOCAL_KV 256
+#define THREADS_SORT_LOCAL_KV 128
 
 #endif

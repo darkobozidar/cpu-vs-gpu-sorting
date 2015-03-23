@@ -139,7 +139,7 @@ protected:
         else
         {
             bitonicSortRegularKernel
-                <threadsBitonicSortKo, elemsBitonicSortKo, sortOrder>
+                <threadsBitonicSortKv, elemsBitonicSortKv, sortOrder>
                 <<<dimGrid, dimBlock, sharedMemSize>>>(
                 d_keys, d_values, arrayLenRoundedUp
             );
@@ -462,7 +462,7 @@ class BitonicSortAdaptiveParallel : public BitonicSortAdaptiveParallelBase<
     THREADS_INIT_INTERVALS_KO, ELEMS_INIT_INTERVALS_KO,
     THREADS_INIT_INTERVALS_KV, ELEMS_INIT_INTERVALS_KV,
     THREADS_GEN_INTERVALS_KO, ELEMS_GEN_INTERVALS_KO,
-    THREADS_GEN_INTERVALS, ELEMS_GEN_INTERVALS_KV
+    THREADS_GEN_INTERVALS_KV, ELEMS_GEN_INTERVALS_KV
 >
 {};
 

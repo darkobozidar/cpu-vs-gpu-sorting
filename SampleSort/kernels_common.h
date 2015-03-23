@@ -126,11 +126,10 @@ __global__ void bucketsRelocationKernel(
     }
     __syncthreads();
 
-    const uint_t elemsPerBitonicSort = threadsBitonicSort * elemsBitonicSort;
-    const uint_t offset = blockIdx.x * elemsPerBitonicSort;
-    const uint_t dataBlockLength = offset + elemsPerBitonicSort <= tableLen ? elemsPerBitonicSort : tableLen - offset;
     uint_t activeThreads = 0;
     uint_t activeThreadsPrev = 0;
+    uint_t offset, dataBlockLength;
+    calcDataBlockLength<threadsBitonicSort, elemsBitonicSort>(offset, dataBlockLength, tableLen);
 
     uint_t tx = threadIdx.x;
     uint_t bucketIndex = 0;

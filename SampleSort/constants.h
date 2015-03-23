@@ -59,7 +59,7 @@ _KV: Key-value
 
 // How many threads are used per one thread block in kernel for buckets relocation. Has to be power of 2.
 // Also has to be greater or equal than NUM_SAMPLES. Has to be multiple of NUM_SAMPLES.
-#define THREADS_BUCKETS_RELOCATION_KO 256
+#define THREADS_BUCKETS_RELOCATION_KO 128
 #define THREADS_BUCKETS_RELOCATION_KV 128
 
 

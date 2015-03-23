@@ -22,7 +22,11 @@ Fills keys with random numbers.
 void fillArrayKeyOnly(data_t *keys, uint_t tableLen, uint_t interval, uint_t bucketSize, data_dist_t distribution)
 {
     auto seed = chrono::high_resolution_clock::now().time_since_epoch().count() + generatorCalls++;
+#if DATA_TYPE_BITS == 32
+    auto generator = std::bind(std::uniform_int_distribution<data_t>(0, interval), mt19937(seed));
+#else
     auto generator = std::bind(std::uniform_int_distribution<data_t>(0, interval), mt19937_64(seed));
+#endif
 
     switch (distribution)
     {
