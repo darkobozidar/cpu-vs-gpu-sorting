@@ -319,6 +319,19 @@ int_t nextArrayLength(uint_t arrayLength)
 }
 
 /*
+Writes array lengths to file.
+*/
+void writeArrayLengthsToFile(uint_t arrayLenStart, uint_t arrayLenEnd)
+{
+    for (uint_t arrayLength = arrayLenStart; arrayLength <= arrayLenEnd; arrayLength = nextArrayLength(arrayLength))
+    {
+        std::string arrayLenStr = std::to_string(arrayLength);
+        arrayLenStr += arrayLength < arrayLenEnd ? std::string(FILE_SEPARATOR_CHAR) : "";
+        appendToFile(FILE_ARRAY_LENGTHS, arrayLenStr);
+    }
+}
+
+/*
 Tests all provided sorts for all provided distributions.
 */
 void generateStatistics(
@@ -327,15 +340,12 @@ void generateStatistics(
 )
 {
     createFolderStructure(distributions);
+    writeArrayLengthsToFile(arrayLenStart, arrayLenEnd);
 
     for (std::vector<data_dist_t>::iterator dist = distributions.begin(); dist != distributions.end(); dist++)
     {
         for (uint_t arrayLength = arrayLenStart; arrayLength <= arrayLenEnd; arrayLength = nextArrayLength(arrayLength))
         {
-            std::string arrayLenStr = std::to_string(arrayLength);
-            arrayLenStr += arrayLength < arrayLenEnd ? std::string(FILE_SEPARATOR_CHAR) : "";
-            appendToFile(FILE_ARRAY_LENGTHS, arrayLenStr);
-
             data_t *keys = (data_t*)malloc(arrayLength * sizeof(*keys));
             checkMallocError(keys);
             data_t *values = (data_t*)malloc(arrayLength * sizeof(*values));
