@@ -42,6 +42,10 @@ int main(int argc, char **argv)
     // Input data distributions
     std::vector<data_dist_t> distributions;
     distributions.push_back(DISTRIBUTION_UNIFORM);
+    distributions.push_back(DISTRIBUTION_GAUSSIAN);
+    distributions.push_back(DISTRIBUTION_ZERO);
+    distributions.push_back(DISTRIBUTION_SORTED_ASC);
+    distributions.push_back(DISTRIBUTION_SORTED_DESC);
 
     // Sorting algorithms
     std::vector<SortSequential*> sorts;

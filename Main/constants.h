@@ -5,7 +5,7 @@
 /* ---------------------- FOLDERS -------------------- */
 
 // Folder where all statistics and temporary files are saved. This is the root folder.
-#define FOLDER_SORT_ROOT "../SortStatistics/"
+#define FOLDER_SORT_ROOT "D:/SortStatistics/"
 // Temporary folder, where unsorted and sorted arrays are saved into file.
 #define FOLDER_SORT_TEMP FOLDER_SORT_ROOT "SortTemp/"
 // Folder, where sort execution times are saved.
@@ -23,12 +23,14 @@
 // Prefix for log file
 #define FILE_LOG_PREFIX "log_"
 // Separator between elements in file.
-#define FILE_SEPARATOR_CHAR '\t'
+#define FILE_SEPARATOR_CHAR "\t"
 // New line character in file
-#define FILE_NEW_LINE_CHAR '\n'
+#define FILE_NEW_LINE_CHAR "\n"
 // File where unsorted array is saved.
 #define FILE_UNSORTED_ARRAY FOLDER_SORT_TEMP "array_unsorted"
 // File where correctly sorted array is saved.
 #define FILE_SORTED_ARRAY FOLDER_SORT_TEMP "array_sorted"
+// File where all array lengths are saved.
+#define FILE_ARRAY_LENGTHS FOLDER_SORT_TEMP "array_lengths" FILE_EXTENSION
 
 #endif

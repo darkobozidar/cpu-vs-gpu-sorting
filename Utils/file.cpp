@@ -75,3 +75,16 @@ void writeArrayToFile(std::string fileName, data_t *keys, uint_t arrayLength)
 {
     writeArrayToFile((char*)fileName.c_str(), keys, arrayLength);
 }
+
+
+/*
+Appends provided text to file.
+*/
+void appendToFile(std::string fileName, std::string text)
+{
+    std::ofstream file;
+    file.open(fileName, std::fstream::app);
+
+    file << text;
+    file.close();
+}

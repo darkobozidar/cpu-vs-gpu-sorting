@@ -303,6 +303,22 @@ void generateSortTestResults(
 }
 
 /*
+Generator for array lengths.
+*/
+int_t nextArrayLength(uint_t arrayLength)
+{
+    if (isPowerOfTwo(arrayLength))
+    {
+        uint_t logLength = log2(arrayLength);
+        return (1 << logLength) + (1 << (logLength - 1));
+    }
+    else
+    {
+        return nextPowerOf2(arrayLength);
+    }
+}
+
+/*
 Tests all provided sorts for all provided distributions.
 */
 void generateStatistics(
@@ -314,8 +330,12 @@ void generateStatistics(
 
     for (std::vector<data_dist_t>::iterator dist = distributions.begin(); dist != distributions.end(); dist++)
     {
-        for (uint_t arrayLength = arrayLenStart; arrayLength <= arrayLenEnd; arrayLength *= 2)
+        for (uint_t arrayLength = arrayLenStart; arrayLength <= arrayLenEnd; arrayLength = nextArrayLength(arrayLength))
         {
+            std::string arrayLenStr = std::to_string(arrayLength);
+            arrayLenStr += arrayLength < arrayLenEnd ? std::string(FILE_SEPARATOR_CHAR) : "";
+            appendToFile(FILE_ARRAY_LENGTHS, arrayLenStr);
+
             data_t *keys = (data_t*)malloc(arrayLength * sizeof(*keys));
             checkMallocError(keys);
             data_t *values = (data_t*)malloc(arrayLength * sizeof(*values));
@@ -348,58 +368,3 @@ void generateStatistics(
         }
     }
 }
-
-///*
-//Prints out statistics of sort if only keys are sorted.
-//*/
-//void printStatisticsKeysOnly(double *timers, uint_t testRepetitions, uint_t tableLen, bool sortsCorrectly)
-//{
-//    double timeSum = 0;
-//
-//    for (uint_t i = 0; i < testRepetitions; i++)
-//    {
-//        timeSum += timers[i];
-//    }
-//
-//    double avgTime = timeSum / (double)testRepetitions;
-//    timeSum = 0;
-//
-//    for (uint_t i = 0; i < testRepetitions; i++)
-//    {
-//        timeSum += pow(avgTime - timers[i], 2);
-//    }
-//
-//    double deviationTime = sqrt(timeSum);
-//
-//    printf("Average sort time:  %8.2lf ms\n", avgTime);
-//    printf("Average sort rate:  %8.2lf M/s\n", tableLen / 1000.0 / avgTime);
-//    printf("Standard deviation: %8.2lf ms  (%.2lf%%)\n", deviationTime, deviationTime / avgTime * 100);
-//    printf("Sorting correctly:  %8s\n", sortsCorrectly ? "YES" : "NO");
-//}
-//
-//void printStatisticsKeyValue(
-//    double *timers, uint_t testRepetitions, uint_t tableLen, bool sortsCorrectly, bool isStable
-//)
-//{
-//    printStatisticsKeysOnly(timers, testRepetitions, tableLen, sortsCorrectly);
-//    printf("Is sort stable:     %8s\n", isStable ? "YES" : "NO");
-//}
-//
-///*
-//Returns a speedup for 2 provided sort types.
-//*/
-//double getSpeedup(double **timers, sort_type_t sortType1, sort_type_t sortType2, uint_t testRepetitions)
-//{
-//    double totalTimeSortType1 = 0;
-//    double totalTimeSortType2 = 0;
-//
-//    for (uint_t i = 0; i < testRepetitions; i++)
-//    {
-//        totalTimeSortType1 += timers[sortType1][i];
-//        totalTimeSortType2 += timers[sortType2][i];
-//    }
-//
-//    return totalTimeSortType1 / totalTimeSortType2;
-//}
-//
-///*
