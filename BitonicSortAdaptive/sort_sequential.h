@@ -467,8 +467,8 @@ public:
 
         SortSequential::memoryDestroy();
 
-        deleteBitonicTree(_root);
-        delete _spare;
+        //deleteBitonicTree(_root);
+        //delete _spare;
     }
 };
 

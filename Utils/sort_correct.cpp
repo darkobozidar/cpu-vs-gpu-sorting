@@ -13,7 +13,18 @@ Compare function for ASCENDING order needed for C++ qsort.
 */
 int compareAsc(const void* elem1, const void* elem2)
 {
-    return *((data_t*)elem1) - *((data_t*)elem2);
+    // Cannot use subtraction because of unsigned data types. Another option would be to convert to bigger data
+    // type, but the result has to be converted to int.
+    if (*((data_t*)elem1) > *((data_t*)elem2))
+    {
+        return 1;
+    }
+    else if (*((data_t*)elem1) < *((data_t*)elem2))
+    {
+        return -1;
+    }
+
+    return 0;
 }
 
 /*
@@ -21,7 +32,18 @@ Compare function for DESCENDING order needed for C++ qsort.
 */
 int compareDesc(const void* elem1, const void* elem2)
 {
-    return *((data_t*)elem2) - *((data_t*)elem1);
+    // Cannot use subtraction because of unsigned data types. Another option would be to convert to bigger data
+    // type, but the result has to be converted to int.
+    if (*((data_t*)elem1) < *((data_t*)elem2))
+    {
+        return 1;
+    }
+    else if (*((data_t*)elem1) > *((data_t*)elem2))
+    {
+        return -1;
+    }
+
+    return 0;
 }
 
 /*
@@ -81,9 +103,15 @@ double sortCorrect(data_t *dataTable, uint_t tableLen, order_t sortOrder)
 
     // C++ std vector sort is faster than C++ Quicksort. But vector sort throws exception, if too much memory
     // is allocated. For example a lot of arrays are created in "sample sort key-value". In that case C++ vector
-    // sort throws exception, if array length is more or equal than "2^25".
-    stdVectorSort<data_t>(dataTable, tableLen, sortOrder);
-    // quickSort<data_t>(dataTable, tableLen, sortOrder);
+    // sort throws exception, if array length is more or equal than "2^24".
+    if (tableLen <= 1 << 24)
+    {
+        stdVectorSort<data_t>(dataTable, tableLen, sortOrder);
+    }
+    else
+    {
+        quickSort<data_t>(dataTable, tableLen, sortOrder);
+    }
 
     return endStopwatch(timer);
 }

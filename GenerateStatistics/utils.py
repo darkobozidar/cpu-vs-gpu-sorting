@@ -110,3 +110,13 @@ def reduce_sort_timings(folder_name, array_lens, file_name_filters=[], reduce_fu
             print(output, file=file_output)
 
         file_output.close()
+
+
+# TODO remove
+def test_sorts(folder_name):
+    main_files = [f for f in os.listdir(folder_name) if "Main" in f and f.endswith(".exe")]
+    main_files_numbers = [int(f.split("_")[1][:-4]) for f in main_files]
+    main_files_numbers.sort()
+
+    for m in main_files_numbers:
+        os.system('%sMain_%d' % (folder_name, m))

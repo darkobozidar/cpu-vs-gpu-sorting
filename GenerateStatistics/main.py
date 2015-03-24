@@ -1,13 +1,17 @@
 import os
 
 import constants as const
-from utils import reduce_predicates, reduce_sort_timings
+from utils import reduce_predicates, reduce_sort_timings, test_sorts
+
+
+# TODO remove
+test_sorts('C:/Main/')
 
 
 # Reads array lengths
 array_lens = None
 with open(const.FILE_ARRAY_LENS, "r+") as f_array_lens:
-    array_lens = [int(l) for l in f_array_lens.read().split(const.SEPARATOR)]
+    array_lens = [int(l) for l in f_array_lens.read().split(const.FILE_NEW_LINE_CHAR)[:-1]]
 
 
 reduce_predicates(const.FOLDER_SORT_CORRECTNESS, "correctness" + const.FILE_EXTENSION)

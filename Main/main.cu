@@ -34,9 +34,9 @@
 int main(int argc, char **argv)
 {
     uint_t arrayLenStart = (1 << 15);
-    uint_t arrayLenEnd = (1 << 25);
+    uint_t arrayLenEnd = arrayLenStart;
     uint_t interval = MAX_VAL;
-    uint_t testRepetitions = 3;    // How many times are sorts ran
+    uint_t testRepetitions = 1;    // How many times are sorts ran
     order_t sortOrder = ORDER_ASC;  // Values: ORDER_ASC, ORDER_DESC
 
     // Input data distributions
@@ -52,7 +52,6 @@ int main(int argc, char **argv)
     sorts.push_back(new BitonicSortSequential());
     sorts.push_back(new BitonicSortParallel());
     sorts.push_back(new BitonicSortMultistepParallel());
-    sorts.push_back(new BitonicSortAdaptiveSequential());
     sorts.push_back(new BitonicSortAdaptiveParallel());
     sorts.push_back(new MergeSortSequential());
     sorts.push_back(new MergeSortParallel());
@@ -62,6 +61,8 @@ int main(int argc, char **argv)
     sorts.push_back(new RadixSortParallel());
     sorts.push_back(new SampleSortSequential());
     sorts.push_back(new SampleSortParallel());
+    // TODO move back behind multistep sort
+    sorts.push_back(new BitonicSortAdaptiveSequential());
 
     // This is needed only for testing puproses, because data transfer from device to host shouldn't be stopwatched.
     for (std::vector<SortSequential*>::iterator sort = sorts.begin(); sort != sorts.end(); sort++)

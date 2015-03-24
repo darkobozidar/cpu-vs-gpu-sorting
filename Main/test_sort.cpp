@@ -233,7 +233,7 @@ void testSort(
 
     // Sort correctness test
     if (!(distribution == DISTRIBUTION_SORTED_ASC && sortOrder == ORDER_ASC ||
-        distribution == DISTRIBUTION_SORTED_DESC && sortOrder == ORDER_DESC)
+          distribution == DISTRIBUTION_SORTED_DESC && sortOrder == ORDER_DESC)
     )
     {
         sortCorrect(keysCopy, arrayLength, sortOrder);
@@ -306,8 +306,7 @@ void writeArrayLengthsToFile(uint_t arrayLenStart, uint_t arrayLenEnd)
 {
     for (uint_t arrayLength = arrayLenStart; arrayLength <= arrayLenEnd; arrayLength = nextArrayLength(arrayLength))
     {
-        std::string arrayLenStr = std::to_string(arrayLength);
-        arrayLenStr += arrayLength < arrayLenEnd ? std::string(FILE_SEPARATOR_CHAR) : "";
+        std::string arrayLenStr = std::to_string(arrayLength) + std::string(FILE_NEW_LINE_CHAR);
         appendToFile(FILE_ARRAY_LENGTHS, arrayLenStr);
     }
 }
@@ -323,18 +322,18 @@ void generateStatistics(
     createFolderStructure(distributions);
     writeArrayLengthsToFile(arrayLenStart, arrayLenEnd);
 
-    for (std::vector<data_dist_t>::iterator dist = distributions.begin(); dist != distributions.end(); dist++)
+    for (uint_t arrayLength = arrayLenStart; arrayLength <= arrayLenEnd; arrayLength = nextArrayLength(arrayLength))
     {
-        for (uint_t arrayLength = arrayLenStart; arrayLength <= arrayLenEnd; arrayLength = nextArrayLength(arrayLength))
-        {
-            data_t *keys = (data_t*)malloc(arrayLength * sizeof(*keys));
-            checkMallocError(keys);
-            data_t *keysCopy = (data_t*)malloc(arrayLength * sizeof(*keysCopy));
-            checkMallocError(keysCopy);
-            data_t *values = (data_t*)malloc(arrayLength * sizeof(*values));
-            checkMallocError(values);
+        data_t *keys = (data_t*)malloc(arrayLength * sizeof(*keys));
+        checkMallocError(keys);
+        data_t *keysCopy = (data_t*)malloc(arrayLength * sizeof(*keysCopy));
+        checkMallocError(keysCopy);
+        data_t *values = (data_t*)malloc(arrayLength * sizeof(*values));
+        checkMallocError(values);
 
-            for (std::vector<SortSequential*>::iterator sort = sorts.begin(); sort != sorts.end(); sort++)
+        for (std::vector<SortSequential*>::iterator sort = sorts.begin(); sort != sorts.end(); sort++)
+        {
+            for (std::vector<data_dist_t>::iterator dist = distributions.begin(); dist != distributions.end(); dist++)
             {
                 // TODO remove!!!
                 if ((*sort)->getSortName().compare("Quicksort sequential") == 0 && (*dist) == DISTRIBUTION_ZERO)
@@ -354,13 +353,14 @@ void generateStatistics(
                     *sort, *dist, keys, keysCopy, values, arrayLength, sortOrder, interval, testRepetitions, false
                 );
 
-                (*sort)->memoryDestroy();
                 printf("\n\n");
             }
 
-            free(keys);
-            free(keysCopy);
-            free(values);
+            (*sort)->memoryDestroy();
         }
+
+        free(keys);
+        free(keysCopy);
+        free(values);
     }
 }
