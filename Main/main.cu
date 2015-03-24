@@ -33,10 +33,19 @@
 
 int main(int argc, char **argv)
 {
-    uint_t arrayLenStart = (1 << 15);
-    uint_t arrayLenEnd = arrayLenStart;
+    uint_t arrayLenStart, arrayLenEnd;
+
+    if (argc < 2 || argc > 3)
+    {
+        printf("Start array length has to be provided and optionally end array length.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    arrayLenStart = atoi(argv[1]);
+    arrayLenEnd = argc == 3 ? atoi(argv[2]) : arrayLenStart;
+
     uint_t interval = MAX_VAL;
-    uint_t testRepetitions = 1;    // How many times are sorts ran
+    uint_t testRepetitions = 50;    // How many times are sorts ran
     order_t sortOrder = ORDER_ASC;  // Values: ORDER_ASC, ORDER_DESC
 
     // Input data distributions

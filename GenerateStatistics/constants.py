@@ -24,6 +24,8 @@ SEPARATOR = '\t'
 FILE_NEW_LINE_CHAR = '\n'
 # File, wher array lengths are saved
 FILE_ARRAY_LENS = "%s%s%s" % (FOLDER_SORT_ROOT, "array_lengths", FILE_EXTENSION)
+# Exe file for sorting
+FILE_SORT_EXE = "../Release/Main.exe"
 
 
 # GENERAL
