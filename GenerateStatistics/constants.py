@@ -38,3 +38,7 @@ SORT_KEY_VALUE = "key_value"
 SORT_SEQUENTIAL = "sequential"
 # Substring which appeares in file names for parallel sorts
 SORT_PARALLEL = "parallel"
+# Ascending sort order
+ORDER_ASC = 0
+# Descending sort order
+ORDER_DESC = 1

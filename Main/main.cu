@@ -33,20 +33,22 @@
 
 int main(int argc, char **argv)
 {
-    uint_t arrayLenStart, arrayLenEnd;
-
-    if (argc < 2 || argc > 3)
+    if (argc < 3 || argc > 4)
     {
-        printf("Start array length has to be provided and optionally end array length.\n");
+        printf(
+            "Two mandatory and one optional argument has to be specified:\n1. array length\n2. number of test "
+            "repetitions\n3. sort order (0 - ASC, 1 - DESC), optional, default ASC\n"
+        );
         exit(EXIT_FAILURE);
     }
 
-    arrayLenStart = atoi(argv[1]);
-    arrayLenEnd = argc == 3 ? atoi(argv[2]) : arrayLenStart;
-
+    uint_t arrayLength = atoi(argv[1]);
+    // How many times is the sorting algorithm test repeated
+    uint_t testRepetitions = atoi(argv[2]);
+    // Sort order of the data
+    order_t sortOrder = argc == 3 ? ORDER_ASC : (order_t)atoi(argv[3]);
+    // Interval of input data -> [0, "interval]
     uint_t interval = MAX_VAL;
-    uint_t testRepetitions = 50;    // How many times are sorts ran
-    order_t sortOrder = ORDER_ASC;  // Values: ORDER_ASC, ORDER_DESC
 
     // Input data distributions
     std::vector<data_dist_t> distributions;
@@ -79,7 +81,7 @@ int main(int argc, char **argv)
         (*sort)->stopwatchEnable();
     }
 
-    generateStatistics(sorts, distributions, arrayLenStart, arrayLenEnd, sortOrder, testRepetitions, interval);
+    generateStatistics(sorts, distributions, arrayLength, sortOrder, testRepetitions, interval);
 
     printf("Finished\n");
     return 0;

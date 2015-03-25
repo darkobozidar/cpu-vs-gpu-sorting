@@ -284,83 +284,53 @@ void generateSortTestResults(
 }
 
 /*
-Generator for array lengths.
-*/
-int_t nextArrayLength(uint_t arrayLength)
-{
-    if (isPowerOfTwo(arrayLength))
-    {
-        uint_t logLength = log2(arrayLength);
-        return (1 << logLength) + (1 << (logLength - 1));
-    }
-    else
-    {
-        return nextPowerOf2(arrayLength);
-    }
-}
-
-/*
-Writes array lengths to file.
-*/
-void writeArrayLengthsToFile(uint_t arrayLenStart, uint_t arrayLenEnd)
-{
-    for (uint_t arrayLength = arrayLenStart; arrayLength <= arrayLenEnd; arrayLength = nextArrayLength(arrayLength))
-    {
-        std::string arrayLenStr = std::to_string(arrayLength) + std::string(FILE_NEW_LINE_CHAR);
-        appendToFile(FILE_ARRAY_LENGTHS, arrayLenStr);
-    }
-}
-
-/*
 Tests all provided sorts for all provided distributions.
 */
 void generateStatistics(
-    std::vector<SortSequential*> sorts, std::vector<data_dist_t> distributions, uint_t arrayLenStart,
-    uint_t arrayLenEnd, order_t sortOrder, uint_t testRepetitions, uint_t interval
+    std::vector<SortSequential*> sorts, std::vector<data_dist_t> distributions, uint_t arrayLength,
+    order_t sortOrder, uint_t testRepetitions, uint_t interval
 )
 {
     createFolderStructure(distributions);
-    writeArrayLengthsToFile(arrayLenStart, arrayLenEnd);
+    std::string arrayLenStr = std::to_string(arrayLength) + std::string(FILE_NEW_LINE_CHAR);
+    appendToFile(FILE_ARRAY_LENGTHS, arrayLenStr);
 
-    for (uint_t arrayLength = arrayLenStart; arrayLength <= arrayLenEnd; arrayLength = nextArrayLength(arrayLength))
+    data_t *keys = (data_t*)malloc(arrayLength * sizeof(*keys));
+    checkMallocError(keys);
+    data_t *keysCopy = (data_t*)malloc(arrayLength * sizeof(*keysCopy));
+    checkMallocError(keysCopy);
+    data_t *values = (data_t*)malloc(arrayLength * sizeof(*values));
+    checkMallocError(values);
+
+    for (std::vector<SortSequential*>::iterator sort = sorts.begin(); sort != sorts.end(); sort++)
     {
-        data_t *keys = (data_t*)malloc(arrayLength * sizeof(*keys));
-        checkMallocError(keys);
-        data_t *keysCopy = (data_t*)malloc(arrayLength * sizeof(*keysCopy));
-        checkMallocError(keysCopy);
-        data_t *values = (data_t*)malloc(arrayLength * sizeof(*values));
-        checkMallocError(values);
-
-        for (std::vector<SortSequential*>::iterator sort = sorts.begin(); sort != sorts.end(); sort++)
+        for (std::vector<data_dist_t>::iterator dist = distributions.begin(); dist != distributions.end(); dist++)
         {
-            for (std::vector<data_dist_t>::iterator dist = distributions.begin(); dist != distributions.end(); dist++)
+            // TODO remove!!!
+            if ((*sort)->getSortName().compare("Quicksort sequential") == 0 && (*dist) == DISTRIBUTION_ZERO)
             {
-                // TODO remove!!!
-                if ((*sort)->getSortName().compare("Quicksort sequential") == 0 && (*dist) == DISTRIBUTION_ZERO)
-                {
-                    continue;
-                }
-
-                // Sort key-only
-                generateSortTestResults(
-                    *sort, *dist, keys, keysCopy, values, arrayLength, sortOrder, interval, testRepetitions, true
-                );
-
-                printf("\n\n");
-
-                // Sort key-value pairs
-                generateSortTestResults(
-                    *sort, *dist, keys, keysCopy, values, arrayLength, sortOrder, interval, testRepetitions, false
-                );
-
-                printf("\n\n");
+                continue;
             }
 
-            (*sort)->memoryDestroy();
+            // Sort key-only
+            generateSortTestResults(
+                *sort, *dist, keys, keysCopy, values, arrayLength, sortOrder, interval, testRepetitions, true
+            );
+
+            printf("\n\n");
+
+            // Sort key-value pairs
+            generateSortTestResults(
+                *sort, *dist, keys, keysCopy, values, arrayLength, sortOrder, interval, testRepetitions, false
+            );
+
+            printf("\n\n");
         }
 
-        free(keys);
-        free(keysCopy);
-        free(values);
+        (*sort)->memoryDestroy();
     }
+
+    free(keys);
+    free(keysCopy);
+    free(values);
 }

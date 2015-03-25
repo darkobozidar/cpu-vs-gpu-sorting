@@ -9,8 +9,8 @@
 
 
 void generateStatistics(
-    std::vector<SortSequential*> sorts, std::vector<data_dist_t> distributions, uint_t arrayLenStart,
-    uint_t arrayLenEnd, order_t sortOrder, uint_t testRepetitions, uint_t interval
+    std::vector<SortSequential*> sorts, std::vector<data_dist_t> distributions, uint_t arrayLength,
+    order_t sortOrder, uint_t testRepetitions, uint_t interval
 );
 
 #endif

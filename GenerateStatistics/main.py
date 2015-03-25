@@ -5,7 +5,7 @@ from statistics import test_sorts, reduce_predicates, reduce_sort_timings
 
 
 # Tests sorts on specified interval
-test_sorts(const.FILE_SORT_EXE, 1 << 15, 1 << 25)
+test_sorts(const.FILE_SORT_EXE, 1 << 15, 1 << 25, 50)
 print("\n\n")
 
 # Reads array lengths

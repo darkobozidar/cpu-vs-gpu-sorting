@@ -23,11 +23,12 @@ def array_len_gen(array_len_start, array_len_end):
             array_len = next_power_2(array_len)
 
 
-def test_sorts(exe_path, array_len_start, array_len_end):
+def test_sorts(exe_path, array_len_start, array_len_end, test_repetitions,
+               sort_order=const.ORDER_ASC):
     """Tests sorting algorithms for provided array lengths."""
 
     for array_len in array_len_gen(array_len_start, array_len_end):
-        subprocess.call([exe_path, str(array_len)])
+        subprocess.call([exe_path, str(array_len), str(test_repetitions), str(sort_order)])
 
 
 def reduce_predicates(folder_name_pred, output_file_name, file_name_filters=""):
