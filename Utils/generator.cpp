@@ -18,6 +18,7 @@ uint_t generatorCalls = 0;
 
 /*
 Fills keys with random numbers.
+TODO break into separate function for every distribution (currently having difficulties due to "auto" data type).
 */
 void fillArrayKeyOnly(data_t *keys, uint_t tableLen, uint_t interval, uint_t bucketSize, data_dist_t distribution)
 {
