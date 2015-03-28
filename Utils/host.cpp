@@ -95,8 +95,7 @@ void checkMallocError(void *ptr)
 {
     if (ptr == NULL)
     {
-        printf("Error in host malloc\n.");
-        getchar();
+        printf("Error in host malloc.\n");
         exit(EXIT_FAILURE);
     }
 }
