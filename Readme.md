@@ -21,10 +21,12 @@ Parallel algorithms:
 
 
 Results: http://x.k00.fr/fb5f6
+
 Current version of master's thesis (slovenian version): http://x.k00.fr/na792
 
 
 Literature:
+
 [1] K. E. Batcher, "Sorting networks and their applications",
     in Proceedings of the April 30-May 2, 1968, Spring Joint Computer Conference,
     AFIPS '68 (Spring), (New York, NY, USA), pp. 307-314, ACM, 1968.
