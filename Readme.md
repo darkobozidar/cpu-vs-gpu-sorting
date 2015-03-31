@@ -20,7 +20,7 @@ Parallel algorithms:
 - Sample sort: [2], [15], [18]
 
 
-Results: http://x.k00.fr/fb5f6
+Results: http://x.k00.fr/744v7
 
 Current version of master's thesis (slovenian version): http://x.k00.fr/na792
 
