@@ -61,13 +61,13 @@ protected:
         uint_t residueArrayLen = arrayLength % power2arrayLen;
 
         uint_t partitionSize = (power2arrayLen - 1) / (1 << degree) + 1;
-        // For remainder the size of partition has to be calculated explicitly, becaause it depends on
+        // For remainder the size of partition has to be calculated explicitly, because it depends on
         // remainder size, step and degree
         if (residueArrayLen > 0)
         {
             // The size of one sub-block which is sorted with same group of comparissons.
             uint_t subBlockSize = 1 << step;
-            // Rouns the residue size to the next power of sub-block size
+            // Rounds the residue size to the next power of sub-block size
             uint_t power2residueArrayLen = roundUp(residueArrayLen, subBlockSize);
             partitionSize += min(residueArrayLen, (power2residueArrayLen - 1) / (1 << degree) + 1);
         }

@@ -39,7 +39,7 @@ protected:
     data_t *_h_keysSorted = NULL, *_h_valuesSorted = NULL;
     // Holds samples and after samples are sorted holds splitters in sequential sample sort
     data_t *_h_samples;
-    // For every element in input holds bucket index to which it belogns (needed for sequential sample sort)
+    // For every element in input holds bucket index to which it belongs (needed for sequential sample sort)
     uint_t *_h_elementBuckets;
 
     /*

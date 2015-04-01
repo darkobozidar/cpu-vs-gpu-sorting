@@ -70,7 +70,7 @@ protected:
     }
 
     /*
-    Partitions keys into 2 partitions - elemens lower and elements greater than pivot.
+    Partitions keys into 2 partitions - elements lower and elements greater than pivot.
     */
     template <order_t sortOrder>
     uint_t partitionArray(data_t *h_keys, uint_t arrayLength)
@@ -95,7 +95,7 @@ protected:
     }
 
     /*
-    Partitions keys and values into 2 partitions - elemens lower and elements greater than pivot.
+    Partitions keys and values into 2 partitions - elements lower and elements greater than pivot.
     */
     template <order_t sortOrder>
     uint_t partitionArray(data_t *h_keys, data_t *h_values, uint_t arrayLength)

@@ -295,7 +295,7 @@ protected:
     }
 
     /*
-    With respect to local bucket sizes and offsets scatters elements to their global buckets. At the end it coppies
+    With respect to local bucket sizes and offsets scatters elements to their global buckets. At the end it copies
     global bucket sizes (sizes of whole global buckets, not just bucket sizes per every sorted sub-block) to host.
     */
     template <bool sortingKeyOnly>

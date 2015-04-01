@@ -26,7 +26,7 @@ __global__ void bitonicSortRegularKernel(data_t *keys, data_t *values, uint_t ta
     data_t *keysTile = sortTile;
     data_t *valuesTile = sortTile + threadsBitonicSort * elemsBitonicSort;
 
-    // If shared memory size is lower than table length, than adjecent blocks have to be ordered in opposite
+    // If shared memory size is lower than table length, than adjacent blocks have to be ordered in opposite
     // direction in order to create bitonic sequences.
     bool blockDirection = (sortOrder == ORDER_ASC) ^ (blockIdx.x & 1);
 

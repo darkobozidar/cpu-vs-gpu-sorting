@@ -22,7 +22,7 @@ FILE_EXTENSION = ".txt"
 SEPARATOR = '\t'
 # New line character in file
 FILE_NEW_LINE_CHAR = '\n'
-# File, wher array lengths are saved
+# File, where array lengths are saved
 FILE_ARRAY_LENS = "%s%s%s" % (FOLDER_SORT_ROOT, "array_lengths", FILE_EXTENSION)
 # Exe file for sorting
 FILE_SORT_EXE = "../Release/Main.exe"
@@ -30,13 +30,13 @@ FILE_SORT_EXE = "../Release/Main.exe"
 
 # GENERAL
 
-# Substring which appeares in file names for sorting key-only
+# Substring which appears in file names for sorting key-only
 SORT_KEY_ONLY = "key_only"
-# Substring which appeares in file names for sorting key-value
+# Substring which appears in file names for sorting key-value
 SORT_KEY_VALUE = "key_value"
-# Substring which appeares in file names for sequential sorts
+# Substring which appears in file names for sequential sorts
 SORT_SEQUENTIAL = "sequential"
-# Substring which appeares in file names for parallel sorts
+# Substring which appears in file names for parallel sorts
 SORT_PARALLEL = "parallel"
 # Ascending sort order
 ORDER_ASC = 0

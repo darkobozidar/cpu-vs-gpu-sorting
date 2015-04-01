@@ -28,7 +28,7 @@ _KV: Key-value
 #define THREADS_LOCAL_SORT_KV 128
 #endif
 // How many elements are processed by one thread in local radix sort.
-// Has to be divisable by 2. Min value is 1, Max value is 8.
+// Has to be divisible by 2. Min value is 1, Max value is 8.
 #if DATA_TYPE_BITS == 32
 #define ELEMS_LOCAL_KO 6
 #define ELEMS_LOCAL_KV 4
@@ -68,7 +68,7 @@ _KV: Key-value
 
 /* ---------- PARALLEL ALGORITHM PARAMETERS ---------- */
 
-// How many bits is the one radix diggit made of (one diggit is processed in one iteration).
+// How many bits is the one radix digit made of (one digit is processed in one iteration).
 #if DATA_TYPE_BITS == 32
 #define BIT_COUNT_PARALLEL_KO 4
 #define BIT_COUNT_PARALLEL_KV 4
@@ -80,7 +80,7 @@ _KV: Key-value
 
 /* --------- SEQUENTIAL ALGORITHM PARAMETERS --------- */
 
-// How many bits is the one radix diggit made of (one diggit is processed in one iteration).
+// How many bits is the one radix digit made of (one digit is processed in one iteration).
 #if DATA_TYPE_BITS == 32
 #define BIT_COUNT_SEQUENTIAL_KO 8
 #define BIT_COUNT_SEQUENTIAL_KV 8

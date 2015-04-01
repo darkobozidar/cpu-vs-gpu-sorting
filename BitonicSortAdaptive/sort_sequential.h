@@ -55,7 +55,7 @@ protected:
     }
 
     /*
-    Requires root node and stride (at beggining this is "<array_length> / 4").
+    Requires root node and stride (at beginning this is "<array_length> / 4").
     */
     void constructBitonicTree(node_t *parent, int_t stride)
     {
@@ -405,7 +405,7 @@ protected:
 
     /*
     Executes adaptive bitonic sort on provided bitonic tree. Requires root node of bitonic tree, spare node
-    (at beggining this is node with last array element with no children and parents) and sort order.
+    (at beginning this is node with last array element with no children and parents) and sort order.
     */
     template <order_t sortOrder>
     void bitonicSortAdaptiveSequential(node_t *root, node_t *spare)

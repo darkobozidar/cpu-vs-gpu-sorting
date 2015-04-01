@@ -42,10 +42,10 @@ __global__ void mergeSortKernel(data_t *dataTable)
         {
             // Offset of current sample within block
             uint_t offsetSample = tx & (stride - 1);
-            // Ofset to two blocks of length stride, which will be merged
+            // Offset to two blocks of length stride, which will be merged
             uint_t offsetBlock = 2 * (tx - offsetSample);
 
-            // Loads element from even and odd block (blocks beeing merged)
+            // Loads element from even and odd block (blocks being merged)
             data_t elemEven = mergeTile[offsetBlock + offsetSample];
             data_t elemOdd = mergeTile[offsetBlock + offsetSample + stride];
 

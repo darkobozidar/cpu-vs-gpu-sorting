@@ -27,7 +27,7 @@ def create_folder(folder_path):
 def verify_file_name(file_name, file_name_filters=[], file_extension=""):
     """
     Verifies if file name contains all substring specified in list and if it has correct
-    exttension.
+    extension.
     """
 
     is_ok = not any(f_n not in file_name for f_n in file_name_filters)

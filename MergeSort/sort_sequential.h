@@ -88,7 +88,7 @@ protected:
     {
         // Number of sub-blocks being merged
         uint_t subBlockSize = sortedBlockSize / 2;
-        // If it is last phase of merge sort, data is coppied to result array
+        // If it is last phase of merge sort, data is copied to result array
         data_t *keysOutput = getOutputMergeArray(h_keysBuffer, h_keysSorted, isLastMergePhase);
         data_t *valuesOutput = getOutputMergeArray(h_valuesBuffer, h_valuesSorted, isLastMergePhase);
 
@@ -96,7 +96,7 @@ protected:
         uint_t oddIndex = blockIndex * sortedBlockSize;
         uint_t oddEnd = getEndIndex(oddIndex, subBlockSize, arrayLength);
 
-        // If there is only odd block without even block, then only odd block is coppied into buffer
+        // If there is only odd block without even block, then only odd block is copied into buffer
         if (oddEnd == arrayLength)
         {
             std::copy(h_keys + oddIndex, h_keys + oddEnd, keysOutput + oddIndex);
@@ -142,7 +142,7 @@ protected:
             }
         }
 
-        // Block that wasn't merged entirely is coppied into buffer array
+        // Block that wasn't merged entirely is copied into buffer array
         if (oddIndex == oddEnd)
         {
             std::copy(h_keys + evenIndex, h_keys + evenEnd, keysOutput + mergeIndex);

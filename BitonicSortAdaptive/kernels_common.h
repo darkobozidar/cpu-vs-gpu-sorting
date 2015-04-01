@@ -34,7 +34,7 @@ __global__ void initIntervalsKernel(
         uint_t offset0 = intervalIndex * subBlockSize;
         uint_t offset1 = intervalIndex * subBlockSize + subBlockSize / 2;
 
-        // In every odd block intervals have to be reversed, othervise itervals aren't generated correctly.
+        // In every odd block intervals have to be reversed, otherwise intervals aren't generated correctly.
         intervalsTile[tx].offset0 = intervalIndex % 2 ? offset1 : offset0;
         intervalsTile[tx].offset1 = intervalIndex % 2 ? offset0 : offset1;
         intervalsTile[tx].length0 = subBlockSize / 2;
@@ -49,7 +49,7 @@ __global__ void initIntervalsKernel(
 
     // Calculates offset in global intervals array
     interval_t *outputIntervalsGlobal = intervals + blockIdx.x * elemsPerThreadBlock;
-    // Depending if the number of repetitions is divisable by 2, generated intervals are located in FIRST half
+    // Depending if the number of repetitions is divisible by 2, generated intervals are located in FIRST half
     // OR in SECOND half of shared memory (shared memory has 2x size of generated intervals for buffer purposes)
     interval_t *outputIntervalsLocal = intervalsTile + ((stepStart - stepEnd) % 2 != 0 ? elemsPerThreadBlock : 0);
 
@@ -90,7 +90,7 @@ __global__ void generateIntervalsKernel(
     uint_t elemsPerThreadBlock = blockDim.x * elemsGenIntervals;
     // Calculates offset in global intervals array
     interval_t *outputIntervalsGlobal = outputIntervals + blockIdx.x * elemsPerThreadBlock;
-    // Depending if the number of repetitions is divisable by 2, generated intervals are located in FIRST half
+    // Depending if the number of repetitions is divisible by 2, generated intervals are located in FIRST half
     // OR in SECOND half of shared memory (shared memory has 2x size of all generated intervals for buffer purposes)
     interval_t *outputIntervalsLocal = intervalsTile + ((stepStart - stepEnd) % 2 != 0 ? elemsPerThreadBlock : 0);
 

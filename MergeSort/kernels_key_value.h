@@ -49,7 +49,7 @@ __global__ void mergeSortKernel(data_t *keys, data_t *values)
             // Ofset to two blocks of length stride, which will be merged
             uint_t offsetBlock = 2 * (tx - offsetSample);
 
-            // Loads element from even and odd block (blocks beeing merged)
+            // Loads element from even and odd block (blocks being merged)
             uint_t indexEven = offsetBlock + offsetSample;
             uint_t indexOdd = indexEven + stride;
 
@@ -107,7 +107,7 @@ __global__ void mergeKernel(
     __shared__ data_t keysEven[subBlockSize];
     __shared__ data_t keysOdd[subBlockSize];
     // Values don't need to be read in shared memory, because we need to search only in keys. Value
-    // variables are used to read values in coalasced manner when keys are read from global memory.
+    // variables are used to read values in coalesced manner when keys are read from global memory.
     data_t valueEven, valueOdd;
 
     uint_t indexRank = blockIdx.y * (sortedBlockSize / subBlockSize * 2) + blockIdx.x;
@@ -145,7 +145,7 @@ __global__ void mergeKernel(
     numElementsOdd = indexEndOdd - indexStartOdd;
 
     // Reads data for sub-block in EVEN sorted block
-    // Values are also read alongside keys because they are read in coalasced manner
+    // Values are also read alongside keys because they are read in coalesced manner
     if (threadIdx.x < numElementsEven)
     {
         offsetEven = indexSortedBlock + indexStartEven + threadIdx.x;

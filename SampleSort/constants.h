@@ -129,7 +129,7 @@ _KV: Key-value
 #define NUM_SPLITTERS_SEQUENTIAL_KV 16
 #endif
 
-// How many extra samples are taken for every splitter. Increases the queality of splitters (samples
+// How many extra samples are taken for every splitter. Increases the quality of splitters (samples
 // get sorted and only "NUM_SPLITTERS_SEQUENTIAL" splitters are taken from sorted array of samples).
 #if DATA_TYPE_BITS == 32
 #define OVERSAMPLING_FACTOR_KO 4
@@ -139,7 +139,7 @@ _KV: Key-value
 #define OVERSAMPLING_FACTOR_KV 4
 #endif
 
-// Threshold, when small sort is applied (in our case marge sort). Has to be greater or equeal than
+// Threshold, when small sort is applied (in our case merge sort). Has to be greater or equal than
 // "NUM_SAMPLES_SEQUENTIAL".
 #if DATA_TYPE_BITS == 32
 #define SMALL_SORT_THRESHOLD_KO (1 << 15)

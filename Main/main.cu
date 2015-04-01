@@ -74,7 +74,7 @@ int main(int argc, char **argv)
     sorts.push_back(new SampleSortSequential());
     sorts.push_back(new SampleSortParallel());
 
-    // This is needed only for testing puproses, because data transfer from device to host shouldn't be stopwatched.
+    // This is needed only for testing purposes, because data transfer from device to host shouldn't be timed.
     for (std::vector<SortSequential*>::iterator sort = sorts.begin(); sort != sorts.end(); sort++)
     {
         (*sort)->stopwatchEnable();

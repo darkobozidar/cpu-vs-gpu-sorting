@@ -183,12 +183,12 @@ void writeBoleanToFile(
     std::string filePath = folderName + strSlugify(sort->getSortName(sortingKeyOnly)) + FILE_EXTENSION;
     std::fstream file;
 
-    // Outputs bolean
+    // Outputs boolean
     file.open(filePath, std::fstream::app);
     file << val << FILE_SEPARATOR_CHAR;
     file.close();
 
-    // Prints log in case if bolean is false
+    // Prints log in case if boolean is false
     if (!val)
     {
         std::string fileLog = folderName + FOLDER_LOG;
@@ -258,7 +258,7 @@ void testSort(
 }
 
 /*
-Tests the sort ang generates results.
+Tests the sort and generates results.
 */
 void generateSortTestResults(
     SortSequential *sort, data_dist_t distribution, data_t *keys, data_t *keysCopy, data_t *values,

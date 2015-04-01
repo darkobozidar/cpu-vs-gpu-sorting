@@ -22,7 +22,7 @@ Executes global quicksort - multiple thread blocks process one sequence. They co
 lower/greater than pivot and then execute partitioning. At the end last thread block processing the
 sequence stores the pivots.
 
-TODO try alignment with 32 for coalasced reading
+TODO try alignment with 32 for coalesced reading
 */
 template <uint_t threadsSortGlobal, uint_t elemsThreadGlobal, order_t sortOrder>
 __global__ void quickSortGlobalKernel(
@@ -115,7 +115,7 @@ Executes local quicksort - one thread block processes one sequence. It counts nu
 lower/greater than pivot and then performs partitioning.
 Workstack is used - shortest sequence is always processed.
 
-TODO try alignment with 32 for coalasced reading
+TODO try alignment with 32 for coalesced reading
 */
 template <uint_t threadsSortLocal, uint_t thresholdBitonicSort, order_t sortOrder>
 __global__ void quickSortLocalKernel(data_t *dataInput, data_t *dataBuffer, loc_seq_t *sequences)
@@ -142,7 +142,7 @@ __global__ void quickSortLocalKernel(data_t *dataInput, data_t *dataBuffer, loc_
 
         if (sequence.length <= thresholdBitonicSort)
         {
-            // Bitonic sort is executed in-place and sorted data has to be writter to output.
+            // Bitonic sort is executed in-place and sorted data has to be written to output.
             data_t *inputTemp = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataInput : dataBuffer;
             normalizedBitonicSort<threadsSortLocal, sortOrder>(
                 inputTemp, dataBuffer, sequence
@@ -209,7 +209,7 @@ __global__ void quickSortLocalKernel(data_t *dataInput, data_t *dataBuffer, loc_
         __syncthreads();
 
         // Scatters the pivots to output array. Pivots have to be stored in output array, because they
-        // won't be moved anymore
+        // won't be moved any more
         uint_t index = sequence.start + pivotLowerOffset + threadIdx.x;
         uint_t end = sequence.start + sequence.length - pivotGreaterOffset;
 

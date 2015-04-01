@@ -21,7 +21,7 @@ void startStopwatch(LARGE_INTEGER* start)
 
 /*
 Ends the stopwatch (calculates the difference between current time and parameter "start") and returns time
-in miliseconds. Also prints out comment.
+in milliseconds. Also prints out comment.
 */
 double endStopwatch(LARGE_INTEGER start, char* comment)
 {
@@ -43,7 +43,7 @@ double endStopwatch(LARGE_INTEGER start, char* comment)
 
 /*
 Ends the stopwatch (calculates the difference between current time and parameter "start") and returns time
-in miliseconds.
+in milliseconds.
 */
 double endStopwatch(LARGE_INTEGER start)
 {

@@ -24,7 +24,7 @@ class AddPaddingBase
 {
 private:
     /*
-    Adds padding of MAX/MIN values to input table, deppending if sort order is ascending or descending.
+    Adds padding of MAX/MIN values to input table, depending if sort order is ascending or descending.
     */
     template <order_t sortOrder, bool fillBuffer>
     void runAddPaddingKernel(data_t *d_arrayPrimary, data_t *d_arrayBuffer, uint_t indexStart, uint_t indexEnd)

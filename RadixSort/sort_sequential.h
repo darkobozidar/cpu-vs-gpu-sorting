@@ -72,7 +72,7 @@ protected:
     }
 
     /*
-    Performs sequential couinting sort on provided bit offset for specified number of bits.
+    Performs sequential counting sort on provided bit offset for specified number of bits.
     */
     template <order_t sortOrder, bool sortingKeyOnly, uint_t radix>
     void countingSort(
@@ -86,7 +86,7 @@ protected:
             dataCounters[i] = 0;
         }
 
-        // Counts number of element occurances
+        // Counts number of element occurrences
         for (uint_t i = 0; i < tableLen; i++)
         {
             dataCounters[(h_keys[i] >> bitOffset) & (radix - 1)]++;
@@ -120,7 +120,7 @@ protected:
         uint_t arrayLength
     )
     {
-        // Executes couting sort for every digit (every group of BIT_COUNT_SEQUENTIAL bits)
+        // Executes counting sort for every digit (every group of BIT_COUNT_SEQUENTIAL bits)
         for (uint_t bitOffset = 0; bitOffset < sizeof(data_t)* 8; bitOffset += bitCountRadix)
         {
             countingSort<sortOrder, sortingKeyOnly, radix>(
@@ -205,7 +205,7 @@ public:
 };
 
 /*
-Base class for sequential radix sort with only one templat argument for key only and key-value - number of
+Base class for sequential radix sort with only one template argument for key only and key-value - number of
 bits in radix.
 */
 template <uint_t bitCountRadixKo, uint_t bitCountRadixKv>

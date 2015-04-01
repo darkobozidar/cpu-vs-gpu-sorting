@@ -225,7 +225,7 @@ protected:
     For every merge phase data is passed from primary array to buffer (and vice versa)
     In last merge phase "main part" and "remainder" have to be merged. If number of merge phases is odd, than
     "remainder" is located in buffer, while "main part" is located in primary array. In that case "remainder" has
-    to be coppied to "main array", so they can be merged.
+    to be copied to "main array", so they can be merged.
     */
     template <bool sortingKeyOnly>
     uint_t copyPaddedElements(
@@ -245,7 +245,7 @@ protected:
 
             // If difference between phase when remainder was last merged and current phase is EVEN, this means
             // that remainder is located in buffer while main part is located in primary array. In that case
-            // remainder is coppied into primary array.
+            // remainder is copied into primary array.
             if (phaseDifference % 2 == 0)
             {
                 cudaError_t error;

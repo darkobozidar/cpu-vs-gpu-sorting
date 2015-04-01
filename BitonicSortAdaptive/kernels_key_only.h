@@ -23,7 +23,7 @@ __global__ void bitonicSortRegularKernel(data_t *dataTable, uint_t tableLen)
     uint_t offset, dataBlockLength;
     calcDataBlockLength<threadsBitonicSort, elemsBitonicSort>(offset, dataBlockLength, tableLen);
 
-    // If shared memory size is lower than table length, than adjecent blocks have to be ordered in opposite
+    // If shared memory size is lower than table length, than adjacent blocks have to be ordered in opposite
     // direction in order to create bitonic sequences.
     bool blockDirection = (sortOrder == ORDER_ASC) ^ (blockIdx.x & 1);
 

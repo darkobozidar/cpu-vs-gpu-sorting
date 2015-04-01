@@ -54,7 +54,7 @@ __global__ void minMaxReductionKernel(data_t *input, data_t *output, uint_t tabl
     }
     __syncthreads();
 
-    // First warp loads results from all othwer warps and performs reduction
+    // First warp loads results from all other warps and performs reduction
     if ((threadIdx.x >> WARP_SIZE_LOG) == 0)
     {
         // Every warp reduces 2 * warpSize elements

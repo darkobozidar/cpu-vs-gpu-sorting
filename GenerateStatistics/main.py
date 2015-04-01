@@ -35,7 +35,7 @@ reduce_sort_timings(
     const.FOLDER_SORT_TIMERS, array_lens, [const.SORT_KEY_VALUE, const.SORT_PARALLEL]
 )
 
-print("Reducing sort timings for key value sequentail sort")
+print("Reducing sort timings for key value sequential sort")
 reduce_sort_timings(
     const.FOLDER_SORT_TIMERS, array_lens, [const.SORT_KEY_VALUE, const.SORT_SEQUENTIAL]
 )

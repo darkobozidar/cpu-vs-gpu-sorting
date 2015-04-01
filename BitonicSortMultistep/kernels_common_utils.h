@@ -10,8 +10,8 @@
 
 /*
 Generates parameters needed for multistep bitonic sort.
-> stride - (gap) between two elements beeing compared
-> threadsPerSubBlocks - how many threads apper per sub-block in current step
+> stride - (gap) between two elements being compared
+> threadsPerSubBlocks - how many threads appear per sub-block in current step
 > indexTable - start index, at which thread should start reading elements
 */
 inline __device__ void getMultiStepParams(

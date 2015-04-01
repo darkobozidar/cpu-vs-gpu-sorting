@@ -174,7 +174,7 @@ void fillArrayValueOnly(data_t *values, uint_t tableLen)
 }
 
 /*
-Fills keys with random numbers and values with consectuive values (for stability test).
+Fills keys with random numbers and values with consecutive values (for stability test).
 */
 void fillArrayKeyValue(data_t *keys, data_t *values, uint_t tableLen, uint_t interval, data_dist_t distribution)
 {

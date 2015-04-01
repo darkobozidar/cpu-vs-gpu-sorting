@@ -3,7 +3,7 @@
 
 /*
 Because of circular dependencies between stuctures, structure methods have to be implemented after
-structure definitons.
+structure definitions.
 */
 
 /* HostGlobalSequence */

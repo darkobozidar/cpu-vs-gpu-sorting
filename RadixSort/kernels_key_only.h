@@ -13,9 +13,9 @@
 
 
 /*
-Sorts blocks in shared memory according to current radix diggit. Sort is done for every separatelly for every
-bit of diggit.
-Function template cannot be used for "elements per thread" because it has to be processsed by preprocessor.
+Sorts blocks in shared memory according to current radix digit. Sort is done for every separately for every
+bit of digit.
+Function template cannot be used for "elements per thread" because it has to be processed by preprocessor.
 - TODO implement for sort order DESC
 */
 template <uint_t threadsSortLocal, uint_t bitCountRadix, order_t sortOrder>
@@ -159,7 +159,7 @@ __global__ void radixSortLocalKernel(data_t *dataTable, uint_t bitOffset)
 }
 
 /*
-From provided offsets scatters elements to their corresponding buckets (according to radix diggit) from
+From provided offsets scatters elements to their corresponding buckets (according to radix digit) from
 primary to buffer array.
 */
 template <uint_t threadsSortGlobal, uint_t threadsSortLocal, uint_t elemsSortLocal, uint_t radixParam>

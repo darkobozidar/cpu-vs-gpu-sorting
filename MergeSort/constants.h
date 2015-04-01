@@ -41,7 +41,7 @@ _KV: Key-value
 #define THREADS_MERGE_SORT_KV 256
 #endif
 // How many elements are processed by one thread in merge sort kernel. Min value is 2.
-// Has to be divisable by 2.
+// Has to be divisible by 2.
 #if DATA_TYPE_BITS == 32
 #define ELEMS_MERGE_SORT_KO 4
 #define ELEMS_MERGE_SORT_KV 2

@@ -80,7 +80,7 @@ protected:
     }
 
     /*
-    Adds padding of MAX/MIN values to input table, deppending if sort order is ascending or descending. This is
+    Adds padding of MAX/MIN values to input table, depending if sort order is ascending or descending. This is
     needed, if table length is not power of 2. In order for bitonic sort to work, table length has to be power of 2.
     */
     template <order_t sortOrder>
@@ -111,14 +111,14 @@ protected:
         // If table length is not power of 2, than table is padded to the next power of 2. In that case it is not
         // necessary for entire padded table to be ordered. It is only necessary that table is ordered to the next
         // multiple of number of elements processed by one thread block. This ensures that bitonic sequences get
-        // created for entire original table length (padded elemens are MIN/MAX values and sorting would't change
+        // created for entire original table length (padded elements are MIN/MAX values and sorting wouldn't change
         // anything).
         uint_t arrayLenRoundedUp;
         if (arrayLength > elemsPerThreadBlock)
         {
             arrayLenRoundedUp = roundUp(arrayLength, elemsPerThreadBlock);
         }
-        // For sequences shorter than "arrayLenRoundedUp" only bitonic sort kernel is needed to sort them (whithout
+        // For sequences shorter than "arrayLenRoundedUp" only bitonic sort kernel is needed to sort them (without
         // any other kernels). In that case table size can be rounded to next power of 2.
         else
         {
@@ -244,7 +244,7 @@ protected:
     }
 
     /*
-    Runs kernel, whic performs bitonic merge from provided intervals.
+    Runs kernel, which performs bitonic merge from provided intervals.
     */
     template <order_t sortOrder, bool sortingKeyOnly>
     void runBitoicMergeIntervalsKernel(

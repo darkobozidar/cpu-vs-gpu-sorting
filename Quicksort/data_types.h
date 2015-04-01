@@ -14,7 +14,7 @@ typedef enum TransferDirection direct_t;
 
 
 /*
-Enum used to denote, in which direction is the data transfered to during local and global quicksort.
+Enum used to denote, in which direction is the data transferred to during local and global quicksort.
 */
 enum TransferDirection
 {
@@ -24,7 +24,7 @@ enum TransferDirection
 
 /*
 Params for sequence used in GLOBAL quicksort on HOST.
-Host needs different params for sequence beeing partitioned than device.
+Host needs different params for sequence being partitioned than device.
 */
 struct HostGlobalSequence
 {
@@ -41,7 +41,7 @@ struct HostGlobalSequence
 
 /*
 Params for sequence used in GLOBAL quicksort on DEVICE.
-Device needs different params for sequence beeing partitioned than host.
+Device needs different params for sequence being partitioned than host.
 */
 struct DeviceGlobalSequence
 {
@@ -56,8 +56,8 @@ struct DeviceGlobalSequence
     // is assigned to current block.
     uint_t startThreadBlockIdx;
     // Holds the number of thread blocks assigned to this sequence. When thread blocks finish with execution
-    // of global quicksort, they decrease this counter. This way eash thread block assigned to this sequence
-    // knows, if it finnished last with the execution of kernel, so it can scatter pivots.
+    // of global quicksort, they decrease this counter. This way each thread block assigned to this sequence
+    // knows, if it finished last with the execution of kernel, so it can scatter pivots.
     uint_t threadBlockCounter;
 
     // Counter used in global quicksort. Each thread block working on this sequence increments this counter

@@ -160,7 +160,7 @@ __device__ void countElementsLowerGreaterPivot(
     maxValues[threadIdx.x] = maxVal;
     __syncthreads();
 
-    // Calculates and saves min/max values, before shared memory gets overriden by scan
+    // Calculates and saves min/max values, before shared memory gets overridden by scan
     minMaxReduction<threadsSortGlobal>();
     if (threadIdx.x == (threadsSortGlobal - 1))
     {

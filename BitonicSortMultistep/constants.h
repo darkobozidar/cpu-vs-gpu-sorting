@@ -21,7 +21,7 @@ _KV:  Key-value
 #define THREADS_BITONIC_SORT_KV 128
 #endif
 // How many elements are processed by one thread in bitonic sort kernel. Min value is 2.
-// Has to be divisable by 2.
+// Has to be divisible by 2.
 #if DATA_TYPE_BITS == 32
 #define ELEMS_BITONIC_SORT_KO 4
 #define ELEMS_BITONIC_SORT_KV 4
@@ -66,7 +66,7 @@ _KV:  Key-value
 #define THREADS_GLOBAL_MERGE_KV 128
 #endif
 // How many elements are processed by one thread in GLOBAL bitonic merge. Min value is 2.
-// Has to be divisable by 2.
+// Has to be divisible by 2.
 #if DATA_TYPE_BITS == 32
 #define ELEMS_GLOBAL_MERGE_KO 4
 #define ELEMS_GLOBAL_MERGE_KV 2
@@ -87,7 +87,7 @@ _KV:  Key-value
 #define THREADS_LOCAL_MERGE_KV 256
 #endif
 // How many elements are processed by one thread in LOCAL bitonic merge. Min value is 2.
-// Has to be divisable by 2.
+// Has to be divisible by 2.
 #if DATA_TYPE_BITS == 32
 #define ELEMS_LOCAL_MERGE_KO 4
 #define ELEMS_LOCAL_MERGE_KV 4

@@ -167,7 +167,7 @@ protected:
     }
 
     /*
-    Runs kernel, which sorts data blocks in shared memory with radix sort according to current radix diggit,
+    Runs kernel, which sorts data blocks in shared memory with radix sort according to current radix digit,
     which is specified with "bitOffset".
     */
     template <order_t sortOrder, bool sortingKeyOnly>
@@ -252,7 +252,7 @@ protected:
     }
 
     /*
-    Scatters elements to their corresponding buckets according to current radix diggit, which is specified
+    Scatters elements to their corresponding buckets according to current radix digit, which is specified
     with "bitOffset".
     */
     template <bool sortingKeyOnly>

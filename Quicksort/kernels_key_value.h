@@ -22,7 +22,7 @@ Executes global quicksort - multiple thread blocks process one sequence. They co
 lower/greater than pivot and then execute partitioning. At the end last thread block processing the
 sequence stores the pivots.
 
-TODO try alignment with 32 for coalasced reading
+TODO try alignment with 32 for coalesced reading
 */
 template <uint_t threadsSortGlobal, uint_t elemsThreadGlobal, order_t sortOrder>
 __global__ void quickSortGlobalKernel(
@@ -144,7 +144,7 @@ Executes local quicksort - one thread block processes one sequence. It counts nu
 lower/greater than pivot and then performs partitioning.
 Workstack is used - shortest sequence is always processed.
 
-TODO try alignment with 32 for coalasced reading
+TODO try alignment with 32 for coalesced reading
 */
 template <uint_t threadsSortLocal, uint_t thresholdBitonicSort, order_t sortOrder>
 __global__ void quickSortLocalKernel(
@@ -174,7 +174,7 @@ __global__ void quickSortLocalKernel(
 
         if (sequence.length <= thresholdBitonicSort)
         {
-            // Bitonic sort is executed in-place and sorted data has to be writter to output.
+            // Bitonic sort is executed in-place and sorted data has to be written to output.
             data_t *keysInput = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataKeysGlobal : bufferKeysGlobal;
             data_t *valuesInput = sequence.direction == PRIMARY_MEM_TO_BUFFER ? dataValuesGlobal : bufferValuesGlobal;
             normalizedBitonicSort<threadsSortLocal, thresholdBitonicSort, sortOrder>(
@@ -249,7 +249,7 @@ __global__ void quickSortLocalKernel(
             else
             {
                 // Pivots cannot be stored here, because one thread could write same elements which other thread
-                // tries to read. Pivots have to be stored in global buffer array (they won't be moved anymore),
+                // tries to read. Pivots have to be stored in global buffer array (they won't be moved any more),
                 // which can be primary local array (50/50 chance).
                 pivotValues[indexPivot++] = value;
             }
@@ -266,7 +266,7 @@ __global__ void quickSortLocalKernel(
         __syncthreads();
 
         // Scatters the pivots to output array. Pivots have to be stored in output array, because they
-        // won't be moved anymore.
+        // won't be moved any more.
         uint_t index = sequence.start + pivotLowerOffset + threadIdx.x;
         uint_t end = sequence.start + sequence.length - pivotGreaterOffset;
         indexPivot = sequence.start + threadIdx.x;
