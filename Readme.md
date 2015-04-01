@@ -1,5 +1,13 @@
 All sorting algorithms support keys-only and key-value pairs.
 
+Dependencies:
+- CUDPP 2.2
+
+
+Results: http://x.k00.fr/744v7
+
+Current version of master's thesis (slovenian version): http://x.k00.fr/na792
+
 
 Sequential algorithms:
 - Bitonic sort: [1], [2]
@@ -18,11 +26,6 @@ Parallel algorithms:
 - Quicksort: [9], [10], [11], [12], [13], [14], [15]
 - Radix sort: [6], [15], [16]
 - Sample sort: [2], [15], [18]
-
-
-Results: http://x.k00.fr/744v7
-
-Current version of master's thesis (slovenian version): http://x.k00.fr/na792
 
 
 Literature:

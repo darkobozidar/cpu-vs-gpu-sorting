@@ -104,14 +104,8 @@ double sortCorrect(data_t *dataTable, uint_t tableLen, order_t sortOrder)
     // C++ std vector sort is faster than C++ Quicksort. But vector sort throws exception, if too much memory
     // is allocated. For example a lot of arrays are created in "sample sort key-value". In that case C++ vector
     // sort throws exception, if array length is more or equal than "2^24".
-    if (tableLen <= 1 << 24)
-    {
-        stdVectorSort<data_t>(dataTable, tableLen, sortOrder);
-    }
-    else
-    {
-        quickSort<data_t>(dataTable, tableLen, sortOrder);
-    }
+    stdVectorSort<data_t>(dataTable, tableLen, sortOrder);
+    //quickSort<data_t>(dataTable, tableLen, sortOrder);
 
     return endStopwatch(timer);
 }

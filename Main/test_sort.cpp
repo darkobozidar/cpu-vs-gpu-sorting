@@ -140,7 +140,7 @@ bool isSortStable(data_t *keys, data_t *values, uint_t arrayLength)
     }
 
     // Generally not needed
-    //checkValuesUniqueness(values, arrayLength);
+    // checkValuesUniqueness(values, arrayLength);
 
     for (uint_t i = 1; i < arrayLength; i++)
     {
@@ -306,12 +306,6 @@ void generateStatistics(
     {
         for (std::vector<data_dist_t>::iterator dist = distributions.begin(); dist != distributions.end(); dist++)
         {
-            // TODO remove!!!
-            if ((*sort)->getSortName().compare("Quicksort sequential") == 0 && (*dist) == DISTRIBUTION_ZERO)
-            {
-                continue;
-            }
-
             // Sort key-only
             generateSortTestResults(
                 *sort, *dist, keys, keysCopy, values, arrayLength, sortOrder, interval, testRepetitions, true
