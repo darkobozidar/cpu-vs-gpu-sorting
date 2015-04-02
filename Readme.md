@@ -1,10 +1,10 @@
-All sorting algorithms support keys-only and key-value pairs.
+All algorithms can sort keys and key-value pairs.
 
 Dependencies:
 - CUDPP 2.2
 
 
-Results: http://x.k00.fr/744v7
+Results: http://x.k00.fr/lr3rd
 
 Current version of master's thesis (slovenian version): http://x.k00.fr/na792
 
@@ -20,7 +20,6 @@ Sequential algorithms:
 Parallel algorithms:
 - Bitonic sort: [1], [2]
 - Multistep bitonic sort: [2]
-  * Multitstep bitonic sort represents optimization for CUDA, that's why only parallel algorithm exists.
 - Adaptive bitonic sort: [3], [4]
 - Merge sort: [6], [7], [8]
 - Quicksort: [9], [10], [11], [12], [13], [14], [15]
