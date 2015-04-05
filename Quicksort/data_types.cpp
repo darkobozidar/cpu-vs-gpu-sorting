@@ -52,8 +52,18 @@ void DeviceGlobalSequence::setFromHostSeq(
 {
     start = globalSeqHost.start;
     length = globalSeqHost.length;
-    pivot = ((long long)globalSeqHost.minVal + (long long)globalSeqHost.maxVal) / 2;
     direction = globalSeqHost.direction;
+
+    // Calculates avg. of min and max value, even if sum is greater than max value of data type
+    data_t sum = (globalSeqHost.minVal + globalSeqHost.maxVal);
+    if (sum <= globalSeqHost.maxVal)
+    {
+        pivot = (MAX_VAL / 2) + (sum / 2) + 1;
+    }
+    else
+    {
+        pivot = sum / 2;
+    }
 
     startThreadBlockIdx = startThreadBlock;
     threadBlockCounter = threadBlocksPerSequence;

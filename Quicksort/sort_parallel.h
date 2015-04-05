@@ -321,9 +321,6 @@ protected:
         uint_t threadsSortGlobal = sortingKeyOnly ? threadsSortGlobalKo : threadsSortGlobalKv;
         uint_t elemsSortGlobal = sortingKeyOnly ? elemsSortGlobalKo : elemsSortGlobalKv;
 
-        // Because a lot of empty sequences can be generated, this counter is used to keep track of all
-        // theoretically generated sequences.
-        uint_t numSeqAll = 1;
         uint_t numSeqGlobal = 1; // Number of sequences for GLOBAL quicksort
         uint_t numSeqLocal = 0;  // Number of sequences for LOCAL quicksort
         uint_t numSeqLimit = (arrayLength - 1) / thresholdPartitionGlobal + 1;
@@ -367,7 +364,6 @@ protected:
 
             uint_t numSeqGlobalOld = numSeqGlobal;
             numSeqGlobal = 0;
-            numSeqAll *= 2;
 
             // Generates new sub-sequences and depending on their size adds them to list for GLOBAL or LOCAL quicksort
             // If theoretical number of sequences reached limit, sequences are transferred to array for LOCAL quicksort
@@ -377,7 +373,7 @@ protected:
                 d_glob_seq_t seqDev = h_globalSeqDev[seqIdx];
 
                 // New subsequence (lower)
-                if (seqDev.offsetLower > thresholdPartitionGlobal && numSeqAll < numSeqLimit)
+                if (seqDev.offsetLower > thresholdPartitionGlobal && numSeqGlobal < numSeqLimit)
                 {
                     h_globalSeqHostBuffer[numSeqGlobal++].setLowerSeq(seqHost, seqDev);
                 }
@@ -387,7 +383,7 @@ protected:
                 }
 
                 // New subsequence (greater)
-                if (seqDev.offsetGreater > thresholdPartitionGlobal && numSeqAll < numSeqLimit)
+                if (seqDev.offsetGreater > thresholdPartitionGlobal && numSeqGlobal < numSeqLimit)
                 {
                     h_globalSeqHostBuffer[numSeqGlobal++].setGreaterSeq(seqHost, seqDev);
                 }
@@ -401,7 +397,7 @@ protected:
             h_globalSeqHost = h_globalSeqHostBuffer;
             h_globalSeqHostBuffer = temp;
 
-            generateSequences &= numSeqAll < numSeqLimit && numSeqGlobal > 0;
+            generateSequences &= numSeqGlobal < numSeqLimit && numSeqGlobal > 0;
         }
 
         // If global quicksort was not used, than sequence is initialized for LOCAL quicksort
