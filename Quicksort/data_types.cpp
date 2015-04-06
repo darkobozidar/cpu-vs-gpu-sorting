@@ -56,7 +56,7 @@ void DeviceGlobalSequence::setFromHostSeq(
 
     // Calculates avg. of min and max value, even if sum is greater than max value of data type
     data_t sum = (globalSeqHost.minVal + globalSeqHost.maxVal);
-    if (sum <= globalSeqHost.maxVal)
+    if (sum < globalSeqHost.maxVal)
     {
         pivot = (MAX_VAL / 2) + (sum / 2) + 1;
     }
