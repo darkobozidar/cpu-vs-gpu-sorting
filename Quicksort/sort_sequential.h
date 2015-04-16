@@ -83,7 +83,7 @@ protected:
 
         for (uint_t i = 0; i < arrayLength - 1; i++)
         {
-            if (sortOrder ^ (h_keys[i] < pivotValue))
+            if (sortOrder ^ (h_keys[i] <= pivotValue))
             {
                 exchangeElemens(&h_keys[i], &h_keys[storeIndex]);
                 storeIndex++;
@@ -109,7 +109,7 @@ protected:
 
         for (uint_t i = 0; i < arrayLength - 1; i++)
         {
-            if (sortOrder ^ (h_keys[i] < pivotValue))
+            if (sortOrder ^ (h_keys[i] <= pivotValue))
             {
                 exchangeElemens(&h_keys[i], &h_keys[storeIndex]);
                 exchangeElemens(&h_values[i], &h_values[storeIndex]);
