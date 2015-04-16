@@ -48,8 +48,8 @@ _KV: Key-value
 #define THRESHOLD_PARTITION_SIZE_GLOBAL_KO (1 << 11)
 #define THRESHOLD_PARTITION_SIZE_GLOBAL_KV (1 << 10)
 #else
-#define THRESHOLD_PARTITION_SIZE_GLOBAL_KO (1 << 13)
-#define THRESHOLD_PARTITION_SIZE_GLOBAL_KV (1 << 11)
+#define THRESHOLD_PARTITION_SIZE_GLOBAL_KO (1 << 10)
+#define THRESHOLD_PARTITION_SIZE_GLOBAL_KV (1 << 10)
 #endif
 // How many threads are in each thread block when running global quicksort kernel. Has to be power of 2.
 #if DATA_TYPE_BITS == 32
@@ -76,7 +76,7 @@ _KV: Key-value
 #define THRESHOLD_BITONIC_SORT_KO 512
 #define THRESHOLD_BITONIC_SORT_KV 256
 #else
-#define THRESHOLD_BITONIC_SORT_KO 512
+#define THRESHOLD_BITONIC_SORT_KO 256
 #define THRESHOLD_BITONIC_SORT_KV 256
 #endif
 // How many threads are in each thread block when running local quicksort kernel. Has to be power of 2.
@@ -85,7 +85,7 @@ _KV: Key-value
 #define THREADS_SORT_LOCAL_KO 128
 #define THREADS_SORT_LOCAL_KV 128
 #else
-#define THREADS_SORT_LOCAL_KO 256
+#define THREADS_SORT_LOCAL_KO 128
 #define THREADS_SORT_LOCAL_KV 128
 #endif
 
