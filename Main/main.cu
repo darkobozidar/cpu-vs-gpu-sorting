@@ -55,6 +55,7 @@ int main(int argc, char **argv)
     distributions.push_back(DISTRIBUTION_UNIFORM);
     distributions.push_back(DISTRIBUTION_GAUSSIAN);
     distributions.push_back(DISTRIBUTION_ZERO);
+    distributions.push_back(DISTRIBUTION_BUCKET);
     distributions.push_back(DISTRIBUTION_SORTED_ASC);
     distributions.push_back(DISTRIBUTION_SORTED_DESC);
 
