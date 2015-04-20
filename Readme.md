@@ -4,9 +4,9 @@ Dependencies:
 - CUDPP 2.2
 
 
-Results: http://x.k00.fr/lr3rd
+Results: http://x.k00.fr/v0h53
 
-Current version of master's thesis (slovenian version): http://x.k00.fr/na792
+Current version of master's thesis (slovenian version): http://x.k00.fr/yk0tr
 
 
 Sequential algorithms:
