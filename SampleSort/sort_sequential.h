@@ -11,7 +11,7 @@
 #include "../Utils/data_types_common.h"
 #include "../Utils/sort_correct.h"
 #include "../Utils/host.h"
-#include "../MergeSort/sort_sequential.h"
+#include "../MergeSort/Sort/sequential.h"
 #include "constants.h"
 
 
