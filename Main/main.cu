@@ -54,26 +54,26 @@ int main(int argc, char **argv)
     std::vector<data_dist_t> distributions;
     distributions.push_back(DISTRIBUTION_UNIFORM);
     distributions.push_back(DISTRIBUTION_GAUSSIAN);
-    //distributions.push_back(DISTRIBUTION_ZERO);
+    distributions.push_back(DISTRIBUTION_ZERO);
     distributions.push_back(DISTRIBUTION_BUCKET);
-    //distributions.push_back(DISTRIBUTION_SORTED_ASC);
+    distributions.push_back(DISTRIBUTION_SORTED_ASC);
     distributions.push_back(DISTRIBUTION_SORTED_DESC);
 
     // Sorting algorithms
     std::vector<SortSequential*> sorts;
-    //sorts.push_back(new BitonicSortSequential());
-    //sorts.push_back(new BitonicSortParallel());
-    //sorts.push_back(new BitonicSortMultistepParallel());
-    //sorts.push_back(new BitonicSortAdaptiveSequential());
-    //sorts.push_back(new BitonicSortAdaptiveParallel());
-    //sorts.push_back(new MergeSortSequential());
-    //sorts.push_back(new MergeSortParallel());
+    sorts.push_back(new BitonicSortSequential());
+    sorts.push_back(new BitonicSortParallel());
+    sorts.push_back(new BitonicSortMultistepParallel());
+    sorts.push_back(new BitonicSortAdaptiveSequential());
+    sorts.push_back(new BitonicSortAdaptiveParallel());
+    sorts.push_back(new MergeSortSequential());
+    sorts.push_back(new MergeSortParallel());
     sorts.push_back(new QuicksortSequential());
-    //sorts.push_back(new QuicksortParallel());
-    //sorts.push_back(new RadixSortSequential());
-    //sorts.push_back(new RadixSortParallel());
-    //sorts.push_back(new SampleSortSequential());
-    //sorts.push_back(new SampleSortParallel());
+    sorts.push_back(new QuicksortParallel());
+    sorts.push_back(new RadixSortSequential());
+    sorts.push_back(new RadixSortParallel());
+    sorts.push_back(new SampleSortSequential());
+    sorts.push_back(new SampleSortParallel());
 
     // This is needed only for testing purposes, because data transfer from device to host shouldn't be timed.
     for (std::vector<SortSequential*>::iterator sort = sorts.begin(); sort != sorts.end(); sort++)
