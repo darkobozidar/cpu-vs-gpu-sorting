@@ -23,8 +23,8 @@
 #include "../MergeSort/Sort/parallel.h"
 #include "../Quicksort/Sort/sequential.h"
 #include "../Quicksort/Sort/parallel.h"
-#include "../RadixSort/sort_sequential.h"
-#include "../RadixSort/sort_parallel.h"
+#include "../RadixSort/Sort/sequential.h"
+#include "../RadixSort/Sort/parallel.h"
 #include "../SampleSort/sort_sequential.h"
 #include "../SampleSort/sort_parallel.h"
 
