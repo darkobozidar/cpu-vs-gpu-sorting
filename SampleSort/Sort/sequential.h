@@ -8,11 +8,11 @@
 #include <functional>
 #include <chrono>
 
-#include "../Utils/data_types_common.h"
-#include "../Utils/sort_correct.h"
-#include "../Utils/host.h"
-#include "../MergeSort/Sort/sequential.h"
-#include "constants.h"
+#include "../../Utils/data_types_common.h"
+#include "../../Utils/sort_correct.h"
+#include "../../Utils/host.h"
+#include "../../MergeSort/Sort/sequential.h"
+#include "../constants.h"
 
 
 /*

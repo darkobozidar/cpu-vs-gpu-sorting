@@ -25,8 +25,8 @@
 #include "../Quicksort/Sort/parallel.h"
 #include "../RadixSort/Sort/sequential.h"
 #include "../RadixSort/Sort/parallel.h"
-#include "../SampleSort/sort_sequential.h"
-#include "../SampleSort/sort_parallel.h"
+#include "../SampleSort/Sort/sequential.h"
+#include "../SampleSort/Sort/parallel.h"
 
 #include "test_sort.h"
 

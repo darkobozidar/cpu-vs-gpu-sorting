@@ -9,16 +9,16 @@
 #include "device_launch_parameters.h"
 #include <cudpp.h>
 
-#include "../Utils/data_types_common.h"
-#include "../Utils/kernels_classes.h"
-#include "../Utils/host.h"
-#include "../BitonicSort/Sort/parallel.h"
-#include "constants.h"
+#include "../../Utils/data_types_common.h"
+#include "../../Utils/kernels_classes.h"
+#include "../../Utils/host.h"
+#include "../../BitonicSort/Sort/parallel.h"
+#include "../constants.h"
 
 #define __CUDA_INTERNAL_COMPILATION__
-#include "kernels_common.h"
-#include "kernels_key_only.h"
-#include "kernels_key_value.h"
+#include "../Kernels/common.h"
+#include "../Kernels/key_only.h"
+#include "../Kernels/key_value.h"
 #undef __CUDA_INTERNAL_COMPILATION__
 
 
