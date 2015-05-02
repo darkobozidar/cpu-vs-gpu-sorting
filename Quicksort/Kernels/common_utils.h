@@ -6,9 +6,9 @@
 #include "device_launch_parameters.h"
 #include "math_functions.h"
 
-#include "../Utils/data_types_common.h"
-#include "data_types.h"
-#include "constants.h"
+#include "../../Utils/data_types_common.h"
+#include "../data_types.h"
+#include "../constants.h"
 
 
 //////////////////////////// GENERAL UTILS //////////////////////////

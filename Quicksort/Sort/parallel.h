@@ -1,15 +1,15 @@
 #ifndef QUICKSORT_PARALLEL_H
 #define QUICKSORT_PARALLEL_H
 
-#include "../Utils/data_types_common.h"
-#include "../Utils/sort_interface.h"
-#include "constants.h"
-#include "data_types.h"
+#include "../../Utils/data_types_common.h"
+#include "../../Utils/sort_interface.h"
+#include "../constants.h"
+#include "../data_types.h"
 
 #define __CUDA_INTERNAL_COMPILATION__
-#include "kernels_common.h"
-#include "kernels_key_only.h"
-#include "kernels_key_value.h"
+#include "../Kernels/common.h"
+#include "../Kernels/key_only.h"
+#include "../Kernels/key_value.h"
 #undef __CUDA_INTERNAL_COMPILATION__
 
 
