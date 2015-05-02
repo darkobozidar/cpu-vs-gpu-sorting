@@ -8,15 +8,15 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
-#include "../Utils/data_types_common.h"
-#include "../BitonicSort/Sort/parallel.h"
-#include "../Utils/host.h"
-#include "../Utils/cuda.h"
-#include "constants.h"
+#include "../../Utils/data_types_common.h"
+#include "../../BitonicSort/Sort/parallel.h"
+#include "../../Utils/host.h"
+#include "../../Utils/cuda.h"
+#include "../constants.h"
 
 #define __CUDA_INTERNAL_COMPILATION__
-#include "kernels_key_only.h"
-#include "kernels_key_value.h"
+#include "../Kernels/key_only.h"
+#include "../Kernels/key_value.h"
 #undef __CUDA_INTERNAL_COMPILATION__
 
 

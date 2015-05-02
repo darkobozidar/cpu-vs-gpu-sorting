@@ -16,7 +16,7 @@
 
 #include "../BitonicSort/Sort/sequential.h"
 #include "../BitonicSort/Sort/parallel.h"
-#include "../BitonicSortMultistep/sort_parallel.h"
+#include "../BitonicSortMultistep/Sort/parallel.h"
 #include "../BitonicSortAdaptive/Sort/sequential.h"
 #include "../BitonicSortAdaptive/Sort/parallel.h"
 #include "../MergeSort/sort_sequential.h"
