@@ -10,10 +10,10 @@ typedef int32_t int_t;
 
 // Data type used for sorting.
 // WARNING! When changing data type, update DATA_TYPE_BITS, MIN_VAL and MAX_VAL accordingly
-typedef uint32_t data_t;
-#define DATA_TYPE_BITS 32
+typedef uint64_t data_t;
+#define DATA_TYPE_BITS 64
 #define MIN_VAL 0
-#define MAX_VAL UINT32_MAX
+#define MAX_VAL UINT64_MAX
 
 // Determines sort order (ascending or descending)
 typedef enum SortOrder order_t;

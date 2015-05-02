@@ -24,7 +24,7 @@ __global__ void bitonicSortKernel(data_t *keys, data_t *values, uint_t tableLen)
 }
 
 /*
-Global bitonic merge for sections, where stride IS GREATER than max shared memory.
+Global bitonic merge for sections, where stride IS GREATER than max shared memory size.
 */
 template <uint_t threadsMerge, uint_t elemsMerge, order_t sortOrder, bool isFirstStepOfPhase>
 __global__ void bitonicMergeGlobalKernel(data_t *keys, data_t *values, uint_t tableLen, uint_t step)
@@ -38,7 +38,7 @@ __global__ void bitonicMergeGlobalKernel(data_t *keys, data_t *values, uint_t ta
 }
 
 /*
-Local bitonic merge for sections, where stride IS LOWER OR EQUAL than max shared memory.
+Local bitonic merge for sections, where stride IS LOWER OR EQUAL than max shared memory size.
 */
 template <uint_t threadsMerge, uint_t elemsMerge, order_t sortOrder, bool isFirstStepOfPhase>
 __global__ void bitonicMergeLocalKernel(data_t *keys, data_t *values, uint_t tableLen, uint_t step)

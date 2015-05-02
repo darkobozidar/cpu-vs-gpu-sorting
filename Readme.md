@@ -6,7 +6,7 @@ Dependencies:
 
 Results: http://x.k00.fr/v0h53
 
-Current version of master's thesis (slovenian version): http://x.k00.fr/yk0tr
+Current version of master's thesis (slovenian version): http://x.k00.fr/9qzk9
 
 
 Sequential algorithms:

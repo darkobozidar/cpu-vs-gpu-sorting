@@ -35,7 +35,7 @@ protected:
                     uint_t index = el;
                     uint_t offset = stride;
 
-                    // In normalized bitonic sort, first STEP of every PHASE uses different offset than all other STEPS.
+                    // In normalized bitonic sort, first STEP of every PHASE demands different offset than all other STEPS.
                     if (isFirstStepOfPhase)
                     {
                         index = (el / stride) * stride + ((stride - 1) - (el % stride));

@@ -76,7 +76,7 @@ __global__ void bitonicSortRegularKernel(data_t *keys, data_t *values, uint_t ta
 }
 
 /*
-Global bitonic merge for sections, where stride IS GREATER OR EQUAL than max shared memory.
+Global bitonic merge for sections, where stride IS GREATER OR EQUAL than max shared memory size.
 Executes regular bitonic merge (not normalized merge). Reads data from provided intervals.
 */
 template <uint_t threadsMerge, uint_t elemsMerge, order_t sortOrder>

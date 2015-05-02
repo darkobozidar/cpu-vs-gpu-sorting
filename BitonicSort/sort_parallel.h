@@ -79,7 +79,7 @@ protected:
     }
 
     /*
-    Merges array, if data blocks are larger than shared memory size. It executes only of STEP on PHASE per
+    Merges array, if data blocks are larger than shared memory size. It executes only one STEP of one PHASE per
     kernel launch.
     */
     template <order_t sortOrder, bool sortingKeyOnly>

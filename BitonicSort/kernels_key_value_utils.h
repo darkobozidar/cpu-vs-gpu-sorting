@@ -25,7 +25,7 @@ inline __device__ void bitonicMergeStep(
         uint_t indexThread = offsetGlobal + tx;
         uint_t offset = stride;
 
-        // In NORMALIZED bitonic sort, first STEP of every PHASE uses different offset than all other
+        // In NORMALIZED bitonic sort, first STEP of every PHASE demands different offset than all other
         // STEPS. Also, in first step of every phase, offset sizes are generated in ASCENDING order
         // (normalized bitnic sort requires DESCENDING order). Because of that, we can break the loop if
         // index + offset >= length (bellow). If we want to generate offset sizes in ASCENDING order,
@@ -101,7 +101,7 @@ inline __device__ void normalizedBitonicSort(
 }
 
 /*
-Local bitonic merge for sections, where stride IS LOWER OR EQUAL than max shared memory.
+Local bitonic merge for sections, where stride IS LOWER OR EQUAL than max shared memory size.
 */
 template <uint_t threadsMerge, uint_t elemsMerge, order_t sortOrder, bool isFirstStepOfPhase>
 inline __device__ void bitonicMergeLocal(data_t *keys, data_t *values, uint_t tableLen, uint_t step)

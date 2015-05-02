@@ -14,7 +14,7 @@
 
 
 /*
-From provided interval and index returns element in table. Index can't be higher than interval span.
+From provided interval and index returns element in array. Index can't be greater than interval span.
 */
 __device__ data_t getArrayKey(data_t *table, interval_t interval, uint_t index)
 {
@@ -28,7 +28,7 @@ __device__ data_t getArrayKey(data_t *table, interval_t interval, uint_t index)
 }
 
 /*
-From provided interval and index returns element in table. Index can't be higher than interval span.
+From provided interval and index returns element in array. Index can't be greater than interval span.
 */
 __device__ void getArrayKeyValue(
     data_t *keys, data_t *values, interval_t interval, uint_t index, data_t *key, data_t *value
@@ -46,7 +46,7 @@ __device__ void getArrayKeyValue(
 }
 
 /*
-Finds the index q, which is and index, where the exchanges in the bitonic sequence begin. All
+Finds the index q, which is an index, where the exchanges in the bitonic sequence begin. All
 elements after index q have to be exchanged. Bitonic sequence boundaries are provided with interval.
 
 Example: 2, 3, 5, 7 | 8, 7, 3, 1 --> index q = 2 ; (5, 7 and 3, 1 have to be exchanged).
@@ -78,7 +78,7 @@ inline __device__ int_t binarySearchInterval(data_t* table, interval_t interval,
 }
 
 /*
-Generates intervals in provided table until size of sub block is grater than end sub block size.
+Generates intervals in provided array until size of sub block is grater than end sub block size.
 Sub block size is the size of one block in bitonic merge step.
 */
 template <order_t sortOrder, uint_t elementsPerThread>

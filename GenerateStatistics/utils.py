@@ -26,7 +26,7 @@ def create_folder(folder_path):
 
 def verify_file_name(file_name, file_name_filters=[], file_extension=""):
     """
-    Verifies if file name contains all substring specified in list and if it has correct
+    Verifies if file name contains all substrings specified in list and if it has correct
     extension.
     """
 
@@ -46,7 +46,7 @@ def lengths_to_log(array_lens):
 
 
 def sort_rate(timings, array_len, factor=1000):
-    """Calculates number of millions of elements that algorithm can sort in once second."""
+    """Calculates number of elements (millions) that algorithm can sort in one second."""
 
     avg_time = sum(timings) / len(timings)
     return array_len / factor / avg_time
