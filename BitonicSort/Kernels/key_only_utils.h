@@ -5,8 +5,8 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
-#include "../Utils/data_types_common.h"
-#include "../Utils/kernels_utils.h"
+#include "../../Utils/data_types_common.h"
+#include "../../Utils/kernels_utils.h"
 
 
 /*

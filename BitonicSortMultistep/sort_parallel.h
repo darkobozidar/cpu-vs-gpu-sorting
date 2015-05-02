@@ -9,7 +9,7 @@
 #include "device_launch_parameters.h"
 
 #include "../Utils/data_types_common.h"
-#include "../BitonicSort/sort_parallel.h"
+#include "../BitonicSort/Sort/parallel.h"
 #include "../Utils/host.h"
 #include "../Utils/cuda.h"
 #include "constants.h"

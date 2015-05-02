@@ -14,8 +14,8 @@
 #include "../Utils/cuda.h"
 #include "../Utils/sort_interface.h"
 
-#include "../BitonicSort/sort_sequential.h"
-#include "../BitonicSort/sort_parallel.h"
+#include "../BitonicSort/Sort/sequential.h"
+#include "../BitonicSort/Sort/parallel.h"
 #include "../BitonicSortMultistep/sort_parallel.h"
 #include "../BitonicSortAdaptive/sort_sequential.h"
 #include "../BitonicSortAdaptive/sort_parallel.h"

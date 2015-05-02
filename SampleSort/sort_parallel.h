@@ -12,7 +12,7 @@
 #include "../Utils/data_types_common.h"
 #include "../Utils/kernels_classes.h"
 #include "../Utils/host.h"
-#include "../BitonicSort/sort_parallel.h"
+#include "../BitonicSort/Sort/parallel.h"
 #include "constants.h"
 
 #define __CUDA_INTERNAL_COMPILATION__

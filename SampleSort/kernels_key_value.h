@@ -9,7 +9,7 @@
 #include "math_functions.h"
 
 #include "../Utils/data_types_common.h"
-#include "../BitonicSort/kernels_key_only_utils.h"
+#include "../BitonicSort/Kernels/key_only_utils.h"
 #include "kernels_common_utils.h"
 
 

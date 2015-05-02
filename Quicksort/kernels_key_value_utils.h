@@ -7,7 +7,7 @@
 #include "math_functions.h"
 
 #include "../Utils/data_types_common.h"
-#include "../BitonicSort/kernels_key_value_utils.h"
+#include "../BitonicSort/Kernels/key_value_utils.h"
 #include "data_types.h"
 
 

@@ -8,14 +8,14 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
-#include "../Utils/data_types_common.h"
-#include "../Utils/sort_interface.h"
-#include "../Utils/host.h"
-#include "constants.h"
+#include "../../Utils/data_types_common.h"
+#include "../../Utils/sort_interface.h"
+#include "../../Utils/host.h"
+#include "../constants.h"
 
 #define __CUDA_INTERNAL_COMPILATION__
-#include "kernels_key_only.h"
-#include "kernels_key_value.h"
+#include "../Kernels/key_only.h"
+#include "../Kernels/key_value.h"
 #undef __CUDA_INTERNAL_COMPILATION__
 
 
