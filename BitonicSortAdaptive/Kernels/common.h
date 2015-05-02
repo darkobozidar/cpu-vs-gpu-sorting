@@ -8,10 +8,10 @@
 #include "device_launch_parameters.h"
 #include "math_functions.h"
 
-#include "../Utils/data_types_common.h"
-#include "../Utils/kernels_utils.h"
-#include "data_types.h"
-#include "kernels_common_utils.h"
+#include "../../Utils/data_types_common.h"
+#include "../../Utils/kernels_utils.h"
+#include "../data_types.h"
+#include "common_utils.h"
 
 
 /*

@@ -5,10 +5,10 @@
 #include <stdlib.h>
 #include <math.h>
 
-#include "../Utils/data_types_common.h"
-#include "../Utils/sort_interface.h"
-#include "../Utils/host.h"
-#include "data_types.h"
+#include "../../Utils/data_types_common.h"
+#include "../../Utils/sort_interface.h"
+#include "../../Utils/host.h"
+#include "../data_types.h"
 
 
 /*

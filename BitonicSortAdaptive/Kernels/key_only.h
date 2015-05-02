@@ -1,5 +1,5 @@
-#ifndef KERNELS_KEY_VALUE_BITONIC_SORT_ADAPTIVE_H
-#define KERNELS_KEY_VALUE_BITONIC_SORT_ADAPTIVE_H
+#ifndef KERNELS_KEY_ONLY_BITONIC_SORT_ADAPTIVE_H
+#define KERNELS_KEY_ONLY_BITONIC_SORT_ADAPTIVE_H
 
 #include <stdio.h>
 
@@ -7,24 +7,21 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
-#include "../Utils/data_types_common.h"
-#include "../Utils/kernels_utils.h"
-#include "data_types.h"
-#include "kernels_common_utils.h"
+#include "../../Utils/data_types_common.h"
+#include "../../Utils/kernels_utils.h"
+#include "../data_types.h"
+#include "common_utils.h"
 
 
 /*
 Sorts sub-blocks of input data with REGULAR bitonic sort (not NORMALIZED bitonic sort).
 */
 template <uint_t threadsBitonicSort, uint_t elemsBitonicSort, order_t sortOrder>
-__global__ void bitonicSortRegularKernel(data_t *keys, data_t *values, uint_t tableLen)
+__global__ void bitonicSortRegularKernel(data_t *dataTable, uint_t tableLen)
 {
     extern __shared__ data_t sortTile[];
     uint_t offset, dataBlockLength;
     calcDataBlockLength<threadsBitonicSort, elemsBitonicSort>(offset, dataBlockLength, tableLen);
-
-    data_t *keysTile = sortTile;
-    data_t *valuesTile = sortTile + threadsBitonicSort * elemsBitonicSort;
 
     // If shared memory size is lower than table length, than adjacent blocks have to be ordered in opposite
     // direction in order to create bitonic sequences.
@@ -33,9 +30,7 @@ __global__ void bitonicSortRegularKernel(data_t *keys, data_t *values, uint_t ta
     // Loads data into shared memory
     for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += threadsBitonicSort)
     {
-        uint_t index = offset + tx;
-        keysTile[tx] = keys[index];
-        valuesTile[tx] = values[index];
+        sortTile[tx] = dataTable[offset + tx];
     }
 
     // Bitonic sort
@@ -51,15 +46,11 @@ __global__ void bitonicSortRegularKernel(data_t *keys, data_t *values, uint_t ta
 
                 if (direction)
                 {
-                    compareExchange<ORDER_ASC>(
-                        &keysTile[index], &keysTile[index + stride], &valuesTile[index], &valuesTile[index + stride]
-                    );
+                    compareExchange<ORDER_ASC>(&sortTile[index], &sortTile[index + stride]);
                 }
                 else
                 {
-                    compareExchange<ORDER_DESC>(
-                        &keysTile[index], &keysTile[index + stride], &valuesTile[index], &valuesTile[index + stride]
-                    );
+                    compareExchange<ORDER_DESC>(&sortTile[index], &sortTile[index + stride]);
                 }
             }
         }
@@ -69,9 +60,7 @@ __global__ void bitonicSortRegularKernel(data_t *keys, data_t *values, uint_t ta
     __syncthreads();
     for (uint_t tx = threadIdx.x; tx < dataBlockLength; tx += threadsBitonicSort)
     {
-        uint_t index = offset + tx;
-        keys[index] = keysTile[tx];
-        values[index] = valuesTile[tx];
+        dataTable[offset + tx] = sortTile[tx];
     }
 }
 
@@ -80,9 +69,7 @@ Global bitonic merge for sections, where stride IS GREATER OR EQUAL than max sha
 Executes regular bitonic merge (not normalized merge). Reads data from provided intervals.
 */
 template <uint_t threadsMerge, uint_t elemsMerge, order_t sortOrder>
-__global__ void bitonicMergeIntervalsKernel(
-    data_t *keys, data_t *values, data_t *keysBuffer, data_t *valuesBuffer, interval_t *intervals, uint_t phase
-)
+__global__ void bitonicMergeIntervalsKernel(data_t *keys, data_t *keysBuffer, interval_t *intervals, uint_t phase)
 {
     extern __shared__ data_t mergeTile[];
     interval_t interval = intervals[blockIdx.x];
@@ -92,13 +79,10 @@ __global__ void bitonicMergeIntervalsKernel(
     uint_t offset = blockIdx.x * elemsPerThreadBlock;
     bool orderAsc = (sortOrder == ORDER_ASC) ^ ((offset >> phase) & 1);
 
-    data_t *keysTile = mergeTile;
-    data_t *valuesTile = mergeTile + elemsPerThreadBlock;
-
     // Loads data from global to shared memory
     for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += threadsMerge)
     {
-        getArrayKeyValue(keys, values, interval, tx, &keysTile[tx], &valuesTile[tx]);
+        mergeTile[tx] = getArrayKey(keys, interval, tx);
     }
     __syncthreads();
 
@@ -111,15 +95,11 @@ __global__ void bitonicMergeIntervalsKernel(
 
             if (orderAsc)
             {
-                compareExchange<ORDER_ASC>(
-                    &keysTile[index], &keysTile[index + stride], &valuesTile[index], &valuesTile[index + stride]
-                );
+                compareExchange<ORDER_ASC>(&mergeTile[index], &mergeTile[index + stride]);
             }
             else
             {
-                compareExchange<ORDER_DESC>(
-                    &keysTile[index], &keysTile[index + stride], &valuesTile[index], &valuesTile[index + stride]
-                );
+                compareExchange<ORDER_DESC>(&mergeTile[index], &mergeTile[index + stride]);
             }
         }
         __syncthreads();
@@ -128,9 +108,7 @@ __global__ void bitonicMergeIntervalsKernel(
     // Stores sorted data to buffer array
     for (uint_t tx = threadIdx.x; tx < elemsPerThreadBlock; tx += threadsMerge)
     {
-        uint_t index = offset + tx;
-        keysBuffer[index] = keysTile[tx];
-        valuesBuffer[index] = valuesTile[tx];
+        keysBuffer[offset + tx] = mergeTile[tx];
     }
 }
 
