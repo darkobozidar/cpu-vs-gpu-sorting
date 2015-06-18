@@ -1,15 +1,35 @@
-All algorithms can sort keys and key-value pairs.
+# Info
 
-Dependencies:
-- CUDPP 2.2
+A comparison study between sequential sorting algorithms implemented in C++ and parallel sorting algorithms implemented in CUDA as part of the master's thesis.
+We implemented seven algorithms: bitonic sort, multistep bitonic sort, adaptive bitonic sort, merge
+sort, quicksort, radix sort and sample sort.
+Sequential algorithms were implemented on a central processing unit using C++, whereas parallel algorithms
+were implemented on a graphics processing unit using CUDA architecture.
+We improved the above mentioned implementations and adopted them to be able to sort input sequences of arbitrary length.
+We compared algorithms on six different input distributions, which consist of 32-bit numbers, 32-bit
+key-value pairs, 64-bit numbers and 64-bit key-value pairs.
+The results show that radix sort is the fastest sequential sorting algorithm, whereas radix sort and merge sort are the fastest parallel algorithms (depending on the input distribution).
+With parallel implementations we achieved speedups of up to 157-times in comparison to sequential implementations.
 
+- **Author**: Darko Božidar
+- **Mentor**: Tomaž Dobravec
 
-Results: http://x.k00.fr/v0h53
+## Downloads
 
-Current version of master's thesis (slovenian version): http://x.k00.fr/9qzk9
+- **Results**: http://x.k00.fr/v0h53
+- **Master's thesis (slovenian version)**: http://x.k00.fr/9qzk9
+- **Paper**: coming soon
 
+**Note**: in case of any broken links please contact me on *darko.bozidar@gmail.com*.
 
-Sequential algorithms:
+## Dependencies
+
+-  CUDPP 2.2
+
+## Sorting algorithms
+
+#### Sequential algorithms:
+
 - Bitonic sort: [1], [2]
 - Adaptive bitonic sort: [4]
 - Merge sort: [5]
@@ -17,7 +37,8 @@ Sequential algorithms:
 - Radix sort: [5]
 - Sample sort: [5], [17]
 
-Parallel algorithms:
+#### Parallel algorithms:
+
 - Bitonic sort: [1], [2]
 - Multistep bitonic sort: [2]
 - Adaptive bitonic sort: [3], [4]
@@ -27,7 +48,8 @@ Parallel algorithms:
 - Sample sort: [2], [15], [18]
 
 
-Literature:
+## References
+
 
 [1] K. E. Batcher, "Sorting networks and their applications",
     in Proceedings of the April 30-May 2, 1968, Spring Joint Computer Conference,
