@@ -8,19 +8,20 @@ from utils import (
 )
 
 
-def array_len_gen(array_len_start, array_len_end):
+def array_len_gen(array_len_start, array_len_end, interval_split=2):
     """Generator for array lengths."""
 
     array_len = array_len_start
 
-    while array_len <= array_len_end:
-        yield array_len
+    while array_len < array_len_end:
+        step = int(array_len / interval_split)
 
-        if (is_power_2(array_len)):
-            array_len_log = int(math.log2(array_len))
-            array_len = (1 << array_len_log) + (1 << (array_len_log - 1))
-        else:
-            array_len = next_power_2(array_len)
+        for l in range(array_len, next_power_2(array_len + 1) - step + 1, step):
+            yield l
+
+        array_len = next_power_2(array_len + 1)
+
+    yield array_len
 
 
 def test_sorts(exe_path, array_len_start, array_len_end, test_repetitions,
