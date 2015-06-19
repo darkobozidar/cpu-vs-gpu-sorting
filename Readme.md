@@ -11,12 +11,12 @@ The results show that radix sort is the fastest sequential sorting algorithm, wh
 With parallel implementations we achieved speedups of up to 157-times in comparison to sequential implementations.
 
 - **Author**: Darko Božidar
-- **Mentor**: Tomaž Dobravec
+- **Mentor**: Tomaž Dobravec, Ph.D.
 
 ## Downloads
 
-- **Results**: http://x.k00.fr/v0h53
-- **Master's thesis (slovenian version)**: http://x.k00.fr/9qzk9
+- **Results**: https://drive.google.com/open?id=0B7uLFueU4vLfMnhJTlNvX3FrOFU&authuser=0
+- **Master's thesis (slovenian version)**: https://drive.google.com/file/d/0B7uLFueU4vLfcFBmNWNoODc5TE0/view?usp=sharing
 - **Paper**: coming soon
 
 **Note**: in case of any broken links please contact me on *darko.bozidar@gmail.com*.

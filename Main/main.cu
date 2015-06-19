@@ -83,6 +83,5 @@ int main(int argc, char **argv)
 
     generateStatistics(sorts, distributions, arrayLength, sortOrder, testRepetitions, interval);
 
-    printf("Finished\n");
     return 0;
 }

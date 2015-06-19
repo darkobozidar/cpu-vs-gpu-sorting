@@ -9,7 +9,10 @@ from utils import (
 
 
 def array_len_gen(array_len_start, array_len_end, interval_split=2):
-    """Generator for array lengths."""
+    """
+    Generator for array lengths. Interval_split specifies, how many times should interval be
+    sampled/tested between array length 2^n and 2^(n + 1).
+    """
 
     array_len = array_len_start
 
