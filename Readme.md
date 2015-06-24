@@ -52,7 +52,6 @@ With parallel implementations we achieved speedups of up to 157-times in compari
 
 [1] K. E. Batcher. Sorting networks and their applications. In Proceedings of the April 30-May 2, 1968, Spring Joint Computer Conference, AFIPS '68 (Spring), pages 307-314, New York, NY, USA, 1968. ACM.
 
-(NOTE: there are two very similar versions of this paper - 2009 and 2011)
 [2] H. Peters, O. Schulz-Hildebrandt, and N. Luttenberger. Fast in-place, comparison-based sorting with CUDA: A study with bitonic sort. Concurr. Comput. : Pract. Exper., 23(7):681-693, May 2011.
 
 [3] H. Peters, O. Schulz-Hildebrandt, and N. Luttenberger. A novel sorting algorithm for many-core architectures based on adaptive bitonic sort. In 26th IEEE International Parallel and Distributed Processing Symposium, IPDPS 2012, Shanghai, China, May 21-25, 2012, pages 227-237, 2012.
@@ -67,7 +66,6 @@ With parallel implementations we achieved speedups of up to 157-times in compari
 
 [8] D. Z. Chen. Efficient parallel binary search on sorted arrays, with applications. IEEE Trans. Parallel Distrib. Syst., 6(4):440-445, Apr. 1995.
 
-(NOTE: there are three very similar versions of this paper - from 2008 to 2010)
 [9] D. Cederman and P. Tsigas. GPU-quicksort: A practical quicksort algorithm for graphics processors. J. Exp. Algorithmics, 14:4:1.4-4:1.24, Jan. 2010.
 
 [10] R. C. Singleton. Algorithm 347: An efficient algorithm for sorting with minimal storage [m1]. Commun. ACM, 12(3):185-186, Mar. 1969.
