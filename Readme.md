@@ -15,9 +15,9 @@ With parallel implementations we achieved speedups of up to 157-times in compari
 
 ## Downloads
 
-- **Results**: https://drive.google.com/file/d/0B7uLFueU4vLfcFBmNWNoODc5TE0/view?usp=sharing
-- **Master's thesis (slovenian version)**: https://drive.google.com/file/d/0B7uLFueU4vLfM3IwazZ0VFB5Q0E/view?usp=sharing
-- **Paper**: https://drive.google.com/file/d/0B7uLFueU4vLfcjJfZFh3TlIxMFE/view?usp=sharing
+- **Results**: https://drive.google.com/file/d/0B7uLFueU4vLfcFBmNWNoODc5TE0/view?resourcekey=0-TKdxMyGiJBiX-u3cUCt9Pg
+- **Master's thesis (slovenian version)**: https://drive.google.com/file/d/0B7uLFueU4vLfM3IwazZ0VFB5Q0E/view?resourcekey=0-pHsuB0fLPxNQFe6s3Nj8AA
+- **Paper**: https://drive.google.com/file/d/0B7uLFueU4vLfcjJfZFh3TlIxMFE/view?resourcekey=0-8Ovsx4PtAJn78xLboBEb_g
 
 **Note**: in case of any broken links please contact me on *darko.bozidar@gmail.com*.
 
